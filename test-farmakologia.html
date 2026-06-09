@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test z Farmakologii &ndash; Piel&#281;gniarstwo</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{min-height:100vh;background:#0d1117;font-family:'DM Sans',sans-serif;color:#e2e8f0;display:flex;justify-content:center;padding:24px 16px 60px;}
+#app{width:100%;max-width:760px;}
+.menu-card{background:linear-gradient(135deg,#161d2a,#1a2235);border:1px solid #2a3547;border-radius:20px;padding:44px 28px;text-align:center;margin-top:32px;}
+.menu-icon{font-size:48px;margin-bottom:14px;}
+.menu-title{font-family:'DM Serif Display',serif;font-size:1.9rem;color:#f0f4ff;margin-bottom:8px;line-height:1.2;}
+.menu-sub{color:#7a8fa6;font-size:.9rem;margin-bottom:32px;}
+.count-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px;}
+@media(max-width:480px){.count-grid{grid-template-columns:repeat(3,1fr);}}
+.cnt-btn{background:#1e2b3e;border:1px solid #2e3f56;border-radius:12px;color:#a8c0d8;padding:14px 6px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.cnt-btn small{display:block;font-size:.65rem;color:#5a7a96;margin-top:2px;font-weight:400;}
+.cnt-btn.active{background:#1e4080;border-color:#3b82f6;color:#93c5fd;}
+.start-btn{width:100%;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:14px;color:#fff;font-size:1rem;font-weight:600;padding:15px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.stats-row{display:flex;gap:7px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+.s-pill{border-radius:20px;padding:4px 11px;font-size:.72rem;font-weight:600;border:1px solid;}
+.qhdr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.prog-w{flex:1;background:#1e2b3e;border-radius:8px;height:6px;overflow:hidden;}
+.prog-b{height:100%;background:linear-gradient(90deg,#2563eb,#38bdf8);border-radius:8px;}
+.qcnt{font-size:.82rem;color:#7a8fa6;white-space:nowrap;}
+.slive{color:#facc15;font-size:.82rem;font-weight:600;white-space:nowrap;}
+.qcard{background:#161d2a;border:1px solid #2a3547;border-radius:18px;padding:24px 22px 20px;margin-bottom:14px;}
+.qmeta{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.qnum{font-size:.7rem;color:#3b82f6;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.cbadge{font-size:.68rem;padding:3px 10px;border-radius:20px;font-weight:600;border:1px solid;}
+.qtxt{font-size:1rem;color:#dde8f5;line-height:1.65;}
+.opts{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
+.obtn{display:flex;align-items:flex-start;gap:12px;border:1.5px solid #2a3547;border-radius:13px;padding:13px 15px;cursor:pointer;text-align:left;color:#c8d8e8;font-size:.92rem;line-height:1.5;font-family:'DM Sans',sans-serif;width:100%;transition:border-color .15s,background .15s;background:#161d2a;}
+.obtn.sel{border-color:#3b82f6;background:#1a2d4e;}
+.obtn.cor{border-color:#22c55e;background:#0f2d1a;color:#86efac;cursor:default;}
+.obtn.wrg{border-color:#ef4444;background:#2d0f0f;color:#fca5a5;cursor:default;}
+.obtn.dim{opacity:.4;cursor:default;}
+.olbl{min-width:26px;height:26px;border-radius:8px;background:#1e2b3e;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:#7a8fa6;flex-shrink:0;margin-top:1px;}
+.obtn.sel .olbl{background:#2563eb;color:#fff;}
+.obtn.cor .olbl{background:#16a34a;color:#fff;}
+.obtn.wrg .olbl{background:#dc2626;color:#fff;}
+.fb{border-radius:10px;padding:12px 15px;font-size:.86rem;margin-bottom:14px;border-left:3px solid;line-height:1.55;}
+.fb.ok{border-left-color:#22c55e;background:#0d1f12;color:#86efac;}
+.fb.no{border-left-color:#ef4444;background:#1f0d0d;color:#fca5a5;}
+.acts{display:flex;gap:9px;}
+.btn{flex:1;padding:13px;border-radius:12px;border:none;font-size:.92rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.bo{background:transparent;border:1.5px solid #2a3547;color:#7a8fa6;}
+.bp{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;}
+.bs{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;}
+.rcard{background:#161d2a;border:1px solid #2a3547;border-radius:20px;padding:36px 22px;text-align:center;margin-top:12px;}
+.remo{font-size:46px;margin-bottom:12px;}
+.rpct{font-family:'DM Serif Display',serif;font-size:4rem;font-weight:400;line-height:1;margin-bottom:6px;}
+.g{color:#4ade80;}.y{color:#facc15;}.r{color:#f87171;}
+.rmsg{color:#7a8fa6;font-size:.88rem;margin-bottom:20px;}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.rstat{background:#1e2b3e;border-radius:12px;padding:14px 8px;}
+.rstat .v{font-size:1.5rem;font-weight:700;margin-bottom:3px;}
+.rstat .l{font-size:.7rem;color:#6b8299;}
+.cbar{background:#111827;border-radius:12px;padding:14px 16px;margin-bottom:16px;text-align:left;}
+.cbartit{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#475569;margin-bottom:11px;}
+.crow{margin-bottom:9px;}
+.crowh{display:flex;justify-content:space-between;font-size:.77rem;margin-bottom:4px;}
+.cname{color:#94a3b8;}
+.cbarw{height:5px;background:#1e2b3e;border-radius:999px;overflow:hidden;}
+.cbarf{height:100%;border-radius:999px;}
+.rbtns{display:flex;flex-direction:column;gap:9px;}
+.bbk{display:flex;align-items:center;gap:6px;background:transparent;border:1.5px solid #2a3547;border-radius:10px;color:#7a8fa6;padding:8px 13px;font-size:.82rem;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:16px;}
+.rvhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;gap:8px;flex-wrap:wrap;}
+.rvtit{font-family:'DM Serif Display',serif;font-size:1.3rem;color:#f0f4ff;}
+.fpills{display:flex;gap:6px;flex-wrap:wrap;}
+.fpill{padding:4px 11px;border-radius:20px;border:1px solid #2a3547;background:transparent;color:#7a8fa6;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.fpill.act{background:#1e2b3e;border-color:#3b82f6;color:#60a5fa;}
+.ritem{background:#161d2a;border:1px solid #2a3547;border-radius:13px;padding:14px 16px;margin-bottom:9px;}
+.ritem.ok{border-left:3px solid #22c55e;}
+.ritem.er{border-left:3px solid #ef4444;}
+.rq{font-size:.87rem;color:#c8d8e8;margin-bottom:7px;line-height:1.5;}
+.ra{font-size:.81rem;margin-bottom:3px;}
+.ra.c{color:#4ade80;}.ra.w{color:#f87171;}
+.rmeta{display:flex;gap:7px;align-items:center;margin-bottom:7px;flex-wrap:wrap;}
+.rnum{font-size:.68rem;color:#5a7a96;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var L=["A","B","C","D"];
+var CC={
+  "Farmakodynamika": {bg:"#1e3a5f",co:"#60a5fa",bo:"#2563eb"},
+  "Antidota":        {bg:"#2d1e3d",co:"#c084fc",bo:"#9333ea"},
+  "Antybiotyki":     {bg:"#1e3d2f",co:"#4ade80",bo:"#16a34a"},
+  "Analgetyki":      {bg:"#3d1e2f",co:"#f472b6",bo:"#db2777"},
+  "Kliniczna":       {bg:"#2d2a1e",co:"#facc15",bo:"#ca8a04"}
+};
+var CL={
+  "Farmakodynamika":"Farmakodynamika",
+  "Antidota":"Antidota",
+  "Antybiotyki":"Antybiotyki",
+  "Analgetyki":"Analgetyki",
+  "Kliniczna":"Farmakol. kliniczna"
+};
+var COUNTS=[10,20,30,40];
+
+var Q=[
+ {id:1,c:"Farmakodynamika",
+  t:"Efekt dzia\u0142ania dw\u00f3ch lek\u00f3w podanych razem jest wi\u0119kszy ni\u017c suma ich efekt\u00f3w osobnych. To zjawisko to:",
+  o:["Synergizm addytywny \u2013 efekt r\u00f3wna si\u0119 sumie dzia\u0142a\u0144 sk\u0142adowych",
+     "Antagonizm kompetycyjny \u2013 leki wsp\u00f3\u0142zawodnicz\u0105 o ten sam receptor",
+     "Synergizm hiperaddycyjny (potencjalizacja) \u2013 efekt przekracza sum\u0119",
+     "Tachyfilaksja \u2013 szybko narastaj\u0105ca tolerancja po kolejnych dawkach"],
+  a:2},
+ {id:2,c:"Kliniczna",
+  t:"Iniekcj\u0119 podsk\u00f3rn\u0105 podaje si\u0119 w:",
+  o:["Podsk\u00f3rn\u0105 tkank\u0119 t\u0142uszczow\u0105 (hypodermis), k\u0105t 45\u00b0 lub 90\u00b0",
+     "Sk\u00f3r\u0119 w\u0142a\u015bciw\u0105 (dermis), k\u0105t 15\u00b0, \u015brednica ig\u0142y 26G",
+     "Mi\u0119sie\u0144 szkieletowy (np. deltoid), k\u0105t 90\u00b0, ig\u0142a 23G",
+     "Przestrze\u0144 podpaj\u0119czynow\u0105, k\u0105t 45\u00b0, ig\u0142a Quinckego"],
+  a:0},
+ {id:3,c:"Antidota",
+  t:"Odtrutka stosowana w ostrym zatruciu paracetamolem to:",
+  o:["Flumazenil (antagonista receptora GABA-A/benzodiazepinowego)",
+     "N-acetylocysteina (NAC) \u2013 donor grup sulfhydrylowych, uzupe\u0142nia glutation",
+     "Nalokson (kompetycyjny antagonista receptor\u00f3w opioidowych)",
+     "Atropina (antagonista muskarynowy cholinolizy obwodowej)"],
+  a:1},
+ {id:4,c:"Antidota",
+  t:"Lekowi do odwracania depresji oddechowej i \u015bpi\u0105czki po opioidach to:",
+  o:["Flumazenil \u2013 znosi dzia\u0142anie benzodiazepin i lek\u00f3w Z-drugs",
+     "Nalokson \u2013 kompetycyjny antagonista receptor\u00f3w \u03bc, \u03ba i \u03b4",
+     "Fitozygmina \u2013 inhibitor acetylocholinesterazy wnikaj\u0105cy do OUN",
+     "Protamina \u2013 odwraca antykoagulacj\u0119 heparyny niefrakcjonowanej"],
+  a:1},
+ {id:5,c:"Farmakodynamika",
+  t:"Depresjj\u0119 o\u015brodka oddechowego mog\u0105 wywo\u0142a\u0107:",
+  o:["Wy\u0142\u0105cznie opioidy (kodeina, morfina, fentanyl, buprenorfina)",
+     "Wy\u0142\u0105cznie benzodiazepiny i leki nasenne Z-drugs",
+     "Wy\u0142\u0105cznie etanol i inne alkohole alifatyczne podane w du\u017cych dawkach",
+     "Opioidy, benzodiazepiny i etanol \u2013 wszystkie trzy grupy"],
+  a:3},
+ {id:6,c:"Antybiotyki",
+  t:"Charakterystycznym dzia\u0142aniem niepo\u017c\u0105danym aminoglikozyd\u00f3w (gentamycyna, amikacyna) jest:",
+  o:["Hepatotoksyczno\u015b\u0107 z \u017c\u00f3\u0142taczk\u0105 cholestatyczn\u0105 i wzrostem transaminaz",
+     "Rzekomob\u0142oniaste zapalenie jelita grubego wywo\u0142ane przez C. difficile",
+     "Ototoksyczno\u015b\u0107 i nefrotoksyczno\u015b\u0107 zale\u017cne od dawki i czasu terapii",
+     "Zesp\u00f3\u0142 szarego dziecka z zapadem kr\u0105\u017ceniowym u noworodk\u00f3w"],
+  a:2},
+ {id:7,c:"Analgetyki",
+  t:"Morfina jest przeciwwskazana w kolce \u017c\u00f3\u0142ciowej, poniewa\u017c:",
+  o:["Obni\u017ca pr\u00f3g b\u00f3lu na poziomie rdzenia kr\u0119gowego i pow\u0142\u00f3ki m\u00f3zgowej",
+     "Hamuje perystaltyk\u0119 jelit i wywo\u0142uje zaparcia zale\u017cne od dawki",
+     "Kurczy zwieracz Oddiego i drogi \u017c\u00f3\u0142ciowe przez receptory \u03bc",
+     "Powoduje uwalnianie histaminy i skurcz drogi \u017c\u00f3\u0142ciowej wsp\u00f3lnej"],
+  a:2},
+ {id:8,c:"Analgetyki",
+  t:"NLPZ dzia\u0142aj\u0105 przeciwb\u00f3lowo, poniewa\u017c:",
+  o:["Blokuj\u0105 receptory opioidowe \u03bc w o\u015brodkowym uk\u0142adzie nerwowym",
+     "Hamuj\u0105 syntez\u0119 prostaglandyn przez inhibicj\u0119 COX-1 i/lub COX-2",
+     "Stabilizuj\u0105 b\u0142ony kom\u00f3rkowe przez blokad\u0119 kana\u0142\u00f3w sodowych",
+     "Hamuj\u0105 wychwyt zwrotny serotoniny i noradrenaliny w synapsach"],
+  a:1},
+ {id:9,c:"Farmakodynamika",
+  t:"Droga doodbytnicza podania leku charakteryzuje si\u0119:",
+  o:["Ca\u0142kowitym omini\u0119ciem efektu pierwszego przej\u015bcia przez w\u0105trob\u0119",
+     "Najszybszym wch\u0142anianiem ze wszystkich drog doustnych podania",
+     "Cz\u0119\u015bciowym omini\u0119ciem efektu pierwszego przej\u015bcia i du\u017cymi r\u00f3\u017cnicami osobniczymi",
+     "Brakiem jakichkolwiek r\u00f3\u017cnic osobniczych w biodost\u0119pno\u015bci leku"],
+  a:2},
+ {id:10,c:"Farmakodynamika",
+  t:"Do reakcji fazy II biotransformacji nale\u017c\u0105:",
+  o:["Utlenianie i redukcja przez cytochrom P450 w hepatocytach",
+     "Hydroliza estr\u00f3w i amid\u00f3w przez esterazy tkankowe i osoczowe",
+     "N-dealkilacja i hydroksylacja przy udziale monooksygenaz MFO",
+     "Sprz\u0119ganie z kwasem glukuronowym i aktywnym siarczanem"],
+  a:3},
+ {id:11,c:"Farmakodynamika",
+  t:"Kwas acetylosalicylowy (ASA) jest:",
+  o:["Nieodwracalnym inhibitorem cyklooksygenazy przez acetylacj\u0119 Ser530",
+     "Odwracalnym inhibitorem COX-2 selektywnym wobec p\u0142ytek krwi",
+     "Antagonist\u0105 receptora ADP (P2Y12) na powierzchni p\u0142ytek",
+     "Inhibitorem fosfodiesterazy zwi\u0119kszaj\u0105cym st\u0119\u017cenie cAMP w p\u0142ytkach"],
+  a:0},
+ {id:12,c:"Antybiotyki",
+  t:"Inhibitory \u03b2-laktamaz stosowane klinicznie to:",
+  o:["Wy\u0142\u0105cznie kwas klawulanowy stosowany z amoksycylin\u0105 doustnie",
+     "Wy\u0142\u0105cznie sulbaktam stosowany z ampicylin\u0105 drog\u0105 pozajelitow\u0105",
+     "Kwas klawulanowy, sulbaktam i tazobaktam \u2013 wszystkie trzy",
+     "Kwas klawulanowy i imipenem podawane razem z cilastyn\u0105"],
+  a:2},
+ {id:13,c:"Analgetyki",
+  t:"Papaweryna dzia\u0142a:",
+  o:["Narkotycznie i przeciwb\u00f3lowo przez receptory opioidowe \u03bc w OUN",
+     "Spazmolitycznie przez inhibicj\u0119 fosfodiesterazy (PDE) w mi\u0119\u015bni\u00f3wce",
+     "Przeciwkaszlowo i rozszerzaj\u0105co na drzewo oskrzelowe",
+     "Przeciwpsychotycznie przez blokad\u0119 receptor\u00f3w dopaminergicznych D2"],
+  a:1},
+ {id:14,c:"Analgetyki",
+  t:"Kt\u00f3re z poni\u017cszych NIE jest dzia\u0142aniem niepo\u017c\u0105danym morfiny?",
+  o:["Zaparcia i zwolnienie perystaltyki jelit zale\u017cne od dawki",
+     "Kaszel wywo\u0142any podra\u017cnieniem o\u015brodk\u00f3w w rdzeniu przed\u0142u\u017conym",
+     "Depresjja oddechowa i sedacja przy dawkach terapeutycznych",
+     "Skurcz drogi \u017c\u00f3\u0142ciowej i moczowej przez receptory \u03bc"],
+  a:1},
+ {id:15,c:"Kliniczna",
+  t:"Lekiem stosowanym w profilaktyce i leczeniu choroby lokomocyjnej jest:",
+  o:["Tietylperazyna (antagonista dopaminy i histaminy H1 w strefie wyzwalaj\u0105cej)",
+     "Metoklopramid (prokinetyk i antagonista D2 w CTZ)",
+     "Ondansetron (antagonista receptor\u00f3w 5-HT3 w CTZ i w\u0105tku b\u0142\u0119dnego)",
+     "Loperamid (agonista receptor\u00f3w opioidowych \u03bc w \u015bcianie jelita)"],
+  a:0},
+ {id:16,c:"Farmakodynamika",
+  t:"Dekstrometorfan nale\u017cy do grupy lek\u00f3w:",
+  o:["Przeciwhistaminowych pierwszej generacji (antagonista H1)",
+     "Rozszerzaj\u0105cych oskrzela przez pobudzenie receptor\u00f3w \u03b22",
+     "Niesteroidowych przeciwzapalnych (inhibitor COX)",
+     "Przeciwkaszlowych (antytussivum) \u2013 agonista receptora \u03c3 i antagonista NMDA"],
+  a:3},
+ {id:17,c:"Antidota",
+  t:"W leczeniu ostrego zatrucia paracetamolem stosuje si\u0119:",
+  o:["Flumazenil \u2013 antagonista receptora benzodiazepinowego w GABA-A",
+     "Acetylocysteine (NAC) \u2013 uzupe\u0142nia glutation i neutralizuje NAPQI",
+     "Nalokson \u2013 kompetycyjny antagonista receptor\u00f3w opioidowych",
+     "Atropin\u0119 \u2013 antagonist\u0119 muskarynowy blokuj\u0105cy acetylocholinerg"],
+  a:1},
+ {id:18,c:"Kliniczna",
+  t:"Paradoksalny skurcz oskrzeli, dr\u017cenie ko\u0144czyn, migotanie przedsionk\u00f3w i hipokaliemia to dzia\u0142ania niepo\u017c\u0105dane:",
+  o:["Kortykosteroidu wziewnego (budezonid, flutikazon, beklometazon)",
+     "Antagonisty receptor\u00f3w muskarynowych (ipratropium, tiotropium)",
+     "Inhibitora fosfodiesterazy (teofiliny, aminofiliny, doksofyliny)",
+     "Salbutamolu \u2013 kr\u00f3tkodziaj\u0105cego \u03b22-mimetyku wziewnego (SABA)"],
+  a:3},
+ {id:19,c:"Farmakodynamika",
+  t:"Szybko rozwijaj\u0105ca si\u0119 i szybko ustepuj\u0105ca tolerancja po kilku dawkach to:",
+  o:["Uzale\u017cnienie fizyczne z wegetatywnym zesp\u00f3\u0142em abstynencyjnym",
+     "Tolerancja krzy\u017cowa na leki z tej samej grupy farmakologicznej",
+     "Tolerancja farmakodynamiczna przez down-regulacj\u0119 receptor\u00f3w",
+     "Tachyfilaksja \u2013 odwracalna, szybko narastaj\u0105ca tolerancja"],
+  a:3},
+ {id:20,c:"Kliniczna",
+  t:"Hipotensja, obrzek Quinckiego i trudno\u015bci z oddychaniem po podaniu leku wskazuj\u0105 na:",
+  o:["Wstrz\u0105s septyczny z rozsianym wykrzepianiem wewn\u0105trznaczyniowym",
+     "Prze\u0142om nadci\u015bnieniowy z obrzekiem p\u0142uc i encefalopatii\u0105",
+     "Wstrz\u0105s anafilaktyczny mediowany przez IgE (typ I nadwra\u017cliwo\u015bci)",
+     "Ostr\u0105 niewydolno\u015b\u0107 nadnerczy (prze\u0142om Addisona) z hiponatremii\u0105"],
+  a:2},
+ {id:21,c:"Kliniczna",
+  t:"Optymalne st\u0119\u017cenie etanolu jako \u015brodka odka\u017caj\u0105cego sk\u00f3r\u0119 wynosi:",
+  o:["40\u201350% (v/v) \u2013 st\u0119\u017cenie zbli\u017cone do wysokoprocentowych alkoholi pitnych",
+     "55\u201365% (v/v) \u2013 dobre dzia\u0142anie na grzyby, s\u0142absze na bakterie",
+     "70\u201380% (v/v) \u2013 optymalne dzia\u0142anie bakteriob\u00f3jcze i wirusostatyczne",
+     "90\u201396% (v/v) \u2013 bezwodny spirytus o najwy\u017cszej skuteczno\u015bci"],
+  a:2},
+ {id:22,c:"Antybiotyki",
+  t:"Kt\u00f3ry z poni\u017cszych lek\u00f3w nale\u017cy do grupy tetracyklin?",
+  o:["Metronidazol \u2013 nitroimidazol aktywny wobec bezlenowc\u00f3w i pierwotniak\u00f3w",
+     "Kloksacylina \u2013 \u03b2-laktam oporny na \u03b2-laktamazy gronkowcowe",
+     "Doksycyklina \u2013 tetracyklina II generacji o szerokim spektrum",
+     "Fidaksomycyna \u2013 makrocykliczny antybiotyk aktywny wobec C. difficile"],
+  a:2},
+ {id:23,c:"Farmakodynamika",
+  t:"Do fazy I biotransformacji NIE nale\u017cy:",
+  o:["N-dealkilacja przy udziale CYP3A4 w mikrosomalnym uk\u0142adzie hepatocyt\u00f3w",
+     "Reakcja sprz\u0119gania z aktywnym siarczanem (sulfatacja) przez sulfotransferazy",
+     "Hydroksylacja aromatyczna przez mikrosomalne monooksygenazy watro\u0301bowe",
+     "Hydroliza estr\u00f3w i amid\u00f3w przez esterazy tkankowe i osoczowe"],
+  a:1},
+ {id:24,c:"Antybiotyki",
+  t:"Prawdziwe stwierdzenie dotycz\u0105ce klindamycyny to:",
+  o:["Dzia\u0142a wy\u0142\u0105cznie na bakterie Gram-dodatnie tlenowe bez beztlenowc\u00f3w",
+     "Dzia\u0142a na Gram-dodatnie tlenowe i Gram-ujemne beztlenowe (Bacteroides)",
+     "Wch\u0142ania si\u0119 s\u0142abo z przewodu pokarmowego (biodost\u0119pno\u015b\u0107 poni\u017cej 30%)",
+     "Jest lekiem z wyboru w rzekomob\u0142oniastym zapaleniu jelita grubego"],
+  a:1},
+ {id:25,c:"Antybiotyki",
+  t:"Kt\u00f3re zdanie dotycz\u0105ce nystatyny jest FA\u0141SZYWE?",
+  o:["Nale\u017cy do grupy polien\u00f3w aktywnych wobec Candida i Aspergillus",
+     "Stosowana jest miejscowo w grzybicy jamy ustnej i przewodu pokarmowego",
+     "Dobrze wch\u0142ania si\u0119 z przewodu pokarmowego po podaniu doustnym",
+     "Wi\u0105\u017ce ergosterol b\u0142ony kom\u00f3rkowej grzyba powoduj\u0105c jej przerwanie"],
+  a:2},
+ {id:26,c:"Kliniczna",
+  t:"W leczeniu ostrej biegunki zakazonej mo\u017cna zastosowac:",
+  o:["Wy\u0142\u0105cznie nawodnienie doustne z elektrolitami (ORS) bez lek\u00f3w",
+     "Wy\u0142\u0105cznie loperamid jako jedyny skuteczny lek bez nawodnienia",
+     "Wy\u0142\u0105cznie antybiotyki aktywne wobec enteropatogen\u00f3w jelitowych",
+     "Nawodnienie, loperamid, carbo medicinalis i nifuroksazyd \u2013 \u0142\u0105cznie"],
+  a:3},
+ {id:27,c:"Analgetyki",
+  t:"NLPZ selektywny wobec COX-2 (koksyb) to:",
+  o:["Celekoksib \u2013 selektywny inhibitor COX-2 z grupy koksyb\u00f3w",
+     "Ibuprofen \u2013 nieselektywny inhibitor COX-1 i COX-2 r\u00f3wnocze\u015bnie",
+     "Indometacyna \u2013 silny nieselektywny inhibitor COX z du\u017c\u0105 toksyczno\u015bci\u0105",
+     "Diklofenak \u2013 preferuje COX-2, lecz nie wykazuje pe\u0142nej selektywno\u015bci"],
+  a:0},
+ {id:28,c:"Analgetyki",
+  t:"Kt\u00f3re zdanie dotycz\u0105ce lidokainy jest FA\u0141SZYWE?",
+  o:["Jest lekiem antyarytmicznym klasy Ib stosowanym w VT i VF",
+     "Dzia\u0142a przez blokad\u0119 kana\u0142\u00f3w sodowych bramkowanych napi\u0119ciem",
+     "Stosowana jest do znieczulenia nasi\u0119kowego i przewodowego",
+     "Nie jest stosowana do znieczulenia powierzchniowego"],
+  a:3},
+ {id:29,c:"Analgetyki",
+  t:"Do estrowych \u015brodk\u00f3w znieczulenia miejscowego NIE nale\u017cy:",
+  o:["Prokaina \u2013 ester kwasu p-aminobenzoesowego o kr\u00f3tkim dzia\u0142aniu",
+     "Tetrakaina \u2013 ester o d\u0142ugim czasie dzia\u0142ania do znieczule\u0144 rdzeniowych",
+     "Benzokaina \u2013 ester stosowany wy\u0142\u0105cznie w postaci powierzchniowej",
+     "Bupiwakaina \u2013 amid o d\u0142ugim czasie dzia\u0142ania do blokad regionalnych"],
+  a:3},
+ {id:30,c:"Kliniczna",
+  t:"Kt\u00f3re zdanie dotycz\u0105ce inhibitor\u00f3w ACE (ACEI) jest FA\u0141SZYWE?",
+  o:["Kaptopril stosowany pod j\u0119zyk obni\u017ca ci\u015bnienie w stanach pilnych",
+     "Wi\u0119kszo\u015b\u0107 ACEI to proleki aktywowane w w\u0105trobie (np. enalapryl)",
+     "Stosowanie ACEI z diuretykami tiazydowymi jest kliniczne zalecane",
+     "ACEI nie powinny by\u0107 \u0142\u0105czone z diuretykami oszcz\u0119dzaj\u0105cymi potas"],
+  a:3},
+ {id:31,c:"Kliniczna",
+  t:"Kt\u00f3re z poni\u017cszych zda\u0144 jest PRAWDZIWE?",
+  o:["Hydroksyzyna jest lekiem przeciwpsychotycznym I rzutu w schizofrenii",
+     "Metoklopramid jest prokinetykkim stosowanym w nudno\u015bciach i wymiotach",
+     "Chloramfenikol jest lekiem z wyboru w rzesistkkowicy pochwy",
+     "Budezonid stosuje si\u0119 do\u017cylnie w ostrym napadzie astmy oskrzelowej"],
+  a:1},
+ {id:32,c:"Analgetyki",
+  t:"Kt\u00f3re z poni\u017cszych NIE jest wskazaniem do stosowania morfiny?",
+  o:["Ostry b\u00f3l nowotworowy wymagaj\u0105cy silnej analgezji opioidowej",
+     "Ostry obrzek p\u0142uc w przebiegu niewydolno\u015bci lewokomorowej serca",
+     "B\u00f3l po zawale mi\u0119\u015bnia sercowego wymagaj\u0105cy analgezji opioidowej",
+     "Kolka dr\u00f3g \u017c\u00f3\u0142ciowych z ostrym b\u00f3lem w prawym pods\u017cebrzu"],
+  a:3},
+ {id:33,c:"Analgetyki",
+  t:"Drotaweryna (No-Spa) znie\u015bcoli:",
+  o:["B\u00f3l mi\u0119\u015bniowo-szkieletowy w przebiegu choroby Parkinsona",
+     "B\u00f3l spowodowany skurczem macicy przy bolesnym miesi\u0105czkowaniu",
+     "B\u00f3l neuropatyczny w przebiegu cukrzycowej polineuropatii",
+     "B\u00f3l migrenowy z aur\u0105 towarzysz\u0105cy skurczowi naczy\u0144 m\u00f3zgowych"],
+  a:1},
+ {id:34,c:"Antidota",
+  t:"Nalokson zastosujemy jako odtrutk\u0119 w zatruciu:",
+  o:["Tr\u00f3jpier\u015bcieniowymi lekami przeciwdepresyjnymi (TCA) z poszerzeniem QRS",
+     "Barbituranami i innymi klasycznymi lekami nasennymi I generacji",
+     "Benzodiazepinami i nowymi lekami nasennymi (Z-drugs: zolpidem)",
+     "Opioidami (morfina, heroina, fentanyl, oksykodon, metadon)"],
+  a:3},
+ {id:35,c:"Antidota",
+  t:"Swoista odtrutka na zatrucie barbituranami to:",
+  o:["Flumazenil \u2013 antagonista receptora benzodiazepinowego w GABA-A",
+     "Fitozygmina \u2013 centralny inhibitor acetylocholinesterazy (anticholinergika)",
+     "Nalokson \u2013 kompetycyjny antagonista receptor\u00f3w \u03bc, \u03ba i \u03b4",
+     "Nie istnieje swoista odtrutka \u2013 leczenie wy\u0142\u0105cznie objawowe i podtrzymuj\u0105ce"],
+  a:3},
+ {id:36,c:"Farmakodynamika",
+  t:"Benzodiazepiny NIE wykazuj\u0105 dzia\u0142ania:",
+  o:["Anksjolitycznego (przeciwl\u0119kowego) i uspokajaj\u0105cego przy ma\u0142ych dawkach",
+     "Przeciwdrgawkowego i miorelaksacyjnego (na poziomie centralnym)",
+     "Przeciwdepresyjnego na nastr\u00f3j i nap\u0119d psychomotoryczny",
+     "Nasennego i sedatywnego podawanych wieczorem lub przed procedurami"],
+  a:2},
+ {id:37,c:"Kliniczna",
+  t:"Wskazaniem do zastosowania urapidilu do\u017cylnie jest:",
+  o:["Kryza nadci\u015bnieniowa wymagaj\u0105ca szybkiego obni\u017cenia ci\u015bnienia",
+     "Migotanie przedsionk\u00f3w z szybk\u0105 akcj\u0105 komor wymagaj\u0105ce kardiowersji",
+     "B\u00f3l d\u0142awicowy w przebiegu stabilnej choroby wie\u0144cowej (CCS II)",
+     "Przewlek\u0142a niewydolno\u015b\u0107 serca z frakcj\u0105 wyrzutow\u0105 poni\u017cej 40%"],
+  a:0},
+ {id:38,c:"Analgetyki",
+  t:"Kt\u00f3ry NLPZ stosowany jest w kardioprotekcji p/p\u0142ytkowej?",
+  o:["Celekoksib \u2013 selektywny inhibitor COX-2 niehamuj\u0105cy TXA\u2082 w p\u0142ytkach",
+     "Ibuprofen \u2013 mo\u017ce antagonizowa\u0107 efekt p/p\u0142ytkowy ASA przy r\u00f3wnoczesnym u\u017cyciu",
+     "Kwas acetylosalicylowy \u2013 nieodwracalnie hamuje TXA\u2082 w p\u0142ytkach",
+     "Naproksen \u2013 nieselektywny inhibitor COX z d\u0142ugim okreem p\u00f3\u0142trwania"],
+  a:2},
+ {id:39,c:"Kliniczna",
+  t:"Kt\u00f3re z poni\u017cszych NIE jest wskazaniem do stosowania paracetamolu?",
+  o:["Gor\u0105czka w przebiegu infekcji wirusowych u doros\u0142ych i dzieci",
+     "\u0141agodny b\u00f3l g\u0142owy, b\u00f3l z\u0119ba i b\u00f3l mi\u0119\u015bniowo-szkieletowy",
+     "B\u00f3l pooperacyjny o ma\u0142ym i \u015brednim nasileniu jako uzupe\u0142nienie analgezji",
+     "Zawa\u0142 mi\u0119\u015bnia sercowego (OZW) wymagaj\u0105cy analgezji i antykoagulacji"],
+  a:3},
+ {id:40,c:"Antybiotyki",
+  t:"Wy\u0142\u0105cznie do grupy makrolid\u00f3w nale\u017c\u0105:",
+  o:["Azytromycyna i klindamycyna (makrolid i linkozamid)",
+     "Doksycyklina i klarytromycyna (tetracyklina i makrolid)",
+     "Azytromycyna i klarytromycyna (oba s\u0105 makrolidami)",
+     "Neomycyna i klarytromycyna (aminoglikozyd i makrolid)"],
+  a:2}
+];
+
+var COUNTS=[10,20,30,40];
+
+var S={phase:"menu",qq:[],cur:0,sel:null,conf:false,ans:{},sc:0,done:0,n:20,filt:"all"};
+
+function shuf(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function cats(){var r=[];Q.forEach(function(q){if(r.indexOf(q.c)<0)r.push(q.c);});return r;}
+function catQ(qq,cat){return qq.filter(function(q){return q.c===cat;});}
+
+function goMenu(){S.phase="menu";draw();}
+function goStart(){S.qq=shuf(Q).slice(0,S.n);S.cur=0;S.sel=null;S.conf=false;S.ans={};S.sc=0;S.done=0;S.phase="quiz";draw();}
+function goPick(i){if(S.conf)return;S.sel=i;draw();}
+function goCheck(){if(S.sel===null||S.conf)return;var q=S.qq[S.cur];var ok=S.sel===q.a;S.conf=true;S.ans[S.cur]={s:S.sel,a:q.a,ok:ok};if(ok)S.sc++;S.done++;draw();}
+function goNext(){if(S.cur+1<S.qq.length){S.cur++;S.sel=null;S.conf=false;draw();}else{S.phase="result";draw();}}
+function goPrev(){if(S.cur>0){S.cur--;var a=S.ans[S.cur];S.sel=a?a.s:null;S.conf=!!a;draw();}}
+function goReview(){S.phase="review";S.filt="all";draw();}
+function setFilt(f){S.filt=f;draw();}
+function setN(n){S.n=n;draw();}
+
+function draw(){if(S.phase==="menu")dMenu();else if(S.phase==="quiz")dQuiz();else if(S.phase==="result")dResult();else dReview();}
+
+function cc(cat){return CC[cat]||{bg:"#1e2b3e",co:"#94a3b8",bo:"#334155"};}
+function cl(cat){return CL[cat]||cat;}
+
+function dMenu(){
+  var pills=cats().map(function(cat){var c=cc(cat);return'<span class="s-pill" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+catQ(Q,cat).length+' '+cl(cat)+'</span>';}).join("");
+  var btns=COUNTS.map(function(n){return'<button class="cnt-btn'+(S.n===n?" active":"")+'" onclick="setN('+n+')">'+n+'<small>pyta\u0144</small></button>';}).join("");
+  document.getElementById("app").innerHTML=
+    '<div class="menu-card"><div class="menu-icon">&#128138;</div>'+
+    '<h1 class="menu-title">Farmakologia</h1>'+
+    '<p class="menu-sub">40 pyta\u0144 &middot; 5 kategorii &middot; Piel\u0119gniarstwo</p>'+
+    '<div class="count-grid">'+btns+'</div>'+
+    '<button class="start-btn" onclick="goStart()">Rozpocznij test &#8594;</button>'+
+    '<div class="stats-row">'+pills+'</div></div>';
+}
+
+function dQuiz(){
+  var q=S.qq[S.cur];var tot=S.qq.length;var c=cc(q.c);var prog=(S.cur/tot*100).toFixed(1);
+  var opts=q.o.map(function(txt,i){
+    var cls="obtn";
+    if(S.conf){if(i===q.a)cls="obtn cor";else if(i===S.sel)cls="obtn wrg";else cls="obtn dim";}
+    else if(S.sel===i)cls="obtn sel";
+    return'<button class="'+cls+'" onclick="goPick('+i+')"><span class="olbl">'+L[i]+'</span><span>'+txt+'</span></button>';
+  }).join("");
+  var fb="";
+  if(S.conf){var an=S.ans[S.cur];fb='<div class="fb '+(an.ok?"ok":"no")+'">'+(an.ok?"&#10003; Poprawna odpowied\u017a! "+L[q.a]+". "+q.o[q.a]:"&#10007; B\u0142\u0105d. Prawid\u0142owa: "+L[q.a]+". "+q.o[q.a])+"</div>";}
+  var isLast=(S.cur+1>=tot);
+  var ab=S.conf?'<button class="btn bs" onclick="goNext()">'+(isLast?"Zako\u0144cz &#10003;":"Nast\u0119pne &#8594;")+'</button>':'<button class="btn bp" onclick="goCheck()"'+(S.sel===null?" disabled":"")+'>Sprawd\u017a</button>';
+  document.getElementById("app").innerHTML=
+    '<div class="qhdr"><button class="btn bo" style="flex:none;padding:8px 12px;font-size:.78rem" onclick="goMenu()">&#10005;</button>'+
+    '<div class="prog-w"><div class="prog-b" style="width:'+prog+'%"></div></div>'+
+    '<span class="qcnt">'+(S.cur+1)+'/'+tot+'</span><span class="slive">'+S.sc+'/'+S.done+'</span></div>'+
+    '<div class="qcard"><div class="qmeta"><span class="qnum">PYTANIE '+(S.cur+1)+'</span>'+
+    '<span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(q.c)+'</span></div>'+
+    '<p class="qtxt">'+q.t+'</p></div>'+
+    '<div class="opts">'+opts+'</div>'+fb+
+    '<div class="acts"><button class="btn bo" style="flex:none;padding:13px 17px" onclick="goPrev()"'+(S.cur===0?" disabled":"")+'>&#8592;</button>'+ab+'</div>';
+}
+
+function dResult(){
+  var tot=S.qq.length;var pct=tot?Math.round(S.sc/tot*100):0;
+  var em=pct>=80?"&#127942;":pct>=60?"&#128218;":"&#128170;";
+  var col=pct>=80?"g":pct>=60?"y":"r";
+  var msg=pct>=90?"Doskonale! Jeste\u015b gotowy/a na egzamin."
+    :pct>=75?"Bardzo dobrze! Jeszcze troch\u0119 powt\u00f3rze\u0144."
+    :pct>=60?"Niez\u0142e, ale warto przejrze\u0107 b\u0142\u0119dy."
+    :"Zalecane dodatkowe powt\u00f3rzenie materia\u0142u.";
+  var bars=cats().map(function(cat){
+    var cqs=catQ(S.qq,cat);if(!cqs.length)return"";
+    var idxs=cqs.map(function(q){return S.qq.indexOf(q);});
+    var ok=idxs.filter(function(i){return S.ans[i]&&S.ans[i].ok;}).length;
+    var p=Math.round(ok/cqs.length*100);var fc=p>=80?"#4ade80":p>=60?"#facc15":"#f87171";
+    return'<div class="crow"><div class="crowh"><span class="cname">'+cl(cat)+'</span><span style="font-weight:700;color:'+fc+'">'+ok+'/'+cqs.length+' ('+p+'%)</span></div><div class="cbarw"><div class="cbarf" style="width:'+p+'%;background:'+fc+'"></div></div></div>';
+  }).join("");
+  document.getElementById("app").innerHTML=
+    '<div class="rcard"><div class="remo">'+em+'</div><div class="rpct '+col+'">'+pct+'%</div>'+
+    '<p class="rmsg">'+msg+'</p>'+
+    '<div class="rgrid">'+
+    '<div class="rstat"><div class="v" style="color:#4ade80">'+S.sc+'</div><div class="l">Poprawnych</div></div>'+
+    '<div class="rstat"><div class="v" style="color:#f87171">'+(tot-S.sc)+'</div><div class="l">B\u0142\u0119dnych</div></div>'+
+    '<div class="rstat"><div class="v" style="color:#60a5fa">'+tot+'</div><div class="l">\u0141\u0105cznie</div></div>'+
+    '</div><div class="cbar"><div class="cbartit">Wyniki wg kategorii</div>'+bars+'</div>'+
+    '<div class="rbtns">'+
+    '<button class="btn bp" onclick="goReview()">&#128203; Przejrzyj odpowiedzi</button>'+
+    '<button class="btn bs" onclick="goStart()">&#128260; Nowy test ('+S.n+' pyta\u0144)</button>'+
+    '<button class="btn bo" onclick="goMenu()">\u2190 Menu</button>'+
+    '</div></div>';
+}
+
+function dReview(){
+  var filtered=S.qq.filter(function(_,i){if(S.filt==="wrong")return S.ans[i]&&!S.ans[i].ok;if(S.filt==="right")return S.ans[i]&&S.ans[i].ok;return true;});
+  var pls=["all","wrong","right"].map(function(f){var lbl=f==="all"?"Wszystkie":f==="wrong"?"B\u0142\u0119dne":"Poprawne";return'<button class="fpill'+(S.filt===f?" act":"")+'" onclick="setFilt(\''+f+'\')">'+lbl+'</button>';}).join("");
+  var items=filtered.map(function(rq){
+    var oi=S.qq.indexOf(rq);var an=S.ans[oi];var ok=an&&an.ok;var c=cc(rq.c);
+    return'<div class="ritem '+(ok?"ok":"er")+'"><div class="rmeta"><span class="rnum">PYT. '+rq.id+'</span>'+
+    '<span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(rq.c)+'</span></div>'+
+    '<p class="rq">'+rq.t+'</p>'+(!ok&&an?'<p class="ra w">&#10007; Twoja: '+L[an.s]+'. '+rq.o[an.s]+'</p>':"")+
+    '<p class="ra c">&#10003; Prawid\u0142owa: '+L[rq.a]+'. '+rq.o[rq.a]+'</p></div>';
+  }).join("");
+  document.getElementById("app").innerHTML=
+    '<button class="bbk" onclick="S.phase=\'result\';draw()">\u2190 Powr\u00f3t do wynik\u00f3w</button>'+
+    '<div class="rvhdr"><span class="rvtit">Przegl\u0105d odpowiedzi</span><div class="fpills">'+pls+'</div></div>'+items;
+}
+
+draw();
+</script>
+</body>
+</html>
