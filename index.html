@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testy – Pielęgniarstwo</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{min-height:100vh;background:#0d1117;font-family:'DM Sans',sans-serif;color:#e2e8f0;display:flex;align-items:center;justify-content:center;padding:32px 16px;}
+.wrap{width:100%;max-width:520px;}
+.hero{text-align:center;margin-bottom:36px;}
+.hero-icon{font-size:52px;margin-bottom:16px;}
+.hero-title{font-family:'DM Serif Display',serif;font-size:2rem;color:#f0f4ff;margin-bottom:8px;}
+.hero-sub{color:#7a8fa6;font-size:.9rem;line-height:1.6;}
+.cards{display:flex;flex-direction:column;gap:14px;}
+.card{background:linear-gradient(135deg,#161d2a,#1a2235);border:1px solid #2a3547;border-radius:16px;padding:22px 20px;text-decoration:none;display:flex;align-items:center;gap:18px;transition:all .18s;cursor:pointer;}
+.card:hover{border-color:#3b82f6;transform:translateY(-2px);box-shadow:0 8px 24px rgba(37,99,235,.2);}
+.card-icon{font-size:32px;flex-shrink:0;}
+.card-body{flex:1;}
+.card-title{font-family:'DM Serif Display',serif;font-size:1.15rem;color:#f0f4ff;margin-bottom:4px;}
+.card-sub{font-size:.8rem;color:#7a8fa6;line-height:1.5;}
+.card-pills{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.pill{font-size:.68rem;font-weight:600;padding:2px 9px;border-radius:20px;border:1px solid;}
+.arrow{color:#3b82f6;font-size:1.2rem;flex-shrink:0;}
+.footer{text-align:center;margin-top:28px;font-size:.75rem;color:#334155;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-icon">🩺</div>
+    <h1 class="hero-title">Testy Egzaminacyjne</h1>
+    <p class="hero-sub">Pielęgniarstwo · Studia I stopnia<br>Wybierz kategorię i rozpocznij test</p>
+  </div>
+
+  <div class="cards">
+
+    <a class="card" href="test-zagadnienia-radiologia.html">
+      <div class="card-icon">📋</div>
+      <div class="card-body">
+        <div class="card-title">Zagadnienia – Radiologia</div>
+        <div class="card-sub">Semestr letni · Pytania otwarte w formacie ABCD</div>
+        <div class="card-pills">
+          <span class="pill" style="background:#2d2a1e;color:#facc15;border-color:#ca8a04">40 pytań</span>
+          <span class="pill" style="background:#1e2d3d;color:#38bdf8;border-color:#0ea5e9">5 kategorii</span>
+        </div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+
+    <a class="card" href="test-farmakologia.html">
+      <div class="card-icon">💊</div>
+      <div class="card-body">
+        <div class="card-title">Test z Farmakologii</div>
+        <div class="card-sub">Pielęgniarstwo · Leki, odtrutki, mechanizmy działania</div>
+        <div class="card-pills">
+          <span class="pill" style="background:#2d1e3d;color:#c084fc;border-color:#9333ea">40 pytań</span>
+          <span class="pill" style="background:#3d1e2f;color:#f472b6;border-color:#db2777">5 kategorii</span>
+        </div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+
+  </div>
+
+  <div class="footer">Pielęgniarstwo · Studia I stopnia · Testy do nauki</div>
+</div>
+</body>
+</html>
