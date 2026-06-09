@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test z Radiologii &ndash; Zagadnienia</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{min-height:100vh;background:#0d1117;font-family:'DM Sans',sans-serif;color:#e2e8f0;display:flex;justify-content:center;padding:24px 16px 60px;}
+#app{width:100%;max-width:760px;}
+.menu-card{background:linear-gradient(135deg,#161d2a,#1a2235);border:1px solid #2a3547;border-radius:20px;padding:44px 28px;text-align:center;margin-top:32px;}
+.menu-icon{font-size:48px;margin-bottom:14px;}
+.menu-title{font-family:'DM Serif Display',serif;font-size:1.9rem;color:#f0f4ff;margin-bottom:8px;line-height:1.2;}
+.menu-sub{color:#7a8fa6;font-size:.9rem;margin-bottom:32px;}
+.count-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;}
+.cnt-btn{background:#1e2b3e;border:1px solid #2e3f56;border-radius:12px;color:#a8c0d8;padding:14px 6px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.cnt-btn small{display:block;font-size:.65rem;color:#5a7a96;margin-top:2px;font-weight:400;}
+.cnt-btn.active{background:#1e4080;border-color:#3b82f6;color:#93c5fd;}
+.start-btn{width:100%;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:14px;color:#fff;font-size:1rem;font-weight:600;padding:15px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.stats-row{display:flex;gap:7px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+.s-pill{border-radius:20px;padding:4px 11px;font-size:.72rem;font-weight:600;border:1px solid;}
+.qhdr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.prog-w{flex:1;background:#1e2b3e;border-radius:8px;height:6px;overflow:hidden;}
+.prog-b{height:100%;background:linear-gradient(90deg,#2563eb,#38bdf8);border-radius:8px;}
+.qcnt{font-size:.82rem;color:#7a8fa6;white-space:nowrap;}
+.slive{color:#facc15;font-size:.82rem;font-weight:600;white-space:nowrap;}
+.qcard{background:#161d2a;border:1px solid #2a3547;border-radius:18px;padding:24px 22px 20px;margin-bottom:14px;}
+.qmeta{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.qnum{font-size:.7rem;color:#3b82f6;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.cbadge{font-size:.68rem;padding:3px 10px;border-radius:20px;font-weight:600;border:1px solid;}
+.qtxt{font-size:1rem;color:#dde8f5;line-height:1.65;}
+.opts{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
+.obtn{display:flex;align-items:flex-start;gap:12px;border:1.5px solid #2a3547;border-radius:13px;padding:13px 15px;cursor:pointer;text-align:left;color:#c8d8e8;font-size:.92rem;line-height:1.5;font-family:'DM Sans',sans-serif;width:100%;transition:border-color .15s,background .15s;background:#161d2a;}
+.obtn.sel{border-color:#3b82f6;background:#1a2d4e;}
+.obtn.cor{border-color:#22c55e;background:#0f2d1a;color:#86efac;cursor:default;}
+.obtn.wrg{border-color:#ef4444;background:#2d0f0f;color:#fca5a5;cursor:default;}
+.obtn.dim{opacity:.4;cursor:default;}
+.olbl{min-width:26px;height:26px;border-radius:8px;background:#1e2b3e;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:#7a8fa6;flex-shrink:0;margin-top:1px;}
+.obtn.sel .olbl{background:#2563eb;color:#fff;}
+.obtn.cor .olbl{background:#16a34a;color:#fff;}
+.obtn.wrg .olbl{background:#dc2626;color:#fff;}
+.fb{border-radius:10px;padding:12px 15px;font-size:.86rem;margin-bottom:14px;border-left:3px solid;line-height:1.55;}
+.fb.ok{border-left-color:#22c55e;background:#0d1f12;color:#86efac;}
+.fb.no{border-left-color:#ef4444;background:#1f0d0d;color:#fca5a5;}
+.acts{display:flex;gap:9px;}
+.btn{flex:1;padding:13px;border-radius:12px;border:none;font-size:.92rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.bo{background:transparent;border:1.5px solid #2a3547;color:#7a8fa6;}
+.bp{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;}
+.bs{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;}
+.rcard{background:#161d2a;border:1px solid #2a3547;border-radius:20px;padding:36px 22px;text-align:center;margin-top:12px;}
+.remo{font-size:46px;margin-bottom:12px;}
+.rpct{font-family:'DM Serif Display',serif;font-size:4rem;font-weight:400;line-height:1;margin-bottom:6px;}
+.g{color:#4ade80;}.y{color:#facc15;}.r{color:#f87171;}
+.rmsg{color:#7a8fa6;font-size:.88rem;margin-bottom:20px;}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.rstat{background:#1e2b3e;border-radius:12px;padding:14px 8px;}
+.rstat .v{font-size:1.5rem;font-weight:700;margin-bottom:3px;}
+.rstat .l{font-size:.7rem;color:#6b8299;}
+.cbar{background:#111827;border-radius:12px;padding:14px 16px;margin-bottom:16px;text-align:left;}
+.cbartit{font-size:.67rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#475569;margin-bottom:11px;}
+.crow{margin-bottom:9px;}
+.crowh{display:flex;justify-content:space-between;font-size:.77rem;margin-bottom:4px;}
+.cname{color:#94a3b8;}
+.cbarw{height:5px;background:#1e2b3e;border-radius:999px;overflow:hidden;}
+.cbarf{height:100%;border-radius:999px;}
+.rbtns{display:flex;flex-direction:column;gap:9px;}
+.bbk{display:flex;align-items:center;gap:6px;background:transparent;border:1.5px solid #2a3547;border-radius:10px;color:#7a8fa6;padding:8px 13px;font-size:.82rem;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:16px;}
+.rvhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;gap:8px;flex-wrap:wrap;}
+.rvtit{font-family:'DM Serif Display',serif;font-size:1.3rem;color:#f0f4ff;}
+.fpills{display:flex;gap:6px;flex-wrap:wrap;}
+.fpill{padding:4px 11px;border-radius:20px;border:1px solid #2a3547;background:transparent;color:#7a8fa6;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.fpill.act{background:#1e2b3e;border-color:#3b82f6;color:#60a5fa;}
+.ritem{background:#161d2a;border:1px solid #2a3547;border-radius:13px;padding:14px 16px;margin-bottom:9px;}
+.ritem.ok{border-left:3px solid #22c55e;}
+.ritem.er{border-left:3px solid #ef4444;}
+.rq{font-size:.87rem;color:#c8d8e8;margin-bottom:7px;line-height:1.5;}
+.ra{font-size:.81rem;margin-bottom:3px;}
+.ra.c{color:#4ade80;}.ra.w{color:#f87171;}
+.rmeta{display:flex;gap:7px;align-items:center;margin-bottom:7px;flex-wrap:wrap;}
+.rnum{font-size:.68rem;color:#5a7a96;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var L=["A","B","C","D"];
+var CC={
+  "Diagnostyka":          {bg:"#1e3a5f",co:"#60a5fa",bo:"#2563eb"},
+  "Kontrast":             {bg:"#3d1e2f",co:"#f472b6",bo:"#db2777"},
+  "Przygotowanie":        {bg:"#2d2a1e",co:"#facc15",bo:"#ca8a04"},
+  "Radioterapia":         {bg:"#2d1e3d",co:"#c084fc",bo:"#9333ea"},
+  "Opieka w RT":          {bg:"#1e2d3d",co:"#38bdf8",bo:"#0ea5e9"}
+};
+var CL={
+  "Diagnostyka":"Diagnostyka",
+  "Kontrast":"Sr. kontrastujace",
+  "Przygotowanie":"Przygotowanie",
+  "Radioterapia":"Radioterapia",
+  "Opieka w RT":"Opieka w RT"
+};
+var COUNTS=[10,20,30,40];
+
+var Q=[
+ {id:1,c:"Diagnostyka",t:"Kt\u00f3re badanie NIE wykorzystuje promieniowania jonizuj\u0105cego?",o:["Tomografia komputerowa (TK)","Mammografia","Rezonans magnetyczny (MR)","Urografia"],a:2},
+ {id:2,c:"Diagnostyka",t:"Kt\u00f3re badania wykorzystuj\u0105 promieniowanie jonizuj\u0105ce?",o:["USG i MR","RTG, TK, mammografia, scyntygrafia","MR i endoskopia","USG, MR i endoskopia"],a:1},
+ {id:3,c:"Diagnostyka",t:"RTG jamy brzusznej na stoj\u0105co wykonuje si\u0119 przy podejrzeniu:",o:["Kamicy nerkowej","Perforacji przewodu pokarmowego lub niedro\u017cno\u015bci jelit","Raka jelita grubego","Zapalenia wyrostka"],a:1},
+ {id:4,c:"Diagnostyka",t:"Kt\u00f3ra metoda jest metod\u0105 z wyboru w wst\u0119pnej diagnostyce jamy brzusznej?",o:["TK z kontrastem","RTG przegl\u0105dowe","USG","Kolonoskopia"],a:2},
+ {id:5,c:"Diagnostyka",t:"Kt\u00f3ry problem psychiczny mo\u017ce wyst\u0105pi\u0107 podczas badania MR?",o:["Depresja","Klaustrofobia","Euforia","Amnezja"],a:1},
+ {id:6,c:"Diagnostyka",t:"Jakie s\u0105 g\u0142\u00f3wne trudno\u015bci diagnostyczne u dzieci podczas bada\u0144 obrazowych?",o:["Zbyt du\u017ce cia\u0142o dziecka","Brak wsp\u00f3\u0142pracy, ruch, konieczno\u015b\u0107 sedacji","Alergia na promieniowanie","Niemog\u0105 przyj\u0105\u0107 kontrastu"],a:1},
+ {id:7,c:"Diagnostyka",t:"Dlaczego tkanki dziecka wymagaj\u0105 szczeg\u00f3lnej ochrony radiologicznej?",o:["Wi\u0119ksza masa mi\u0119\u015bniowa","S\u0105 bardziej promienioczu\u0142e i dziecko ma d\u0142u\u017csze \u017cycie","Mniejsza ilo\u015b\u0107 t\u0142uszczu","Wy\u017cszy metabolizm"],a:1},
+ {id:8,c:"Kontrast",t:"Co to jest nefropatia pokontrastowa?",o:["Alergia na jod","Ostre uszkodzenie nerek w 24\u201372h po podaniu jodowego \u015brodka kontrastowego","Przewlek\u0142e zapalenie nerek","Kamica nerkowa"],a:1},
+ {id:9,c:"Kontrast",t:"Jakie s\u0105 najcz\u0119stsze \u0142agodne objawy reakcji alergicznej na kontrast?",o:["Zatrzymanie kr\u0105\u017cenia","Pokrzywka, \u015bwi\u0105d, nudno\u015bci, uczucie gor\u0105ca","Krwawienie z przewodu pokarmowego","Martwica sk\u00f3ry"],a:1},
+ {id:10,c:"Kontrast",t:"Kt\u00f3re jest bezwzgl\u0119dnym p/wskazaniem do jodowego \u015brodka kontrastowego?",o:["Nadci\u015bnienie t\u0119tnicze","Cukrzyca typu 2","Ci\u0119\u017cka reakcja alergiczna na kontrast jodowy w przesz\u0142o\u015bci","Wiek powy\u017cej 70 lat"],a:2},
+ {id:11,c:"Kontrast",t:"Jakie jest g\u0142\u00f3wne ryzyko jodowych \u015brodk\u00f3w kontrastowych u pacjent\u00f3w z PChN?",o:["Zakrzepica","Nefropatia pokontrastowa i dalsze pogorszenie funkcji nerek","Nadczynno\u015b\u0107 tarczycy","Uszkodzenie w\u0105troby"],a:1},
+ {id:12,c:"Kontrast",t:"Jaki wp\u0142yw ma Metformina przy stosowaniu jodowych \u015brodk\u00f3w kontrastowych?",o:["Poprawia tolerancj\u0119 kontrastu","Chroni nerki przed nefropati\u0105","Zwi\u0119ksza ryzyko kwasicy mleczanowej \u2013 odstawi\u0107 48h przed badaniem","Nie ma wp\u0142ywu"],a:2},
+ {id:13,c:"Kontrast",t:"Co nale\u017cy zaleci\u0107 po do\u017cylnym podaniu \u015brodka cieniuj\u0105cego?",o:["Ograniczy\u0107 p\u0142yny do 500 ml/dob\u0119","Zwi\u0119kszon\u0105 poda\u017c p\u0142yn\u00f3w lub nawodnienie do\u017cylne","Ca\u0142kowity odpoczynek 24h","Unika\u0107 jedzenia 12h"],a:1},
+ {id:14,c:"Kontrast",t:"Kt\u00f3re dzia\u0142anie uboczne po jodowym \u015brodku kontrastowym jest najci\u0119\u017csze?",o:["Metaliczny smak","Uczucie gor\u0105ca","Wstrz\u0105s anafilaktyczny","Lagodna pokrzywka"],a:2},
+ {id:15,c:"Przygotowanie",t:"Jakie jest prawid\u0142owe przygotowanie do planowego USG jamy brzusznej?",o:["Na czczo i z pe\u0142nym p\u0119cherzem moczowym","Po posi\u0142ku i po wypro\u017cnieniu","Z pe\u0142nym \u017co\u0142\u0105dkiem i pustym p\u0119cherzem","Bez przygotowania"],a:0},
+ {id:16,c:"Przygotowanie",t:"Co piel\u0119gniarka powinna sprawdzi\u0107 przed badaniem MR?",o:["Grup\u0119 krwi","Metalowe implanty, rozrusznik serca i klaustrofobi\u0119","Poziom glukozy","Ci\u015bnienie i temperatur\u0119"],a:1},
+ {id:17,c:"Przygotowanie",t:"Jakie przygotowanie obejmuje kolonoskopia?",o:["G\u0142od\u00f3wka 2h i lewatywa","Diet\u0119 p\u0142ynn\u0105 i \u015brodki przeczyszczaj\u0105ce dzie\u0144 wcze\u015bniej","Jedynie naturalne wypro\u017cnienie","Antybiotyk profilaktyczny"],a:1},
+ {id:18,c:"Przygotowanie",t:"Ile godzin g\u0142od\u00f3wki wymaga gastroskopia?",o:["2 godziny","4 godziny","6\u20138 godzin","12 godzin"],a:2},
+ {id:19,c:"Przygotowanie",t:"Co sprawdzi\u0107 przed badaniem TK z kontrastem?",o:["Mas\u0119 cia\u0142a i wzrost","Kreatynin\u0119/GFR, alergie na jod i nawodnienie","Temperatur\u0119 i ci\u015bnienie","Morfologi\u0119 i elektrolity"],a:1},
+ {id:20,c:"Przygotowanie",t:"Skutki niew\u0142a\u015bciwego przygotowania do USG (bez czczo)?",o:["Nasilenie b\u00f3lu","Gazy uniemo\u017cliwiaj\u0105 wizualizacj\u0119 \u2013 konieczno\u015b\u0107 powt\u00f3rzenia","Zwi\u0119kszone ryzyko alergii","Uszkodzenie aparatu"],a:1},
+ {id:21,c:"Przygotowanie",t:"Jak zmniejszy\u0107 ryzyko nefropatii pokontrastowej?",o:["Poda\u0107 wi\u0119ksz\u0105 dawk\u0119 kontrastu","Nawodni\u0107 pacjenta i zminimalizowa\u0107 dawk\u0119 kontrastu","Stosowa\u0107 kontrast doustny","Poda\u0107 antybiotyk"],a:1},
+ {id:22,c:"Przygotowanie",t:"Trudno\u015bci u os\u00f3b starszych podczas bada\u0144 radiologicznych?",o:["Zbyt szybkie tempo","Trudno\u015bci z komunikacj\u0105, mobilno\u015bci\u0105, wsp\u00f3\u0142choroby, odwodnienie","Nadmierna wsp\u00f3\u0142praca","Brak potrzeby przygotowania"],a:1},
+ {id:23,c:"Radioterapia",t:"Jakie promieniowanie stosuje si\u0119 w radioterapii zewn\u0119trznej?",o:["Ultrafioletowe","Ultrad\u017awi\u0119ki","Promieniowanie X (fotonowe) z akceleratora liniowego","Podczerwone"],a:2},
+ {id:24,c:"Radioterapia",t:"Na czym polega brachyterapia?",o:["Napromienianiu z daleka","Izotopach doustnie","Wprowadzeniu \u017ar\u00f3d\u0142a promieniowania do cia\u0142a pacjenta","Promieniowaniu UV na sk\u00f3r\u0119"],a:2},
+ {id:25,c:"Radioterapia",t:"Czym charakteryzuje si\u0119 radioterapia systemowa?",o:["Napromienianiu jednego guza","Radioaktywnych izotopach doustnie lub do\u017cylnie dzia\u0142aj\u0105cych og\u00f3lnoustrojowo","Promieniowaniu X z zewn\u0105trz","Podaniu kontrastu jodowego"],a:1},
+ {id:26,c:"Radioterapia",t:"Cel radioterapii paliatywnej?",o:["Wyleczenie nowotworu","Przygotowanie do operacji","\u0141agodzenie objaw\u00f3w i poprawa komfortu \u017cycia","Zapobieganie wznowie"],a:2},
+ {id:27,c:"Radioterapia",t:"Przy jakich nowotworach stosuje si\u0119 brachyterapi\u0119?",o:["Ch\u0142oniak Hodgkina, bia\u0142aczka","Rak szyjki macicy, prostaty, endometrium","Rak p\u0142uca, \u017co\u0142\u0105dka","Czerniak, rak sk\u00f3ry"],a:1},
+ {id:28,c:"Radioterapia",t:"W jaki spos\u00f3b promieniowanie uszkadza kom\u00f3rki nowotworowe?",o:["Blokuj\u0105c receptory b\u0142onowe","Hamuj\u0105c enzymy","Uszkadzaj\u0105c DNA i hamuj\u0105c podzia\u0142y kom\u00f3rkowe","Zaburzaj\u0105c metabolizm lipid\u00f3w"],a:2},
+ {id:29,c:"Radioterapia",t:"Kiedy stosuje si\u0119 radioterapi\u0119 adiuwantow\u0105?",o:["Przed operacj\u0105","Po operacji jako leczenie uzupe\u0142niaj\u0105ce zmniejszaj\u0105ce ryzyko wznowy","Wy\u0142\u0105cznie paliatywnie","W leczeniu nienowotworowym"],a:1},
+ {id:30,c:"Radioterapia",t:"Kto planuje dawk\u0119 promieniowania i kontroluje jej bezpiecze\u0144stwo?",o:["Piel\u0119gniarka onkologiczna","Technik elektroradiologii","Fizyk medyczny","Radiolog diagnostyczny"],a:2},
+ {id:31,c:"Radioterapia",t:"Kt\u00f3re nale\u017cy do WCZESNYCH powik\u0142a\u0144 radioterapii?",o:["Zw\u0142\u00f3knienie tkanek","Teleangiektazja","Rumie\u0144 i z\u0142uszczanie sk\u00f3ry \u2013 odczyn popromienny","Wt\u00f3rny nowotwory"],a:2},
+ {id:32,c:"Radioterapia",t:"Kiedy wyst\u0119puje przewlek\u0142y odczyn popromienny?",o:["W ci\u0105gu 48 godzin","Podczas RT","Powy\u017cej 6 miesi\u0119cy od zako\u0144czenia RT","W ci\u0105gu 1\u20133 miesi\u0119cy"],a:2},
+ {id:33,c:"Opieka w RT",t:"Podstawowy cel piel\u0119gnacji sk\u00f3ry w miejscu napromienienia?",o:["Poprawa estetyki","Zapobieganie rumieniowi popromiennemu i odczynowi sk\u00f3ry","Gojenie ran chirurgicznych","Zwi\u0119kszenie przep\u0142ywu krwi"],a:1},
+ {id:34,c:"Opieka w RT",t:"\u015arodnki ZALECANE do piel\u0119gnacji sk\u00f3ry w trakcie radioterapii?",o:["Spirytus salicylowy i jodyna","Silnie perfumowane kremy","Emolienty i kremy \u0142agodz\u0105ce bez alkoholu","Plastry na napromieniowanej sk\u00f3rze"],a:2},
+ {id:35,c:"Opieka w RT",t:"Kluczowe zalecenia po zako\u0144czeniu radioterapii?",o:["Intensywne opalanie","Brak kontroli przez 2 lata","Regularne kontrole onkologiczne i ochrona sk\u00f3ry przed UV","Powt\u00f3r pe\u0142nej aktywno\u015bci nast\u0119pnego dnia"],a:2},
+ {id:36,c:"Opieka w RT",t:"G\u0142\u00f3wny cel dokumentacji na Oddziale Radioterapii?",o:["Promocja plac\u00f3wki","Archiwizacja dla statystyk","Utrwalenie przebiegu leczenia, kontrola dawek i ci\u0105g\u0142o\u015b\u0107 opieki","Rozliczenia z NFZ"],a:2},
+ {id:37,c:"Opieka w RT",t:"Profilaktyka zapalenia b\u0142ony \u015bluzowej jamy ustnej podczas RT g\u0142owy i szyi?",o:["P\u0142ukanie spirytusem","Nawil\u017canie b\u0142ony \u015bluzowej i p\u0142ukanie BEZ alkoholu","Intensywne szczotkowanie tward\u0105 szczoteczk\u0105","Ograniczenie p\u0142yn\u00f3w"],a:1},
+ {id:38,c:"Opieka w RT",t:"Na co zwr\u00f3ci\u0107 uwag\u0119 edukuj\u0105c pacjenta przed radioterapi\u0105?",o:["Tylko na dawk\u0119","Piel\u0119gnacj\u0119 sk\u00f3ry, objawy alarmowe, diet\u0119, zm\u0119czenie i zakaz palenia","Wy\u0142\u0105cznie na diet\u0119","Tylko na unikanie wysi\u0142ku"],a:1},
+ {id:39,c:"Opieka w RT",t:"Rola piel\u0119gniarki w przygotowaniu pacjenta do radioterapii?",o:["Tylko mierzy ci\u015bnienie","Edukuje, udziela wsparcia emocjonalnego, ocenia stan og\u00f3lny","Planuje dawki promieniowania","Obs\u0142uguje akcelerator liniowy"],a:1},
+ {id:40,c:"Opieka w RT",t:"Kt\u00f3re dzia\u0142anie jest NIEPRAWID\u0141OWE w piel\u0119gnacji napromieniowanej sk\u00f3ry?",o:["Mycie letni\u0105 wod\u0105 i \u0142agodnym myd\u0142em","Osuszanie przez delikatne dotykanie r\u0119cznikiem","P\u0142ukanie jamy ustnej spirytusem przy dolegliwo\u015bciach po RT","Stosowanie emoliento\u00f3w"],a:2}
+];
+
+/* ── STATE ── */
+var S={phase:"menu",qq:[],cur:0,sel:null,conf:false,ans:{},sc:0,done:0,n:20,filt:"all"};
+
+function shuf(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+function cats(){var r=[];Q.forEach(function(q){if(r.indexOf(q.c)<0)r.push(q.c);});return r;}
+function catQ(qq,cat){return qq.filter(function(q){return q.c===cat;});}
+
+/* ── ACTIONS ── */
+function goMenu(){S.phase="menu";draw();}
+function goStart(){
+  S.qq=shuf(Q).slice(0,S.n);S.cur=0;S.sel=null;S.conf=false;
+  S.ans={};S.sc=0;S.done=0;S.phase="quiz";draw();
+}
+function goPick(i){if(S.conf)return;S.sel=i;draw();}
+function goCheck(){
+  if(S.sel===null||S.conf)return;
+  var q=S.qq[S.cur];var ok=S.sel===q.a;
+  S.conf=true;S.ans[S.cur]={s:S.sel,a:q.a,ok:ok};
+  if(ok)S.sc++;S.done++;draw();
+}
+function goNext(){
+  if(S.cur+1<S.qq.length){S.cur++;S.sel=null;S.conf=false;draw();}
+  else{S.phase="result";draw();}
+}
+function goPrev(){
+  if(S.cur>0){
+    S.cur--;var a=S.ans[S.cur];
+    S.sel=a?a.s:null;S.conf=!!a;draw();
+  }
+}
+function goReview(){S.phase="review";S.filt="all";draw();}
+function setFilt(f){S.filt=f;draw();}
+function setN(n){S.n=n;draw();}
+
+/* ── DRAW ── */
+function draw(){
+  if(S.phase==="menu")dMenu();
+  else if(S.phase==="quiz")dQuiz();
+  else if(S.phase==="result")dResult();
+  else dReview();
+}
+
+function cc(cat){return CC[cat]||{bg:"#1e2b3e",co:"#94a3b8",bo:"#334155"};}
+function cl(cat){return CL[cat]||cat;}
+
+function dMenu(){
+  var pills=cats().map(function(cat){
+    var c=cc(cat);
+    return '<span class="s-pill" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+
+      catQ(Q,cat).length+' '+cl(cat)+'</span>';
+  }).join("");
+  var btns=COUNTS.map(function(n){
+    return '<button class="cnt-btn'+(S.n===n?" active":"")+'" onclick="setN('+n+')">'+n+'<small>pyta\u0144</small></button>';
+  }).join("");
+  document.getElementById("app").innerHTML=
+    '<div class="menu-card">'+
+    '<div class="menu-icon">&#128203;</div>'+
+    '<h1 class="menu-title">Zagadnienia egzaminacyjne</h1>'+
+    '<p class="menu-sub">40 pyta\u0144 &middot; 5 kategorii &middot; Radiologia Semestr letni</p>'+
+    '<div class="count-grid">'+btns+'</div>'+
+    '<button class="start-btn" onclick="goStart()">Rozpocznij test &#8594;</button>'+
+    '<div class="stats-row">'+pills+'</div>'+
+    '</div>';
+}
+
+function dQuiz(){
+  var q=S.qq[S.cur];var tot=S.qq.length;
+  var c=cc(q.c);var prog=(S.cur/tot*100).toFixed(1);
+  var opts=q.o.map(function(txt,i){
+    var cls="obtn";
+    if(S.conf){
+      if(i===q.a)cls="obtn cor";
+      else if(i===S.sel)cls="obtn wrg";
+      else cls="obtn dim";
+    }else if(S.sel===i)cls="obtn sel";
+    return '<button class="'+cls+'" onclick="goPick('+i+')">'+
+      '<span class="olbl">'+L[i]+'</span><span>'+txt+'</span></button>';
+  }).join("");
+  var fb="";
+  if(S.conf){
+    var an=S.ans[S.cur];
+    fb='<div class="fb '+(an.ok?"ok":"no")+'">'+(an.ok
+      ?"&#10003; Poprawna odpowied\u017a! "+L[q.a]+". "+q.o[q.a]
+      :"&#10007; B\u0142\u0105d. Prawid\u0142owa: "+L[q.a]+". "+q.o[q.a])+"</div>";
+  }
+  var isLast=(S.cur+1>=tot);
+  var actionBtns=S.conf
+    ?'<button class="btn bs" onclick="goNext()">'+(isLast?"Zako\u0144cz &#10003;":"Nast\u0119pne &#8594;")+'</button>'
+    :'<button class="btn bp" onclick="goCheck()" '+(S.sel===null?"disabled":"")+'>Sprawd\u017a</button>';
+  document.getElementById("app").innerHTML=
+    '<div class="qhdr">'+
+    '<button class="btn bo" style="flex:none;padding:8px 12px;font-size:.78rem" onclick="goMenu()">&#10005;</button>'+
+    '<div class="prog-w"><div class="prog-b" style="width:'+prog+'%"></div></div>'+
+    '<span class="qcnt">'+(S.cur+1)+'/'+tot+'</span>'+
+    '<span class="slive">'+S.sc+'/'+S.done+'</span>'+
+    '</div>'+
+    '<div class="qcard">'+
+    '<div class="qmeta"><span class="qnum">PYTANIE '+(S.cur+1)+'</span>'+
+    '<span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(q.c)+'</span></div>'+
+    '<p class="qtxt">'+q.t+'</p>'+
+    '</div>'+
+    '<div class="opts">'+opts+'</div>'+
+    fb+
+    '<div class="acts">'+
+    '<button class="btn bo" style="flex:none;padding:13px 17px" onclick="goPrev()" '+(S.cur===0?"disabled":"")+'>&#8592;</button>'+
+    actionBtns+
+    '</div>';
+}
+
+function dResult(){
+  var tot=S.qq.length;
+  var pct=tot?Math.round(S.sc/tot*100):0;
+  var em=pct>=80?"&#127942;":pct>=60?"&#128218;":"&#128170;";
+  var col=pct>=80?"g":pct>=60?"y":"r";
+  var msg=pct>=90?"Doskonale! Jeste\u015b gotowy/a na egzamin."
+    :pct>=75?"Bardzo dobrze! Jeszcze troch\u0119 powt\u00f3rze\u0144."
+    :pct>=60?"Niez\u0142e, ale warto przejrze\u0107 b\u0142\u0119dy."
+    :"Zalecane dodatkowe powt\u00f3rzenie.";
+  var barsHtml=cats().map(function(cat){
+    var cqs=catQ(S.qq,cat);if(!cqs.length)return"";
+    var idxs=cqs.map(function(q){return S.qq.indexOf(q);});
+    var ok=idxs.filter(function(i){return S.ans[i]&&S.ans[i].ok;}).length;
+    var p=Math.round(ok/cqs.length*100);
+    var fc=p>=80?"#4ade80":p>=60?"#facc15":"#f87171";
+    return '<div class="crow">'+
+      '<div class="crowh"><span class="cname">'+cl(cat)+'</span>'+
+      '<span style="font-weight:700;color:'+fc+'">'+ok+'/'+cqs.length+' ('+p+'%)</span></div>'+
+      '<div class="cbarw"><div class="cbarf" style="width:'+p+'%;background:'+fc+'"></div></div>'+
+      '</div>';
+  }).join("");
+  document.getElementById("app").innerHTML=
+    '<div class="rcard">'+
+    '<div class="remo">'+em+'</div>'+
+    '<div class="rpct '+col+'">'+pct+'%</div>'+
+    '<p class="rmsg">'+msg+'</p>'+
+    '<div class="rgrid">'+
+    '<div class="rstat"><div class="v" style="color:#4ade80">'+S.sc+'</div><div class="l">Poprawnych</div></div>'+
+    '<div class="rstat"><div class="v" style="color:#f87171">'+(tot-S.sc)+'</div><div class="l">B\u0142\u0119dnych</div></div>'+
+    '<div class="rstat"><div class="v" style="color:#60a5fa">'+tot+'</div><div class="l">\u0141\u0105cznie</div></div>'+
+    '</div>'+
+    '<div class="cbar"><div class="cbartit">Wyniki wg kategorii</div>'+barsHtml+'</div>'+
+    '<div class="rbtns">'+
+    '<button class="btn bp" onclick="goReview()">&#128203; Przejrzyj odpowiedzi</button>'+
+    '<button class="btn bs" onclick="goStart()">&#128260; Nowy test ('+S.n+' pyta\u0144)</button>'+
+    '<button class="btn bo" onclick="goMenu()">\u2190 Menu</button>'+
+    '</div></div>';
+}
+
+function dReview(){
+  var filtered=S.qq.filter(function(_,i){
+    if(S.filt==="wrong")return S.ans[i]&&!S.ans[i].ok;
+    if(S.filt==="right")return S.ans[i]&&S.ans[i].ok;
+    return true;
+  });
+  var pls=["all","wrong","right"].map(function(f){
+    var lbl=f==="all"?"Wszystkie":f==="wrong"?"B\u0142\u0119dne":"Poprawne";
+    return '<button class="fpill'+(S.filt===f?" act":"")+'" onclick="setFilt(\''+f+'\')">'+lbl+'</button>';
+  }).join("");
+  var items=filtered.map(function(rq){
+    var oi=S.qq.indexOf(rq);var an=S.ans[oi];var ok=an&&an.ok;
+    var c=cc(rq.c);
+    return '<div class="ritem '+(ok?"ok":"er")+'">'+
+      '<div class="rmeta"><span class="rnum">PYT. '+rq.id+'</span>'+
+      '<span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(rq.c)+'</span></div>'+
+      '<p class="rq">'+rq.t+'</p>'+
+      (!ok&&an?'<p class="ra w">&#10007; Twoja: '+L[an.s]+'. '+rq.o[an.s]+'</p>':"")+
+      '<p class="ra c">&#10003; Prawid\u0142owa: '+L[rq.a]+'. '+rq.o[rq.a]+'</p>'+
+      '</div>';
+  }).join("");
+  document.getElementById("app").innerHTML=
+    '<button class="bbk" onclick="S.phase=\'result\';draw()">\u2190 Powr\u00f3t do wynik\u00f3w</button>'+
+    '<div class="rvhdr"><span class="rvtit">Przegl\u0105d odpowiedzi</span>'+
+    '<div class="fpills">'+pls+'</div></div>'+
+    items;
+}
+
+draw();
+</script>
+</body>
+</html>
