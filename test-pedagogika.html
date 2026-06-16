@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test z Pedagogiki &ndash; Piel&#281;gniarstwo</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{min-height:100vh;background:#0d1117;font-family:'DM Sans',sans-serif;color:#e2e8f0;display:flex;justify-content:center;padding:24px 16px 60px;}
+#app{width:100%;max-width:760px;}
+.menu-card{background:linear-gradient(135deg,#161d2a,#1a2235);border:1px solid #2a3547;border-radius:20px;padding:44px 28px;text-align:center;margin-top:32px;}
+.menu-icon{font-size:48px;margin-bottom:14px;}
+.menu-title{font-family:'DM Serif Display',serif;font-size:1.9rem;color:#f0f4ff;margin-bottom:8px;line-height:1.2;}
+.menu-sub{color:#7a8fa6;font-size:.9rem;margin-bottom:32px;}
+.count-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px;}
+@media(max-width:480px){.count-grid{grid-template-columns:repeat(3,1fr);}}
+.cnt-btn{background:#1e2b3e;border:1px solid #2e3f56;border-radius:12px;color:#a8c0d8;padding:14px 6px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.cnt-btn small{display:block;font-size:.65rem;color:#5a7a96;margin-top:2px;font-weight:400;}
+.cnt-btn.active{background:#1e4080;border-color:#3b82f6;color:#93c5fd;}
+.start-btn{width:100%;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:14px;color:#fff;font-size:1rem;font-weight:600;padding:15px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.stats-row{display:flex;gap:7px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+.s-pill{border-radius:20px;padding:4px 11px;font-size:.72rem;font-weight:600;border:1px solid;}
+.qhdr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.prog-w{flex:1;background:#1e2b3e;border-radius:8px;height:6px;overflow:hidden;}
+.prog-b{height:100%;background:linear-gradient(90deg,#2563eb,#38bdf8);border-radius:8px;}
+.qcnt{font-size:.82rem;color:#7a8fa6;white-space:nowrap;}
+.slive{color:#facc15;font-size:.82rem;font-weight:600;white-space:nowrap;}
+.qcard{background:#161d2a;border:1px solid #2a3547;border-radius:18px;padding:24px 22px 20px;margin-bottom:14px;}
+.qmeta{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.qnum{font-size:.7rem;color:#3b82f6;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.cbadge{font-size:.68rem;padding:3px 10px;border-radius:20px;font-weight:600;border:1px solid;}
+.qtxt{font-size:1rem;color:#dde8f5;line-height:1.65;}
+.opts{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
+.obtn{display:flex;align-items:flex-start;gap:12px;border:1.5px solid #2a3547;border-radius:13px;padding:13px 15px;cursor:pointer;text-align:left;color:#c8d8e8;font-size:.92rem;line-height:1.5;font-family:'DM Sans',sans-serif;width:100%;transition:border-color .15s,background .15s;background:#161d2a;}
+.obtn.sel{border-color:#3b82f6;background:#1a2d4e;}
+.obtn.cor{border-color:#22c55e;background:#0f2d1a;color:#86efac;cursor:default;}
+.obtn.wrg{border-color:#ef4444;background:#2d0f0f;color:#fca5a5;cursor:default;}
+.obtn.dim{opacity:.4;cursor:default;}
+.olbl{min-width:26px;height:26px;border-radius:8px;background:#1e2b3e;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:#7a8fa6;flex-shrink:0;margin-top:1px;}
+.obtn.sel .olbl{background:#2563eb;color:#fff;}
+.obtn.cor .olbl{background:#16a34a;color:#fff;}
+.obtn.wrg .olbl{background:#dc2626;color:#fff;}
+.fb{border-radius:10px;padding:12px 15px;font-size:.86rem;margin-bottom:14px;border-left:3px solid;line-height:1.55;}
+.fb.ok{border-left-color:#22c55e;background:#0d1f12;color:#86efac;}
+.fb.no{border-left-color:#ef4444;background:#1f0d0d;color:#fca5a5;}
+.acts{display:flex;gap:9px;}
+.btn{flex:1;padding:13px;border-radius:12px;border:none;font-size:.92rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.bo{background:transparent;border:1.5px solid #2a3547;color:#7a8fa6;}
+.bp{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;}
+.bs{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;}
+.rcard{background:#161d2a;border:1px solid #2a3547;border-radius:20px;padding:36px 22px;text-align:center;margin-top:12px;}
+.remo{font-size:46px;margin-bottom:12px;}
+.rpct{font-family:'DM Serif Display',serif;font-size:4rem;font-weight:400;line-height:1;margin-bottom:6px;}
+.g{color:#4ade80;}.y{color:#facc15;}.r{color:#f87171;}
+.rmsg{color:#7a8fa6;font-size:.88rem;margin-bottom:20px;}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.rstat{background:#1e2b3e;border-radius:12px;padding:14px 8px;}
+.rstat .v{font-size:1.5rem;font-weight:700;margin-bottom:3px;}
+.rstat .l{font-size:.7rem;color:#6b8299;}
+.cbar{background:#111827;border-radius:12px;padding:14px 16px;margin-bottom:16px;text-align:left;}
+.cbartit{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#475569;margin-bottom:11px;}
+.crow{margin-bottom:9px;}
+.crowh{display:flex;justify-content:space-between;font-size:.77rem;margin-bottom:4px;}
+.cname{color:#94a3b8;}
+.cbarw{height:5px;background:#1e2b3e;border-radius:999px;overflow:hidden;}
+.cbarf{height:100%;border-radius:999px;}
+.rbtns{display:flex;flex-direction:column;gap:9px;}
+.bbk{display:flex;align-items:center;gap:6px;background:transparent;border:1.5px solid #2a3547;border-radius:10px;color:#7a8fa6;padding:8px 13px;font-size:.82rem;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:16px;}
+.rvhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;gap:8px;flex-wrap:wrap;}
+.rvtit{font-family:'DM Serif Display',serif;font-size:1.3rem;color:#f0f4ff;}
+.fpills{display:flex;gap:6px;flex-wrap:wrap;}
+.fpill{padding:4px 11px;border-radius:20px;border:1px solid #2a3547;background:transparent;color:#7a8fa6;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.fpill.act{background:#1e2b3e;border-color:#3b82f6;color:#60a5fa;}
+.ritem{background:#161d2a;border:1px solid #2a3547;border-radius:13px;padding:14px 16px;margin-bottom:9px;}
+.ritem.ok{border-left:3px solid #22c55e;}
+.ritem.er{border-left:3px solid #ef4444;}
+.rq{font-size:.87rem;color:#c8d8e8;margin-bottom:7px;line-height:1.5;}
+.ra{font-size:.81rem;margin-bottom:3px;}
+.ra.c{color:#4ade80;}.ra.w{color:#f87171;}
+.rmeta{display:flex;gap:7px;align-items:center;margin-bottom:7px;flex-wrap:wrap;}
+.rnum{font-size:.68rem;color:#5a7a96;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var L=["A","B","C","D"];
+var CC={
+  "Pedagogika ogolna": {bg:"#1e3a5f",co:"#60a5fa",bo:"#2563eb"},
+  "Metody nauczania":  {bg:"#2d1e3d",co:"#c084fc",bo:"#9333ea"},
+  "Edukacja pacjenta": {bg:"#1e3d2f",co:"#4ade80",bo:"#16a34a"},
+  "Funkcje piel.":     {bg:"#3d1e2f",co:"#f472b6",bo:"#db2777"},
+  "Pielegnowanie":     {bg:"#2d2a1e",co:"#facc15",bo:"#ca8a04"}
+};
+var CL={
+  "Pedagogika ogolna":"Pedagogika og\u00f3lna",
+  "Metody nauczania":"Metody nauczania",
+  "Edukacja pacjenta":"Edukacja pacjenta",
+  "Funkcje piel.":"Funkcje piel\u0119gniarki",
+  "Pielegnowanie":"Piel\u0119gnowanie"
+};
+var COUNTS=[10,20,30,40];
+
+var Q=[
+ {id:1,c:"Metody nauczania",
+  t:"Nadzoruj\u0105c pr\u00f3by wykonywania zadania przez pacjenta, metodami o najwy\u017cszej skuteczno\u015bci b\u0119d\u0105:",
+  o:["Rozmowa, pokaz z wyja\u015bnianiem, opis i \u0107wiczenia w warunkach symulowanych",
+     "Dyskusja, dialog, pokaz z instrukta\u017cem i \u0107wiczenia w warunkach symulowanych",
+     "Pokaz z instrukta\u017cem, \u0107wiczenia w warunkach symulowanych i \u0107wiczenia praktyczne",
+     "Wyk\u0142ad informacyjny, pogadanka, pokaz z wyja\u015bnianiem i \u0107wiczenia praktyczne"],a:2},
+ {id:2,c:"Pedagogika ogolna",
+  t:"Intencjonalno\u015b\u0107 jako jedna z cech wychowania dotyczy:",
+  o:["wiadomo\u015bci stosowanych metod wychowania w praktyce pedagogicznej",
+     "\u015awiadomo\u015bci metod i \u015brodk\u00f3w wychowania stosowanych przez wychowawc\u0119",
+     "\u015awiadomo\u015bci cel\u00f3w wychowania jako punkt wyj\u015bcia dzia\u0142a\u0144",
+     "\u015awiadomo\u015bci warunk\u00f3w \u015brodowiskowych procesu wychowania"],a:2},
+ {id:3,c:"Metody nauczania",
+  t:"Pierwszym etapem zaj\u0119\u0107 dydaktycznych prowadzonych metod\u0105 przypadk\u00f3w jest:",
+  o:["Analiza opisu zdarzenia przez uczestnik\u00f3w zaj\u0119\u0107 dydaktycznych",
+     "Przygotowanie i prezentacja przypadk\u00f3w przez prowadz\u0105cego",
+     "Ocena trafno\u015bci pyta\u0144 i prawid\u0142owo\u015bci wnioskowania uczestnik\u00f3w",
+     "Dyskusja nad wnioskami i podsumowanie zaj\u0119\u0107 przez nauczyciela"],a:1},
+ {id:4,c:"Edukacja pacjenta",
+  t:"Podmiotem edukacji pacjenta zawsze jest pacjent:",
+  o:["Prawda \u2013 pacjent jest zawsze podmiotem w procesie edukacji",
+     "Fa\u0142sz \u2013 podmiotem mo\u017ce by\u0107 r\u00f3wnie\u017c rodzina pacjenta",
+     "Fa\u0142sz \u2013 zale\u017cy od stanu zdrowia i mo\u017cliwo\u015bci pacjenta",
+     "Fa\u0142sz \u2013 podmiotem jest piel\u0119gniarka prowadz\u0105ca edukacj\u0119"],a:0},
+ {id:5,c:"Edukacja pacjenta",
+  t:"Podmiotem w edukacji zdrowotnej zawsze jest pacjent (osoba chora):",
+  o:["Prawda \u2013 edukacja zdrowotna skierowana jest do os\u00f3b chorych",
+     "Fa\u0142sz \u2013 podmiotem edukacji zdrowotnej mo\u017ce by\u0107 ka\u017cdy cz\u0142owiek",
+     "Prawda \u2013 edukacja zdrowotna dotyczy wy\u0142\u0105cznie os\u00f3b chorych",
+     "Fa\u0142sz \u2013 podmiotem jest wy\u0142\u0105cznie zdrowy doros\u0142y cz\u0142owiek"],a:1},
+ {id:6,c:"Pielegnowanie",
+  t:"Piel\u0119gnowanie to pomaganie i towarzyszenie cz\u0142owiekowi:",
+  o:["Wy\u0142\u0105cznie w zdrowiu i profilaktyce chor\u00f3b przewlek\u0142ych",
+     "W chorobie i niecpe\u0142nej sprawno\u015bci fizycznej lub psychicznej",
+     "W zdrowiu, chorobie i niepe\u0142nej sprawno\u015bci jednocze\u015bnie",
+     "Wy\u0142\u0105cznie w chorobie i procesie rehabilitacji poszpitalnej"],a:2},
+ {id:7,c:"Pedagogika ogolna",
+  t:"Poj\u0119cie s\u0142u\u017cby spo\u0142ecznej, kt\u00f3rej istot\u0105 jest przeplatanie dzia\u0142a\u0144 opieku\u0144czych i wychowawczych, do pedagogiki wprowadzi\u0142a:",
+  o:["Helena Radli\u0144ska \u2013 tw\u00f3rczyni polskiej pedagogiki spo\u0142ecznej",
+     "Maria Grzegorzewska \u2013 tw\u00f3rczyni pedagogiki specjalnej w Polsce",
+     "Maria Montessori \u2013 tw\u00f3rczyni w\u0142oskiej metody dla dzieci",
+     "Helen Key \u2013 rzeczniczka praw dziecka prze\u0142omu XIX/XX w."],a:0},
+ {id:8,c:"Metody nauczania",
+  t:"Dob\u00f3r materia\u0142u kszta\u0142cenia powinien by\u0107 poprzedzony g\u0142\u00f3wnie:",
+  o:["Znajomo\u015bci\u0105 program\u00f3w nauczania i wytycznych ministerialnych",
+     "Wiedz\u0105 o mo\u017cliwo\u015bciach intelektualnych i znajomo\u015bci\u0105 wiedzy ucz\u0105cych si\u0119",
+     "Znajomo\u015bci\u0105 przepis\u00f3w, wytycznych i standard\u00f3w kszta\u0142cenia",
+     "Analiz\u0105 dost\u0119pnych podr\u0119cznik\u00f3w i literatury przedmiotu"],a:1},
+ {id:9,c:"Metody nauczania",
+  t:"Chc\u0105c rozpozna\u0107 opinie i pogl\u0105dy na temat wypalenia si\u0142 piel\u0119gniarek nale\u017cy zastosowa\u0107 metod\u0119:",
+  o:["Sonda\u017cu diagnostycznego opartego na ankiecie lub wywiadzie",
+     "Eksperymentu pedagogicznego z grup\u0105 kontroln\u0105 i badawcz\u0105",
+     "Studium indywidualnego przypadku konkretnej piel\u0119gniarki",
+     "Obserwacji uczestnicz\u0105cej w naturalnym \u015brodowisku pracy"],a:0},
+ {id:10,c:"Pielegnowanie",
+  t:"W piel\u0119gnowaniu dzia\u0142aniom edukacyjnym piel\u0119gniarki przypisuje si\u0119 du\u017ce znaczenie w odniesieniu do:",
+  o:["Wy\u0142\u0105cznie podopiecznego jako bezpo\u015bredniego odbiorcy opieki",
+     "Wy\u0142\u0105cznie rodziny jako wsparcia w procesie zdrowienia",
+     "Wy\u0142\u0105cznie najbli\u017cszego otoczenia spo\u0142ecznego podopiecznego",
+     "Podopiecznego, rodziny i ca\u0142ego otoczenia spo\u0142ecznego \u0142\u0105cznie"],a:3},
+ {id:11,c:"Funkcje piel.",
+  t:"Obszar zada\u0144 funkcji wychowawczej piel\u0119gniarki cechuje si\u0119 wysokim stopniem:",
+  o:["Samodzielno\u015bci i niezale\u017cno\u015bci piel\u0119gniarki w dzia\u0142aniu",
+     "Zale\u017cno\u015bci od wytycznych i przepis\u00f3w instytucjonalnych",
+     "Zale\u017cno\u015bci od zmieniaj\u0105cych si\u0119 warunk\u00f3w spo\u0142eczno-politycznych",
+     "Zale\u017cno\u015bci od decyzji lekarza prowadz\u0105cego leczenie"],a:0},
+ {id:12,c:"Pedagogika ogolna",
+  t:"Podmiotem zainteresowa\u0144 pedagogiki jako nauki s\u0105:",
+  o:["Wy\u0142\u0105cznie dzieci i m\u0142odzie\u017c w wieku szkolnym i przedszkolnym",
+     "Edukacja i praktyka edukacji we wszystkich kontekstach",
+     "Dzieci, m\u0142odzie\u017c i osoby doros\u0142e jako uczestnicy edukacji",
+     "Wy\u0142\u0105cznie wychowanie dzieci w rodzinie i szkole podstawowej"],a:2},
+ {id:13,c:"Metody nauczania",
+  t:"Do problemowych metod nauczania NIE nale\u017cy:",
+  o:["Wyk\u0142ad problemowy stawiaj\u0105cy pytania do samodzielnego rozwi\u0105zania",
+     "Wyk\u0142ad informacyjny przekazuj\u0105cy gotow\u0105 wiedz\u0119 s\u0142uchaczom",
+     "Wyk\u0142ad konwersatoryjny oparty na dialogu z uczestnikami",
+     "Metoda przypadk\u00f3w oparta na analizie sytuacji problemowych"],a:1},
+ {id:14,c:"Pielegnowanie",
+  t:"Pomaganie w piel\u0119gnowaniu najpre\u0142niej wyra\u017ca si\u0119 w:",
+  o:["Dzia\u0142aniu na rzecz cz\u0142owieka przez tworzenie warunk\u00f3w sprzyjaj\u0105cych zdrowiu",
+     "Tworzeniu warunk\u00f3w sprzyjaj\u0105cych braniu odpowiedzialno\u015bci za w\u0142asne zdrowie",
+     "Tworzeniu warunk\u00f3w do odpowiedzialno\u015bci za zdrowie i kszta\u0142towaniu umiej\u0119tno\u015bci samoopieki",
+     "Wykonywaniu za pacjenta czynno\u015bci kt\u00f3rych nie jest on w stanie wykona\u0107"],a:2},
+ {id:15,c:"Pedagogika ogolna",
+  t:"Warto\u015bciami preferowanymi w wychowaniu, kt\u00f3re nadaj\u0105 \u017cyciu g\u0142\u0119boki sens, s\u0105:",
+  o:["Warto\u015bci ekonomiczne kszta\u0142tuj\u0105ce zaradnos\u0107 i niezale\u017cno\u015b\u0107",
+     "Warto\u015bci moralne i etyczne jako fundament postawy cz\u0142owieka",
+     "Warto\u015bci zachowawcze chroni\u0105ce tradycj\u0119 i dziedzictwo kulturowe",
+     "Warto\u015bci estetyczne rozwijaj\u0105ce wra\u017cliwo\u015b\u0107 na pi\u0119kno"],a:1},
+ {id:16,c:"Funkcje piel.",
+  t:"Organizacja procesu kszta\u0142cenia umo\u017cliwiaj\u0105ca zastosowanie wiedzy w praktyce odnosi si\u0119 do zasady:",
+  o:["Systemowo\u015bci \u2013 uk\u0142adania wiedzy w sp\u00f3jny i logiczny system",
+     "\u0141\u0105czenia teorii z praktyk\u0105 jako fundament kszta\u0142cenia zawodowego",
+     "Stopniowania trudno\u015bci w doborze zada\u0144 dydaktycznych",
+     "Pogl\u0105dowo\u015bci \u2013 uczenia przez bezpo\u015bredni\u0105 obserwacj\u0119"],a:1},
+ {id:17,c:"Edukacja pacjenta",
+  t:"Okre\u015blenie cel\u00f3w, dob\u00f3r tre\u015bci, metod i form organizacyjnych edukacji pacjenta nale\u017cy do etapu:",
+  o:["Diagnozowania \u2013 oceny stanu wyj\u015bciowego wiedzy pacjenta",
+     "Rozpoznania \u2013 identyfikacji potrzeb edukacyjnych pacjenta",
+     "Planowania \u2013 przygotowania programu edukacji pacjenta",
+     "Realizacji \u2013 prowadzenia zaj\u0119\u0107 edukacyjnych z pacjentem"],a:2},
+ {id:18,c:"Edukacja pacjenta",
+  t:"Cel i zakres procesu edukacji pacjenta uwarunkowany jest przede wszystkim:",
+  o:["Wy\u0142\u0105cznie aktualnym stanem zdrowia i mo\u017cliwo\u015bciami pacjenta",
+     "Wy\u0142\u0105cznie celami terapeutycznymi i planem opieki piel\u0119gniarskiej",
+     "Wy\u0142\u0105cznie miejscem i warunkami sprawowania opieki zdrowotnej",
+     "Stanem zdrowia, celami opieki i miejscem jej sprawowania \u0142\u0105cznie"],a:3},
+ {id:19,c:"Pielegnowanie",
+  t:"Podmiotem i biorc\u0105 opieki piel\u0119gniarskiej mo\u017ce by\u0107:",
+  o:["Wy\u0142\u0105cznie osoba chora, nieporadna i niesamodzielna",
+     "Wy\u0142\u0105cznie rodzina chorego wymagaj\u0105cego sta\u0142ej opieki",
+     "Wy\u0142\u0105cznie osoby w podesz\u0142ym wieku lub niepe\u0142nosprawne",
+     "Ka\u017cdy: osoby niesamodzielne, opiekunowie i ca\u0142e spo\u0142eczno\u015bci"],a:3},
+ {id:20,c:"Metody nauczania",
+  t:"Metoda indywidualnych przypadk\u00f3w jako metoda pracy wywodzi si\u0119 z:",
+  o:["Pedagogiki og\u00f3lnej i teorii kszta\u0142cenia doros\u0142ych (andragogiki)",
+     "Pedagogiki spo\u0142ecznej i pracy socjalnej",
+     "Psychologii klinicznej i medycyny opartej na dowodach",
+     "Socjologii wychowania i teorii system\u00f3w spo\u0142ecznych"],a:1},
+ {id:21,c:"Funkcje piel.",
+  t:"Zesp\u00f3\u0142 zada\u0144 i czynno\u015bci podejmowanych przez piel\u0119gniark\u0119 na rzecz grupy zawodowej to:",
+  o:["Funkcja opieku\u0144cza realizowana wobec podopiecznych",
+     "Funkcja kszta\u0142cenia obejmuj\u0105ca dzia\u0142ania na rzecz zawodu",
+     "Funkcja rehabilitacyjna przywracaj\u0105ca sprawno\u015b\u0107 pacjentom",
+     "Funkcja profilaktyczna zapobiegaj\u0105ca chorobom w populacji"],a:1},
+ {id:22,c:"Pedagogika ogolna",
+  t:"Pedagogika jest nauk\u0105:",
+  o:["Wy\u0142\u0105cznie teoretyczn\u0105 opisuj\u0105c\u0105 zjawiska wychowawcze",
+     "Wy\u0142\u0105cznie praktyczn\u0105 nastawion\u0105 na dzia\u0142anie edukacyjne",
+     "Teoretyczn\u0105 i praktyczn\u0105 jednocze\u015bnie",
+     "Empiryczn\u0105 opart\u0105 wy\u0142\u0105cznie na badaniach ilo\u015bciowych"],a:2},
+ {id:23,c:"Metody nauczania",
+  t:"Obserwowanie \u015brodowiska pracy i stopniowe w\u0142\u0105czanie w dzia\u0142ania to realizacja zasady:",
+  o:["Przyst\u0119pno\u015bci \u2013 dostosowania do mo\u017cliwo\u015bci ucz\u0105cego si\u0119",
+     "Systemowo\u015bci \u2013 uk\u0142adania wiedzy w logiczny system",
+     "Pogl\u0105dowo\u015bci \u2013 poznawania przez bezpo\u015bredni\u0105 obserwacj\u0119",
+     "Stopniowania trudno\u015bci \u2013 przechodzenia od prostego do z\u0142o\u017conego"],a:2},
+ {id:24,c:"Edukacja pacjenta",
+  t:"Formami edukacji pacjenta s\u0105:",
+  o:["Wyja\u015bnienie, poradnictwo i doradzanie pacjentowi",
+     "T\u0142umaczenie, wyja\u015bnianie i doradzanie w procesie leczenia",
+     "Wyja\u015bnianie, konsultacje lekarskie i instruowanie pacjenta",
+     "Informowanie, szkolenie grupowe i terapia zaj\u0119ciowa"],a:0},
+ {id:25,c:"Pielegnowanie",
+  t:"Piel\u0119gnowanie mo\u017ce by\u0107 realizowane w r\u00f3\u017cnych miejscach i \u015brodowiskach:",
+  o:["Prawda \u2013 piel\u0119gnowanie nie jest ograniczone do szpitala",
+     "Fa\u0142sz \u2013 piel\u0119gnowanie realizowane jest wy\u0142\u0105cznie w szpitalu",
+     "Fa\u0142sz \u2013 piel\u0119gnowanie odbywa si\u0119 tylko w plac\u00f3wkach ochrony zdrowia",
+     "Prawda \u2013 ale wy\u0142\u0105cznie w \u015brodowisku domowym pacjenta"],a:0},
+ {id:26,c:"Pedagogika ogolna",
+  t:"Pedagogika jako nauka ma za zadanie:",
+  o:["Wy\u0142\u0105cznie opisywa\u0107 r\u00f3\u017cnorodne formy praktyki edukacyjnej",
+     "Wy\u0142\u0105cznie wyja\u015bnia\u0107 mechanizmy i prawid\u0142owo\u015bci edukacji",
+     "Opisywa\u0107, wyja\u015bnia\u0107 i rozumie\u0107 formy praktyki edukacyjnej",
+     "Ocenia\u0107 i normalizowa\u0107 praktyk\u0119 edukacyjn\u0105 w szko\u0142ach"],a:2},
+ {id:27,c:"Metody nauczania",
+  t:"Metody nauczania oparte na aktywno\u015bci poznawczej o charakterze odtw\u00f3rczym to:",
+  o:["Metody podaj\u0105ce \u2013 wymagaj\u0105ce my\u015blenia i koncentracji uwagi",
+     "Metody problemowe \u2013 aktywizuj\u0105ce do samodzielnego rozwi\u0105zywania",
+     "Metody eksponuj\u0105ce \u2013 oparte na prze\u017cyciu i warto\u015bciowaniu",
+     "Metody praktyczne \u2013 kszta\u0142tuj\u0105ce umiej\u0119tno\u015bci przez dzia\u0142anie"],a:0},
+ {id:28,c:"Funkcje piel.",
+  t:"Celem zada\u0144 sk\u0142adaj\u0105cych si\u0119 na funkcj\u0119 wychowawcz\u0105 piel\u0119gniarki jest:",
+  o:["Wy\u0142\u0105cznie wp\u0142yw na postawy i przekonania prozdrowotne pacjenta",
+     "Wy\u0142\u0105cznie przekazywanie wiedzy i kszta\u0142towanie umiej\u0119tno\u015bci zdrowotnych",
+     "Wy\u0142\u0105cznie wp\u0142yw na motywacj\u0119 i system warto\u015bci podopiecznego",
+     "Kompleksowy wp\u0142yw na postawy, wiedz\u0119, umiej\u0119tno\u015bci i warto\u015bci"],a:3},
+ {id:29,c:"Edukacja pacjenta",
+  t:"Edukacja w piel\u0119gnowaniu polega na:",
+  o:["Wy\u0142\u0105cznie przekazywaniu wiedzy medycznej podopiecznemu",
+     "Przekazywaniu wiedzy i jednoczesnym kszta\u0142ceniu umiej\u0119tno\u015bci",
+     "Podejmowaniu dzia\u0142a\u0144 u\u0142atwiaj\u0105cych opanowanie wiedzy i umiej\u0119tno\u015bci do samoopieki",
+     "Organizowaniu wyk\u0142ad\u00f3w i szkole\u0144 dla pacjent\u00f3w i ich rodzin"],a:2},
+ {id:30,c:"Edukacja pacjenta",
+  t:"Role nauczycieli w procesie edukacji pacjenta powinni pe\u0142ni\u0107:",
+  o:["Profesjonali\u015bci wykonuj\u0105cy zawody medyczne",
+     "Profesjonali\u015bci wykonuj\u0105cy zaw\u00f3d pedagoga szkolnego",
+     "Osoby z najbli\u017cszego otoczenia i rodziny pacjenta",
+     "Wolontariusze przeszkoleni przez dzia\u0142 edukacji szpitala"],a:0},
+ {id:31,c:"Edukacja pacjenta",
+  t:"Edukacja zdrowotna polega na \u015bwiadomym komunikowaniu si\u0119 z pacjentem:",
+  o:["Prawda \u2013 \u015bwiadome komunikowanie jest podstaw\u0105 edukacji zdrowotnej",
+     "Fa\u0142sz \u2013 edukacja zdrowotna nie wymaga komunikacji z pacjentem",
+     "Fa\u0142sz \u2013 edukacja zdrowotna opiera si\u0119 na materia\u0142ach pisemnych",
+     "Prawda \u2013 ale tylko w przypadku pacjent\u00f3w wsp\u00f3\u0142pracuj\u0105cych"],a:0},
+ {id:32,c:"Pedagogika ogolna",
+  t:"Proces wychowania odnosi si\u0119 do zmian spo\u0142ecznie akceptowanych i postulowanych:",
+  o:["Prawda \u2013 wychowanie d\u0105\u017cy do zmian spo\u0142ecznie po\u017c\u0105danych",
+     "Fa\u0142sz \u2013 wychowanie mo\u017ce d\u0105\u017cy\u0107 do zmian niezgodnych ze spo\u0142ecze\u0144stwem",
+     "Fa\u0142sz \u2013 wychowanie dotyczy wy\u0142\u0105cznie zmian indywidualnych",
+     "Prawda \u2013 ale tylko w odniesieniu do wychowania instytucjonalnego"],a:0},
+ {id:33,c:"Edukacja pacjenta",
+  t:"Proces nabywania wiedzy i umiej\u0119tno\u015bci niezb\u0119dnych do prze\u017cycia i poprawy jako\u015bci \u017cycia to:",
+  o:["Edukacja pacjenta ukierunkowana na konkretn\u0105 chorob\u0119",
+     "Edukacja zdrowotna jako szeroki proces uczenia si\u0119 przez ca\u0142e \u017cycie",
+     "Budowanie samoswiadomo\u015bci i refleksji nad w\u0142asnym zachowaniem",
+     "Profilaktyka zdrowotna ukierunkowana na zapobieganie chorobom"],a:1},
+ {id:34,c:"Funkcje piel.",
+  t:"Funkcja wychowawcza obejmuje zadania, kt\u00f3rych celem jest zamierzony wp\u0142yw wychowawczy na:",
+  o:["Wy\u0142\u0105cznie ludzi, kt\u00f3rych piel\u0119gniarka bezpo\u015brednio piel\u0119gnuje",
+     "Wy\u0142\u0105cznie wsp\u00f3\u0142pracownik\u00f3w i personel w miejscu pracy",
+     "Ludzi, kt\u00f3rych piel\u0119gniarka piel\u0119gnuje i z kt\u00f3rymi pracuje",
+     "Wy\u0142\u0105cznie rodziny pacjent\u00f3w wymagaj\u0105cych opieki domowej"],a:2},
+ {id:35,c:"Edukacja pacjenta",
+  t:"Kolejne etapy procesu edukacji pacjenta to:",
+  o:["Diagnoza, rozpoznanie, realizacja, ocena i ewaluacja",
+     "Rozpoznanie, planowanie, realizacja i ocena efekt\u00f3w",
+     "Rozpoznanie, realizacja, planowanie i ocena ko\u0144cowa",
+     "Planowanie, realizacja, ocena i dokumentowanie wynik\u00f3w"],a:1},
+ {id:36,c:"Edukacja pacjenta",
+  t:"Praca r\u00f3\u017cnych os\u00f3b zaanga\u017cowanych w edukacj\u0119 pacjenta powinna by\u0107 zaplanowana i skoordynowana:",
+  o:["Prawda \u2013 koordynacja dzia\u0142a\u0144 edukacyjnych jest niezb\u0119dna",
+     "Fa\u0142sz \u2013 ka\u017cdy specjalista edukuje pacjenta samodzielnie",
+     "Fa\u0142sz \u2013 koordynacja dotyczy wy\u0142\u0105cznie lekarza i piel\u0119gniarki",
+     "Prawda \u2013 ale tylko w edukacji pacjent\u00f3w przewlekle chorych"],a:0},
+ {id:37,c:"Funkcje piel.",
+  t:"Funkcje zawodowe piel\u0119gniarki podejmowane na rzecz w\u0142asnego zawodu to:",
+  o:["Funkcje: opieku\u0144cza, terapeutyczna i profilaktyczna",
+     "Funkcje: kszta\u0142cenia, zarz\u0105dzania i naukowo-badawcza",
+     "Funkcje: profilaktyczna, wychowawcza i opieku\u0144cza",
+     "Funkcje: rehabilitacyjna, diagnostyczna i edukacyjna"],a:1},
+ {id:38,c:"Metody nauczania",
+  t:"Obserwacja w pracy piel\u0119gniarki jest:",
+  o:["Metod\u0105 poznania i metod\u0105 badania jednocze\u015bnie",
+     "Wy\u0142\u0105cznie metod\u0105 poznania i oceny stanu pacjenta",
+     "Wy\u0142\u0105cznie metod\u0105 badania naukowego w praktyce",
+     "Metod\u0105 diagnostyczn\u0105 stosowan\u0105 tylko przez lekarza"],a:0},
+ {id:39,c:"Funkcje piel.",
+  t:"Piel\u0119gniarka mo\u017ce kierowa\u0107 dzia\u0142ania wychowawcze:",
+  o:["Na pacjenta i osoby przygotowywane do opieki nieprofesjonalnej",
+     "Wy\u0142\u0105cznie na pacjenta jako bezpo\u015bredniego odbiorc\u0119 opieki",
+     "Wy\u0142\u0105cznie na osoby przygotowywane do \u015bwiadczenia opieki",
+     "Wy\u0142\u0105cznie na personel medyczny w procesie kszta\u0142cenia"],a:0},
+ {id:40,c:"Metody nauczania",
+  t:"Kszta\u0142towanie umiej\u0119tno\u015bci rozwi\u0105zywania problem\u00f3w osi\u0105gniemy najpre\u0142niej stosuj\u0105c:",
+  o:["Wyja\u015bnianie, opis, wyk\u0142ad informacyjny i pokaz z instrukta\u017cem",
+     "Pokaz z instrukta\u017cem, \u0107wiczenia symulowane i \u0107wiczenia praktyczne",
+     "Dyskusja, pogadanka, opis i dialog jako metody aktywizuj\u0105ce",
+     "Wyk\u0142ad problemowy, konwersatoryjny i prezentacja multimedialna"],a:1}
+];
+
+var S={phase:"menu",qq:[],cur:0,sel:null,conf:false,ans:{},sc:0,done:0,n:20,filt:"all"};
+function shuf(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function cats(){var r=[];Q.forEach(function(q){if(r.indexOf(q.c)<0)r.push(q.c);});return r;}
+function catQ(qq,cat){return qq.filter(function(q){return q.c===cat;});}
+function goMenu(){S.phase="menu";draw();}
+function goStart(){S.qq=shuf(Q).slice(0,S.n);S.cur=0;S.sel=null;S.conf=false;S.ans={};S.sc=0;S.done=0;S.phase="quiz";draw();}
+function goPick(i){if(S.conf)return;S.sel=i;draw();}
+function goCheck(){if(S.sel===null||S.conf)return;var q=S.qq[S.cur];var ok=S.sel===q.a;S.conf=true;S.ans[S.cur]={s:S.sel,a:q.a,ok:ok};if(ok)S.sc++;S.done++;draw();}
+function goNext(){if(S.cur+1<S.qq.length){S.cur++;S.sel=null;S.conf=false;draw();}else{S.phase="result";draw();}}
+function goPrev(){if(S.cur>0){S.cur--;var a=S.ans[S.cur];S.sel=a?a.s:null;S.conf=!!a;draw();}}
+function goReview(){S.phase="review";S.filt="all";draw();}
+function setFilt(f){S.filt=f;draw();}
+function setN(n){S.n=n;draw();}
+function draw(){if(S.phase==="menu")dMenu();else if(S.phase==="quiz")dQuiz();else if(S.phase==="result")dResult();else dReview();}
+function cc(cat){return CC[cat]||{bg:"#1e2b3e",co:"#94a3b8",bo:"#334155"};}
+function cl(cat){return CL[cat]||cat;}
+
+function dMenu(){
+  var pills=cats().map(function(cat){var c=cc(cat);return'<span class="s-pill" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+catQ(Q,cat).length+' '+cl(cat)+'</span>';}).join("");
+  var btns=COUNTS.map(function(n){return'<button class="cnt-btn'+(S.n===n?" active":"")+'" onclick="setN('+n+')">'+n+'<small>pyta\u0144</small></button>';}).join("");
+  document.getElementById("app").innerHTML='<div class="menu-card"><div class="menu-icon">&#128218;</div><h1 class="menu-title">Pedagogika w Piel\u0119gniarstwie</h1><p class="menu-sub">40 pyta\u0144 &middot; 5 kategorii &middot; Piel\u0119gniarstwo I stopie\u0144</p><div class="count-grid">'+btns+'</div><button class="start-btn" onclick="goStart()">Rozpocznij test &#8594;</button><div class="stats-row">'+pills+'</div></div>';
+}
+
+function dQuiz(){
+  var q=S.qq[S.cur];var tot=S.qq.length;var c=cc(q.c);var prog=(S.cur/tot*100).toFixed(1);
+  var opts=q.o.map(function(txt,i){var cls="obtn";if(S.conf){if(i===q.a)cls="obtn cor";else if(i===S.sel)cls="obtn wrg";else cls="obtn dim";}else if(S.sel===i)cls="obtn sel";return'<button class="'+cls+'" onclick="goPick('+i+')"><span class="olbl">'+L[i]+'</span><span>'+txt+'</span></button>';}).join("");
+  var fb="";if(S.conf){var an=S.ans[S.cur];fb='<div class="fb '+(an.ok?"ok":"no")+'">'+(an.ok?"&#10003; Poprawna odpowied\u017a! "+L[q.a]+". "+q.o[q.a]:"&#10007; B\u0142\u0105d. Prawid\u0142owa: "+L[q.a]+". "+q.o[q.a])+"</div>";}
+  var isLast=(S.cur+1>=tot);
+  var ab=S.conf?'<button class="btn bs" onclick="goNext()">'+(isLast?"Zako\u0144cz &#10003;":"Nast\u0119pne &#8594;")+'</button>':'<button class="btn bp" onclick="goCheck()"'+(S.sel===null?" disabled":"")+'>Sprawd\u017a</button>';
+  document.getElementById("app").innerHTML='<div class="qhdr"><button class="btn bo" style="flex:none;padding:8px 12px;font-size:.78rem" onclick="goMenu()">&#10005;</button><div class="prog-w"><div class="prog-b" style="width:'+prog+'%"></div></div><span class="qcnt">'+(S.cur+1)+'/'+tot+'</span><span class="slive">'+S.sc+'/'+S.done+'</span></div><div class="qcard"><div class="qmeta"><span class="qnum">PYTANIE '+(S.cur+1)+'</span><span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(q.c)+'</span></div><p class="qtxt">'+q.t+'</p></div><div class="opts">'+opts+'</div>'+fb+'<div class="acts"><button class="btn bo" style="flex:none;padding:13px 17px" onclick="goPrev()"'+(S.cur===0?" disabled":"")+'>&#8592;</button>'+ab+'</div>';
+}
+
+function dResult(){
+  var tot=S.qq.length;var pct=tot?Math.round(S.sc/tot*100):0;
+  var em=pct>=80?"&#127942;":pct>=60?"&#128218;":"&#128170;";
+  var col=pct>=80?"g":pct>=60?"y":"r";
+  var msg=pct>=90?"Doskonale! Jeste\u015b gotowy/a na egzamin.":pct>=75?"Bardzo dobrze! Jeszcze troch\u0119 powt\u00f3rze\u0144.":pct>=60?"Niez\u0142e, ale warto przejrze\u0107 b\u0142\u0119dy.":"Zalecane dodatkowe powt\u00f3rzenie materia\u0142u.";
+  var bars=cats().map(function(cat){var cqs=catQ(S.qq,cat);if(!cqs.length)return"";var idxs=cqs.map(function(q){return S.qq.indexOf(q);});var ok=idxs.filter(function(i){return S.ans[i]&&S.ans[i].ok;}).length;var p=Math.round(ok/cqs.length*100);var fc=p>=80?"#4ade80":p>=60?"#facc15":"#f87171";return'<div class="crow"><div class="crowh"><span class="cname">'+cl(cat)+'</span><span style="font-weight:700;color:'+fc+'">'+ok+'/'+cqs.length+' ('+p+'%)</span></div><div class="cbarw"><div class="cbarf" style="width:'+p+'%;background:'+fc+'"></div></div></div>';}).join("");
+  document.getElementById("app").innerHTML='<div class="rcard"><div class="remo">'+em+'</div><div class="rpct '+col+'">'+pct+'%</div><p class="rmsg">'+msg+'</p><div class="rgrid"><div class="rstat"><div class="v" style="color:#4ade80">'+S.sc+'</div><div class="l">Poprawnych</div></div><div class="rstat"><div class="v" style="color:#f87171">'+(tot-S.sc)+'</div><div class="l">B\u0142\u0119dnych</div></div><div class="rstat"><div class="v" style="color:#60a5fa">'+tot+'</div><div class="l">\u0141\u0105cznie</div></div></div><div class="cbar"><div class="cbartit">Wyniki wg kategorii</div>'+bars+'</div><div class="rbtns"><button class="btn bp" onclick="goReview()">&#128203; Przejrzyj odpowiedzi</button><button class="btn bs" onclick="goStart()">&#128260; Nowy test ('+S.n+' pyta\u0144)</button><button class="btn bo" onclick="goMenu()">\u2190 Menu</button></div></div>';
+}
+
+function dReview(){
+  var filtered=S.qq.filter(function(_,i){if(S.filt==="wrong")return S.ans[i]&&!S.ans[i].ok;if(S.filt==="right")return S.ans[i]&&S.ans[i].ok;return true;});
+  var pls=["all","wrong","right"].map(function(f){var lbl=f==="all"?"Wszystkie":f==="wrong"?"B\u0142\u0119dne":"Poprawne";return'<button class="fpill'+(S.filt===f?" act":"")+'" onclick="setFilt(\''+f+'\')">'+lbl+'</button>';}).join("");
+  var items=filtered.map(function(rq){var oi=S.qq.indexOf(rq);var an=S.ans[oi];var ok=an&&an.ok;var c=cc(rq.c);return'<div class="ritem '+(ok?"ok":"er")+'"><div class="rmeta"><span class="rnum">PYT. '+rq.id+'</span><span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(rq.c)+'</span></div><p class="rq">'+rq.t+'</p>'+(!ok&&an?'<p class="ra w">&#10007; Twoja: '+L[an.s]+'. '+rq.o[an.s]+'</p>':'')+'<p class="ra c">&#10003; Prawid\u0142owa: '+L[rq.a]+'. '+rq.o[rq.a]+'</p></div>';}).join("");
+  document.getElementById("app").innerHTML='<button class="bbk" onclick="S.phase=\'result\';draw()">\u2190 Powr\u00f3t do wynik\u00f3w</button><div class="rvhdr"><span class="rvtit">Przegl\u0105d odpowiedzi</span><div class="fpills">'+pls+'</div></div>'+items;
+}
+
+draw();
+</script>
+</body>
+</html>
