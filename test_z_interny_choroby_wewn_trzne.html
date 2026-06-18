@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test z Interny &ndash; Choroby Wewn&#281;trzne</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{min-height:100vh;background:#0d1117;font-family:'DM Sans',sans-serif;color:#e2e8f0;display:flex;justify-content:center;padding:24px 16px 60px;}
+#app{width:100%;max-width:760px;}
+.menu-card{background:linear-gradient(135deg,#161d2a,#1a2235);border:1px solid #2a3547;border-radius:20px;padding:44px 28px;text-align:center;margin-top:32px;}
+.menu-icon{font-size:48px;margin-bottom:14px;}
+.menu-title{font-family:'DM Serif Display',serif;font-size:1.9rem;color:#f0f4ff;margin-bottom:8px;line-height:1.2;}
+.menu-sub{color:#7a8fa6;font-size:.9rem;margin-bottom:32px;}
+.count-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px;}
+@media(max-width:480px){.count-grid{grid-template-columns:repeat(3,1fr);}}
+.cnt-btn{background:#1e2b3e;border:1px solid #2e3f56;border-radius:12px;color:#a8c0d8;padding:14px 6px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.cnt-btn small{display:block;font-size:.65rem;color:#5a7a96;margin-top:2px;font-weight:400;}
+.cnt-btn.active{background:#1e4080;border-color:#3b82f6;color:#93c5fd;}
+.start-btn{width:100%;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:14px;color:#fff;font-size:1rem;font-weight:600;padding:15px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.stats-row{display:flex;gap:7px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+.s-pill{border-radius:20px;padding:4px 11px;font-size:.72rem;font-weight:600;border:1px solid;}
+.qhdr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.prog-w{flex:1;background:#1e2b3e;border-radius:8px;height:6px;overflow:hidden;}
+.prog-b{height:100%;background:linear-gradient(90deg,#2563eb,#38bdf8);border-radius:8px;}
+.qcnt{font-size:.82rem;color:#7a8fa6;white-space:nowrap;}
+.slive{color:#facc15;font-size:.82rem;font-weight:600;white-space:nowrap;}
+.qcard{background:#161d2a;border:1px solid #2a3547;border-radius:18px;padding:24px 22px 20px;margin-bottom:14px;}
+.qmeta{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.qnum{font-size:.7rem;color:#3b82f6;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.cbadge{font-size:.68rem;padding:3px 10px;border-radius:20px;font-weight:600;border:1px solid;}
+.qtxt{font-size:1rem;color:#dde8f5;line-height:1.65;}
+.opts{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
+.obtn{display:flex;align-items:flex-start;gap:12px;border:1.5px solid #2a3547;border-radius:13px;padding:13px 15px;cursor:pointer;text-align:left;color:#c8d8e8;font-size:.92rem;line-height:1.5;font-family:'DM Sans',sans-serif;width:100%;transition:border-color .15s,background .15s;background:#161d2a;}
+.obtn.sel{border-color:#3b82f6;background:#1a2d4e;}
+.obtn.cor{border-color:#22c55e;background:#0f2d1a;color:#86efac;cursor:default;}
+.obtn.wrg{border-color:#ef4444;background:#2d0f0f;color:#fca5a5;cursor:default;}
+.obtn.dim{opacity:.4;cursor:default;}
+.olbl{min-width:26px;height:26px;border-radius:8px;background:#1e2b3e;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:#7a8fa6;flex-shrink:0;margin-top:1px;}
+.obtn.sel .olbl{background:#2563eb;color:#fff;}
+.obtn.cor .olbl{background:#16a34a;color:#fff;}
+.obtn.wrg .olbl{background:#dc2626;color:#fff;}
+.fb{border-radius:10px;padding:12px 15px;font-size:.86rem;margin-bottom:14px;border-left:3px solid;line-height:1.55;}
+.fb.ok{border-left-color:#22c55e;background:#0d1f12;color:#86efac;}
+.fb.no{border-left-color:#ef4444;background:#1f0d0d;color:#fca5a5;}
+.acts{display:flex;gap:9px;}
+.btn{flex:1;padding:13px;border-radius:12px;border:none;font-size:.92rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.bo{background:transparent;border:1.5px solid #2a3547;color:#7a8fa6;}
+.bp{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;}
+.bs{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;}
+.rcard{background:#161d2a;border:1px solid #2a3547;border-radius:20px;padding:36px 22px;text-align:center;margin-top:12px;}
+.remo{font-size:46px;margin-bottom:12px;}
+.rpct{font-family:'DM Serif Display',serif;font-size:4rem;font-weight:400;line-height:1;margin-bottom:6px;}
+.g{color:#4ade80;}.y{color:#facc15;}.r{color:#f87171;}
+.rmsg{color:#7a8fa6;font-size:.88rem;margin-bottom:20px;}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.rstat{background:#1e2b3e;border-radius:12px;padding:14px 8px;}
+.rstat .v{font-size:1.5rem;font-weight:700;margin-bottom:3px;}
+.rstat .l{font-size:.7rem;color:#6b8299;}
+.cbar{background:#111827;border-radius:12px;padding:14px 16px;margin-bottom:16px;text-align:left;}
+.cbartit{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#475569;margin-bottom:11px;}
+.crow{margin-bottom:9px;}
+.crowh{display:flex;justify-content:space-between;font-size:.77rem;margin-bottom:4px;}
+.cname{color:#94a3b8;}
+.cbarw{height:5px;background:#1e2b3e;border-radius:999px;overflow:hidden;}
+.cbarf{height:100%;border-radius:999px;}
+.rbtns{display:flex;flex-direction:column;gap:9px;}
+.bbk{display:flex;align-items:center;gap:6px;background:transparent;border:1.5px solid #2a3547;border-radius:10px;color:#7a8fa6;padding:8px 13px;font-size:.82rem;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:16px;}
+.rvhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;gap:8px;flex-wrap:wrap;}
+.rvtit{font-family:'DM Serif Display',serif;font-size:1.3rem;color:#f0f4ff;}
+.fpills{display:flex;gap:6px;flex-wrap:wrap;}
+.fpill{padding:4px 11px;border-radius:20px;border:1px solid #2a3547;background:transparent;color:#7a8fa6;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.fpill.act{background:#1e2b3e;border-color:#3b82f6;color:#60a5fa;}
+.ritem{background:#161d2a;border:1px solid #2a3547;border-radius:13px;padding:14px 16px;margin-bottom:9px;}
+.ritem.ok{border-left:3px solid #22c55e;}
+.ritem.er{border-left:3px solid #ef4444;}
+.rq{font-size:.87rem;color:#c8d8e8;margin-bottom:7px;line-height:1.5;}
+.ra{font-size:.81rem;margin-bottom:3px;}
+.ra.c{color:#4ade80;}.ra.w{color:#f87171;}
+.rmeta{display:flex;gap:7px;align-items:center;margin-bottom:7px;flex-wrap:wrap;}
+.rnum{font-size:.68rem;color:#5a7a96;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var L=["A","B","C","D"];
+var CC={
+  "Kardiologia":     {bg:"#1e3a5f",co:"#60a5fa",bo:"#2563eb"},
+  "Gastroenterologia": {bg:"#2d1e3d",co:"#c084fc",bo:"#9333ea"},
+  "Diabetologia":    {bg:"#1e3d2f",co:"#4ade80",bo:"#16a34a"},
+  "Nefrologia":      {bg:"#3d1e2f",co:"#f472b6",bo:"#db2777"},
+  "Inne":            {bg:"#2d2a1e",co:"#facc15",bo:"#ca8a04"}
+};
+var CL={
+  "Kardiologia":"Kardiologia",
+  "Gastroenterologia":"Gastroenterologia",
+  "Diabetologia":"Diabetologia",
+  "Nefrologia":"Nefrologia",
+  "Inne":"Hemato / Reuma / Inne"
+};
+var COUNTS=[10,25,50,78];
+
+var Q=[
+ {id:1,c:"Gastroenterologia",
+  t:"Wobec pacjenta w stanie niewyrównanej niewydolności wątroby (stan przedśpiączkowy) należy podjąć następujące interwencje pielęgniarskie:",
+  o:["Zwiększyć podaż białka w diecie","Opróżnić jelito grube przez wykonanie głębokich wlewów czyszczących","Ograniczyć podaż płynów do 500ml","Podać leki uspokajające"],
+  a:1},
+ {id:2,c:"Nefrologia",
+  t:"Zapobieganie Hiperkaliemii w fazie skąpomoczu w ostrej niewydolności nerek, polega na wszystkich z wymienionych działań, z WYJĄTKIEM:",
+  o:["Stosowaniu diety ubogopotasowej","Ostrożnego podawania leków moczopędnych oszczędzających potas","Zapobieganiu rozpadowi tkanek i zaparciom","Ograniczenia podaży kalorii"],
+  a:3},
+ {id:3,c:"Kardiologia",
+  t:"Zaznacz błędną odpowiedź. Chory z zawałem mięśnia sercowego może być rehabilitowany:",
+  o:["Do 3 doby po zawale","Wg modelu A, jeżeli nie wystąpiły powikłania","Pod kontrolą RR, tętna, zapisu EKG w pierwszych dniach","Wg modelu B, który przewiduje rehabilitację wewnątrzszpitalną trwającą ponad 21 dni"],
+  a:3},
+ {id:4,c:"Kardiologia",
+  t:"Zaznacz błędną odpowiedź dotyczącą postępowania w niewydolności serca:",
+  o:["Ograniczenie spożycia płynów do 1,5-2L na dobę","Wzrost masy ciała o >2 kg w 3 dni wymaga zwiększenia dawki diuretyku","Szczepienia przeciw pneumokokom są przeciwwskazane u osób w starszym wieku","Przeciwwskazaniem są niesteroidowe leki przeciwzapalne"],
+  a:2},
+ {id:5,c:"Inne",
+  t:"Wskaźnik WR charakteryzuje:",
+  o:["Stopień narażenia na odleżyny","Stan przytomności w hipoglikemii","Rozmieszczenie tkanki tłuszczowej","Kategoryzację opieki pielęgniarskiej"],
+  a:2},
+ {id:6,c:"Kardiologia",
+  t:"Zaznacz błędną odpowiedź. Regularne ćwiczenia aerobowe:",
+  o:["Zwiększają insulinoodporność","Obniżają frakcję LDL cholesterolu","Zwiększają frakcję HDL cholesterolu","Obniżają ciśnienie tętnicze"],
+  a:0},
+ {id:7,c:"Diabetologia",
+  t:"Podawanie insuliny krótko działającej w pompie infuzyjnej, nawadnianie i wyrównanie zaburzeń elektrolitowych to postępowanie właściwe w przypadku:",
+  o:["Hipoglikemii z zaburzeniami świadomości","Hipoglikemii bez zaburzeń świadomości","Niewyrównanej cukrzycy i kwasicy ketonowej","Hipokaliemii"],
+  a:2},
+ {id:8,c:"Diabetologia",
+  t:"Bezpośrednio przed posiłkiem (0-15 minut) lub w czasie posiłku można podać insuliny:",
+  o:["Actrapid, Humulin N, Ultralente","Humalog, Gensulin R, Insulina semilente","Ultratard, Insulna solutio neutralis, Gensulin N","NovoMix 30, Humalog, NovoRapid"],
+  a:3},
+ {id:9,c:"Inne",
+  t:"Wskaźnik BMI = 27,3 oznacza:",
+  o:["Nadwagę","Otyłość","Ciężką otyłość","Prawidłową masę ciała"],
+  a:0},
+ {id:10,c:"Kardiologia",
+  t:"Warunkiem dokonania prawidłowego pomiaru ciśnienia tętniczego są wszystkie za WYJĄTKIEM:",
+  o:["Powstrzymanie się od kawy i herbaty na 20-30 min przed badaniem","Powstrzymanie się od wysiłku fizycznego przez 10-20 min przed badaniem","Dostosowania szerokości mankietu do wieku","Przyjęcia pozycji leżącej i opuszczenia kończyny poniżej poziomu serca"],
+  a:3},
+ {id:11,c:"Kardiologia",
+  t:"Zaznacz błędne twierdzenie dotyczące OZW:",
+  o:["W OZW przeciwbólowo podajemy NLPZ","Przeciwwskazaniem do nitrogliceryny jest zawał prawej komory","Fibrynoliza w NSTEMI jest zalecaną metodą do 3 godzin","Odpowiedź 'a' i 'c' jest błędna"],
+  a:3},
+ {id:12,c:"Gastroenterologia",
+  t:"Zachorowalność na wrzody żołądka w porównaniu ze stanem sprzed 30 lat:",
+  o:["Znacznie się zwiększyła","Zmniejszyła się","Utrzymuje się na podobnym poziomie","Zmniejszyła się u mężczyzn lecz nie u kobiet"],
+  a:1},
+ {id:13,c:"Diabetologia",
+  t:"Oznaczenie HbA1c jest:",
+  o:["Konieczne dla oceny stopnia otyłości","Pomocne w ocenie stopnia wyrównania cukrzycy","Niezbędne dla rozpoznania zawału serca","Badaniem o wartości naukowej, lecz nie praktycznej"],
+  a:1},
+ {id:14,c:"Diabetologia",
+  t:"Cukrzyca typu II (wskaż prawidłowe):",
+  o:["Daje częste powikłania naczyniowe","Chroni przed chorobą wieńcową","Nie ma wpływu na stan naczyń","Wpływa niekorzystnie wyłącznie na naczynia żylne"],
+  a:0},
+ {id:15,c:"Diabetologia",
+  t:"Paradontoza w kontekście cukrzycy:",
+  o:["Nie ma żadnych powiązań z cukrzycą","Jest bardzo często skojarzona z cukrzycą","Jest powikłaniem wyłącznie cukrzycy typu I","Występuje w cukrzycy, ale tylko u palących"],
+  a:1},
+ {id:16,c:"Inne",
+  t:"Osteoporoza występuje najczęściej u kobiet:",
+  o:["Otyłych","Młodych, bez innych schorzeń","Starszych, szczupłych, palących papierosy","W wieku średnim z wysokim poziomem cholesterolu"],
+  a:2},
+ {id:17,c:"Inne",
+  t:"Reumatoidalne zapalenie stawów (zaznacz nieprawdziwe):",
+  o:["Należy do chorób autoimmunologicznych","Pojawia się zwykle w starszym wieku","Rozpoczyna się zwykle od małych stawów rąk i stóp","Nie istnieją badania krwi pozwalające na jednoznaczne rozpoznanie"],
+  a:1},
+ {id:18,c:"Gastroenterologia",
+  t:"Kamica żółciowa najczęściej przebiega:",
+  o:["Bezobjawowo","Z żółtaczką","Z objawami kolki żółciowej","Z towarzyszącym ostrym zapaleniem trzustki"],
+  a:0},
+ {id:19,c:"Kardiologia",
+  t:"Spośród wymienionych chorób czynnikiem zagrożenia chorobą niedokrwienną serca NIE jest:",
+  o:["Cukrzyca","Nadciśnienie tętnicze","Nadczynność tarczycy","Hyperlipidemia"],
+  a:2},
+ {id:20,c:"Kardiologia",
+  t:"Wskazaniem do wykonania koronarografii jest:",
+  o:["Otyłość","Przewlekła dusznica bolesna nieustępująca po leczeniu zachowawczym","Świeżo rozpoznane nadciśnienie tętnicze","Wszystkie wyżej wymienione"],
+  a:1},
+ {id:21,c:"Inne",
+  t:"Głównymi nadrzędnymi celami edukacji w modelu zorientowanym na chorobę są:",
+  o:["Przekazanie wiedzy, nauczenie samokontroli i zasad samoopieki","Zapoznanie z czynnikami ryzyka i objawami zaostrzenia","Wykształcenie postawy odpowiedzialności za zdrowie i jakość życia","Przekazanie wiedzy o sposobach unikania schorzeń u zdrowych"],
+  a:0},
+ {id:22,c:"Inne",
+  t:"Plan opieki pielęgniarskiej wg modelu zadaniowego dla pacjenta hospitalizowanego to:",
+  o:["Proces pielęgnowania poszerzony o diagnozę potrzeb","Plan pracy niezbędny do wykonania zadań oparty na diagnozie holistycznej","Zakres działania poszerzony o edukację w typowej terapii","Zestawienie zleceń lekarskich do wykonania"],
+  a:1},
+ {id:23,c:"Gastroenterologia",
+  t:"Ostry ból brzucha, spadek RR, obfite poty i napięte powłoki brzuszne u pacjenta z chorobą wrzodową sugerują:",
+  o:["Perforację wrzodu żołądka","Ciężki zastój pokarmu","Krytyczne rozdęcie żołądka przez gazy","Odpowiedzi B i C"],
+  a:0},
+ {id:24,c:"Gastroenterologia",
+  t:"Przygotowując pacjenta do gastroskopii, pielęgniarka:",
+  o:["Dopilnowuje by był na czczo, bez protez, znieczula gardło, układa na lewym boku","Wykonuje wlew okołoodbytniczy i znieczula gardło","Podaje środek odgazowujący i układa na prawym boku","Układa w pozycji embrionalnej na prawym boku bez znieczulenia"],
+  a:0},
+ {id:25,c:"Inne",
+  t:"Istotą astmy wg aktualnych definicji jest:",
+  o:["Zwiększona wrażliwość dróg oddechowych na bodźce","Kaszel, świszczący oddech, duszność","Ograniczenie przepływu powietrza","Wszystkie odpowiedzi są prawidłowe"],
+  a:3},
+ {id:26,c:"Inne",
+  t:"Prowadząc edukację pacjenta z astmą, pielęgniarka przekazuje informacje o:",
+  o:["Zaprzestaniu palenia i unikaniu ukąszeń owadów","Różnicy między lekami doraźnymi a kontrolującymi oraz istocie choroby","Ograniczeniu spożycia soli i spędzaniu czasu na łąkach","Wyłącznie zasadach diety niskokalorycznej"],
+  a:1},
+ {id:27,c:"Kardiologia",
+  t:"W podejrzeniu zawału serca pielęgniarka ocenia pacjenta pod kątem:",
+  o:["Bólu trwającego ponad 20 minut, lęku i potów","Obniżenia leukocytozy i zaniku rytmu cwałowego","Bólu w podbrzuszu i wzrostu poziomu cukru","Szarej skóry i obniżonej temperatury ciała"],
+  a:0},
+ {id:28,c:"Diabetologia",
+  t:"W przypadku hiperglikemii jednym z pierwszych symptomów będzie:",
+  o:["Światłowstręt i bóle głowy","Bóle nerek i wymioty","Wielomocz i pragnienie","Drżenie rąk"],
+  a:2},
+ {id:29,c:"Gastroenterologia",
+  t:"Naczelne zasady diety w encefalopatii wątrobowej to:",
+  o:["Zwiększenie spożycia białka zwierzęcego","Zmniejszenie zawartości białka w diecie i zakaz alkoholu","Całkowita eliminacja białka i 5 tys. kcal/dobę","Zwiększenie podaży białka roślinnego bez limitu kalorii"],
+  a:1},
+ {id:30,c:"Nefrologia",
+  t:"Zasady żywienia w przewlekłej zaawansowanej niewydolności nerek zakładają:",
+  o:["Ograniczenie tłuszczów zwierzęcych","Zwiększenie spożycia białka","Zmniejszenie podaży białka i fosforanów","Ograniczenie potasu i zwiększenie białka"],
+  a:2},
+ {id:31,c:"Nefrologia",
+  t:"W zapobieganiu nawrotom infekcji układu moczowego zaleca się:",
+  o:["Zawsze ubierać się jak najcieplej","Nie zwlekać z oddaniem moczu po odczuciu potrzeby","Długie, gorące kąpiele w wannie","Wszystkie odpowiedzi są poprawne"],
+  a:1},
+ {id:32,c:"Nefrologia",
+  t:"Kolejne etapy przewlekłej niewydolności nerek (PNN) to:",
+  o:["Faza ostra, wielomoczu, azotemia","Faza wstępna, niewyrównana, schyłkowa","Faza utajona, skąpomoczu, wielomoczu, mocznica","Faza utajona, wielomoczu, niewyrównana, schyłkowa mocznica"],
+  a:3},
+ {id:33,c:"Nefrologia",
+  t:"Aby przyspieszyć eliminację drobnoustrojów z dróg moczowych, zaleca się:",
+  o:["Zakwaszanie moczu i picie min. 1,5-2L płynów","Picie alkoholu w celu dezynfekcji","Picie wyłącznie soków cytrusowych","Ograniczenie podaży płynów wieczorem"],
+  a:0},
+ {id:34,c:"Inne",
+  t:"Dieta w niedokrwistości megaloblastycznej powinna uwzględniać głównie:",
+  o:["Żelazo i witaminę C","Witaminę B12 i folacynę","Witaminę C i kobalaminę","Kwas foliowy i żelazo"],
+  a:1},
+ {id:35,c:"Diabetologia",
+  t:"Test tolerancji glukozy (OGTT) wykonuje się podając:",
+  o:["75g glukozy w 250ml wody (wypić w 5 min)","50g glukozy w 500ml wody","75g glukozy w 50ml wody","100g glukozy w 1L wody"],
+  a:0},
+ {id:36,c:"Inne",
+  t:"Zadania opiekuńcze w RZS NIE obejmują:",
+  o:["Wsparcia psychicznego","Pomocy podczas toalety","Podawania leków przeciwbólowych na zlecenie","Wyłącznie fizykalnych metod bez farmakologii"],
+  a:3},
+ {id:37,c:"Inne",
+  t:"Dieta zalecana w RZS powinna charakteryzować się:",
+  o:["Dużą zawartością białka, witamin i soli wapnia","Wyłącznie dużą ilością witamin","Samym białkiem","Niską zawartością wapnia i żelaza"],
+  a:0},
+ {id:38,c:"Inne",
+  t:"W białaczce zadania diagnostyczne pielęgniarki obejmują rozpoznanie:",
+  o:["Skazy krwotocznej i zadyszki po wysiłku","Trudności w połykaniu i wymiotów","Bólu języka i anurii","Głowy meduzy i palców dobosza"],
+  a:0},
+ {id:39,c:"Inne",
+  t:"W edukacji pacjenta z białaczką pielęgniarka NIE powinna:",
+  o:["Zachęcać do dużych skupisk ludzkich (ryzyko infekcji)","Motywować do celów przyszłościowych","Włączać rodziny w proces pomocy","Uczyć rozpoznawania niepokojących objawów"],
+  a:0},
+ {id:40,c:"Inne",
+  t:"Pełen zakres działań pielęgniarki w procesie edukacji to:",
+  o:["Przekazanie wiedzy i dieta","Wywiad i planowanie edukacji","Diagnoza potrzeb, wybór obszaru, realizacja i ocena","Opracowanie zasad i porzucenie nałogów"],
+  a:2},
+ {id:41,c:"Gastroenterologia",
+  t:"Nagły, ostry ból brzucha, spadek RR i napięte powłoki brzuszne w chorobie wrzodowej to objawy:",
+  o:["Perforacji wrzodu żołądka","Zastoju pokarmu","Rozdęcia przez gazy","Zapalenia wyrostka"],
+  a:0},
+ {id:42,c:"Gastroenterologia",
+  t:"Pacjentowi z czynną chorobą wrzodową należy udzielić informacji o:",
+  o:["Radzeniu sobie ze stresem i unikaniu alkoholu/fast-foodów","Zalecanym spożywaniu surowych owoców","Stosowaniu wyłącznie domowych sposobów","Konieczności głębokiego pochylania się po jedzeniu"],
+  a:0},
+ {id:43,c:"Gastroenterologia",
+  t:"Prawidłowa pozycja pacjenta do gastroskopii to:",
+  o:["Lewy bok, pozycja przygięciowa","Prawy bok, pozycja embrionalna","Pozycja siedząca","Leżenie na plecach"],
+  a:0},
+ {id:44,c:"Inne",
+  t:"Cechy astmy wg definicji to:",
+  o:["Wrażliwość na bodźce","Kaszel i duszność","Ograniczenie przepływu powietrza","Wszystkie powyższe"],
+  a:3},
+ {id:45,c:"Inne",
+  t:"W astmie pielęgniarka powinna zaproponować oddychanie torem:",
+  o:["Brzusznym (przeponowym)","Piersiowym","Piersiowo-brzusznym","Tor nie ma znaczenia"],
+  a:0},
+ {id:46,c:"Inne",
+  t:"Istotne elementy edukacji w astmie to:",
+  o:["Technika używania inhalatorów i rozpoznawanie zaostrzeń","Unikanie górskich wycieczek","Ograniczenie spożycia soli","Wyłącznie dieta niskotłuszczowa"],
+  a:0},
+ {id:47,c:"Gastroenterologia",
+  t:"W diagnostyce ostrego zapalenia trzustki (OZT) kluczowa jest ocena:",
+  o:["Lipazy lub amylazy","Transaminaz (ASPAT/ALAT)","GGTP","Kinazy kreatynowej"],
+  a:0},
+ {id:48,c:"Gastroenterologia",
+  t:"Przyczyną OZT może być:",
+  o:["Nadużywanie alkoholu","Hiperglicerydemia","Kamica żółciowa","Wszystkie prawdziwe"],
+  a:3},
+ {id:49,c:"Gastroenterologia",
+  t:"Objawem NIEZWIĄZANYM z nadciśnieniem wrotnym jest:",
+  o:["Powiększenie śledziony","Żółtaczka","Wodobrzusze","Krwotok z żylaków przełyku"],
+  a:1},
+ {id:50,c:"Gastroenterologia",
+  t:"Podstawowym badaniem w rozpoznaniu kamicy pęcherzyka żółciowego jest:",
+  o:["Badanie USG","Gastroskopia","TK klatki piersiowej","Badanie poziomu bilirubiny"],
+  a:0},
+ {id:51,c:"Gastroenterologia",
+  t:"Powikłaniem wirusowego zapalenia wątroby typu C (HCV) NIE jest:",
+  o:["Marskość wątroby","Rak wątrobokomórkowy","Przewlekłe zapalenie","Kamica przewodowa"],
+  a:3},
+ {id:52,c:"Gastroenterologia",
+  t:"W diagnostyce różnicowej wodobrzusza NIE bierze się pod uwagę:",
+  o:["Obrzęku Quinckiego","Marskości wątroby","Nowotworu narządu rodnego","Niewydolności serca"],
+  a:0},
+ {id:53,c:"Gastroenterologia",
+  t:"Klasyfikacja Childa-Pugha służy do oceny wydolności:",
+  o:["Serca","Nerek","Wątroby","Mózgu"],
+  a:2},
+ {id:54,c:"Gastroenterologia",
+  t:"Fałszywe stwierdzenie o chorobie refluksowej (GERD):",
+  o:["Objawy to zgaga i ból w klatce piersiowej","Podstawą diagnostyki jest TK klatki piersiowej","Należy unikać posiłków 2-3h przed snem","Leczenie obejmuje inhibitory pompy protonowej"],
+  a:1},
+ {id:55,c:"Gastroenterologia",
+  t:"Wskazaniem do eradykacji Helicobacter pylori NIE jest:",
+  o:["Wrzód żołądka","Zanikowe zapalenie żołądka","Samo stwierdzenie przeciwciał u osoby bezobjawowej","Chłoniak typu MALT"],
+  a:2},
+ {id:56,c:"Gastroenterologia",
+  t:"Choroba Hirschsprunga polega na:",
+  o:["Niedokrwieniu jelit","Obecności uchyłków","Braku zwojów nerwowych w jelicie grubym","Zapaleniu popromiennym"],
+  a:2},
+ {id:57,c:"Gastroenterologia",
+  t:"Do objawów raka jelita grubego NIE należy:",
+  o:["Niedokrwistość","Krew utajona w kale","Zmiana rytmu wypróżnień","Przyrost masy ciała"],
+  a:3},
+ {id:58,c:"Gastroenterologia",
+  t:"Fałszywe o rzekomobłoniastym zapaleniu jelit:",
+  o:["Wywołuje je Clostridium difficile","Czynnikiem ryzyka jest antybiotykoterapia","Leczy się je klindamycyną","Powikłaniem może być perforacja"],
+  a:2},
+ {id:59,c:"Inne",
+  t:"Wskaż fałszywe o hiperkalcemii:",
+  o:["Najczęstsza przyczyna to nowotwory","Może prowadzić do śpiączki","Objawem jest wzmożone pragnienie","Typowym objawem jest wodobrzusze"],
+  a:3},
+ {id:60,c:"Inne",
+  t:"Hiperkaliemia jest groźna, ponieważ może prowadzić do:",
+  o:["Niedokrwistości","Asystolii","Bloku odnogi pęczka Hissa","Częstoskurczu nadkomorowego"],
+  a:1},
+ {id:61,c:"Inne",
+  t:"Do objawów szpiczaka mnogiego NIE należą:",
+  o:["Bóle kostne","Białko Bence-Jonesa w moczu","Hipokaliemia i zespół hiperwentylacji","Niedokrwistość"],
+  a:2},
+ {id:62,c:"Inne",
+  t:"Przyczyny powikłań zatorowo-zakrzepowych NIE stanowi:",
+  o:["Choroba nowotworowa","Długotrwałe unieruchomienie","Hemofilia A","Palenie papierosów i antykoncepcja"],
+  a:2},
+ {id:63,c:"Inne",
+  t:"Do objawów choroby Addisona-Biermera NIE należą:",
+  o:["Język Huntera","Zaburzenia czucia głębokiego","Niedokrwistość makrocytarna","Wymioty i choroba refluksowa"],
+  a:3},
+ {id:64,c:"Inne",
+  t:"Częstość ucisków klatki piersiowej w BLS u dorosłych wynosi:",
+  o:["60 u/min","100-120 u/min","150 u/min","Nie wykonuje się uciśnięć"],
+  a:1},
+ {id:65,c:"Inne",
+  t:"Przewlekły kaszel może być spowodowany przez:",
+  o:["POChP","Leki z grupy ACEI","Refluks (GERD)","Wszystkie powyższe"],
+  a:3},
+ {id:66,c:"Inne",
+  t:"Aby rozpoznać duszność (objaw subiektywny), należy:",
+  o:["Zebrać wywiad","Wykonać RTG","Wykonać spirometrię","Zlecić TK"],
+  a:0},
+ {id:67,c:"Inne",
+  t:"Rumień w kształcie motyla, gorączka i zapalenie nerek to cechy:",
+  o:["Czerwienicy","Tocznia rumieniowatego (SLE)","Rumienia guzowatego","Infekcji dróg oddechowych"],
+  a:1},
+ {id:68,c:"Inne",
+  t:"Przeszczep szpiku stosuje się w leczeniu:",
+  o:["Ostrej białaczki szpikowej","Niedokrwistości aplastycznej","Choroby Hodgkina","Wszystkich wymienionych"],
+  a:3},
+ {id:69,c:"Inne",
+  t:"Uporczywa czkawka NIE jest charakterystyczna dla:",
+  o:["Celiakii","Nowotworu płuc","Mocznicy","Udaru mózgu"],
+  a:0},
+ {id:70,c:"Nefrologia",
+  t:"Zapobieganie nawrotom kamicy moczowej polega na:",
+  o:["Ograniczeniu płynów","Zmniejszeniu spożycia wapnia","Piciu 1-2 szklanek wody przed snem","Zwiększeniu spożycia soli"],
+  a:2},
+ {id:71,c:"Nefrologia",
+  t:"Przyczynę PRZEDNERKOWEJ niewydolności nerek stanowi:",
+  o:["Przeszkoda w odpływie moczu","Nefrotoksyczność leków","Odwodnienie","Kłębuszkowe zapalenie nerek"],
+  a:2},
+ {id:72,c:"Diabetologia",
+  t:"Objawem neuropatii autonomicznej w cukrzycy są:",
+  o:["Duszność","Omdlenia, zaburzenia potliwości i motoryki przewodu pokarmowego","Świąd skóry","Zaburzenia czucia typu 'skarpetek'"],
+  a:1},
+ {id:73,c:"Diabetologia",
+  t:"Każdy otyły chory z cukrzycą typu 2 powinien najpierw otrzymać zalecenie:",
+  o:["Zmiany stylu życia (dieta i wysiłek)","Farmakoterapii doustnej","Natychmiastowej insuliny","Operacji bariatrycznej"],
+  a:0},
+ {id:74,c:"Diabetologia",
+  t:"Odsetek hemoglobiny glikowanej (HbA1c) pozwala na:",
+  o:["Rozpoznanie typu 1","Rozpoznanie kwasicy","Ocenę wyrównania glikemii z ostatnich 3 miesięcy","Ocenę czynników genetycznych"],
+  a:2},
+ {id:75,c:"Nefrologia",
+  t:"U chorego na mocznicę mogą występować:",
+  o:["Przewodnienie i nadciśnienie","Czkawka","Świąd skóry","Wszystkie prawdziwe"],
+  a:3},
+ {id:76,c:"Nefrologia",
+  t:"Wskazaniem do PILNEJ dializy jest:",
+  o:["Sam wysoki poziom kreatyniny","Bezobjawowa hiperkaliemia 5,8","Wstrząs hipowolemiczny","Obrzęk płuc"],
+  a:3},
+ {id:77,c:"Kardiologia",
+  t:"Klasyfikacja NYHA służy do oceny:",
+  o:["Zaawansowania choroby wieńcowej","Nasilenia niewydolności serca","Sprawności ruchowej sportowców","Zmian zwyrodnieniowych"],
+  a:1},
+ {id:78,c:"Kardiologia",
+  t:"Kardiowersję elektryczną wykonuje się w przypadku:",
+  o:["Migotania przedsionków","Migotania komór (tu defibrylacja)","Asystolii","Bloku lewej odnogi"],
+  a:0}
+];
+
+var S={phase:"menu",qq:[],cur:0,sel:null,conf:false,ans:{},sc:0,done:0,n:78,filt:"all"};
+
+function shuf(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function cats(){var r=[];Q.forEach(function(q){if(r.indexOf(q.c)<0)r.push(q.c);});return r;}
+function catQ(qq,cat){return qq.filter(function(q){return q.c===cat;});}
+
+function goMenu(){S.phase="menu";draw();}
+function goStart(){S.qq=shuf(Q).slice(0,S.n);S.cur=0;S.sel=null;S.conf=false;S.ans={};S.sc=0;S.done=0;S.phase="quiz";draw();}
+function goPick(i){if(S.conf)return;S.sel=i;draw();}
+function goCheck(){if(S.sel===null||S.conf)return;var q=S.qq[S.cur];var ok=S.sel===q.a;S.conf=true;S.ans[S.cur]={s:S.sel,a:q.a,ok:ok};if(ok)S.sc++;S.done++;draw();}
+function goNext(){if(S.cur+1<S.qq.length){S.cur++;S.sel=null;S.conf=false;draw();}else{S.phase="result";draw();}}
+function goPrev(){if(S.cur>0){S.cur--;var a=S.ans[S.cur];S.sel=a?a.s:null;S.conf=!!a;draw();}}
+function goReview(){S.phase="review";S.filt="all";draw();}
+function setFilt(f){S.filt=f;draw();}
+function setN(n){S.n=n;draw();}
+
+function draw(){if(S.phase==="menu")dMenu();else if(S.phase==="quiz")dQuiz();else if(S.phase==="result")dResult();else dReview();}
+
+function cc(cat){return CC[cat]||{bg:"#1e2b3e",co:"#94a3b8",bo:"#334155"};}
+function cl(cat){return CL[cat]||cat;}
+
+function dMenu(){
+  var pills=cats().map(function(cat){var c=cc(cat);return'<span class="s-pill" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+catQ(Q,cat).length+' '+cl(cat)+'</span>';}).join("");
+  var btns=COUNTS.map(function(n){return'<button class="cnt-btn'+(S.n===n?" active":"")+'" onclick="setN('+n+')">'+n+'<small>pyta\u0144</small></button>';}).join("");
+  document.getElementById("app").innerHTML=
+    '<div class="menu-card"><div class="menu-icon">&#129658;</div>'+
+    '<h1 class="menu-title">Choroby Wewn\u0119trzne</h1>'+
+    '<p class="menu-sub">78 pyta\u0144 &middot; Interna &middot; Egzamin Zawodowy</p>'+
+    '<div class="count-grid">'+btns+'</div>'+
+    '<button class="start-btn" onclick="goStart()">Rozpocznij egzamin &#8594;</button>'+
+    '<div class="stats-row">'+pills+'</div></div>';
+}
+
+function dQuiz(){
+  var q=S.qq[S.cur];var tot=S.qq.length;var c=cc(q.c);var prog=(S.cur/tot*100).toFixed(1);
+  var opts=q.o.map(function(txt,i){
+    var cls="obtn";
+    if(S.conf){if(i===q.a)cls="obtn cor";else if(i===S.sel)cls="obtn wrg";else cls="obtn dim";}
+    else if(S.sel===i)cls="obtn sel";
+    return'<button class="'+cls+'" onclick="goPick('+i+')"><span class="olbl">'+L[i]+'</span><span>'+txt+'</span></button>';
+  }).join("");
+  var fb="";
+  if(S.conf){var an=S.ans[S.cur];fb='<div class="fb '+(an.ok?"ok":"no")+'">'+(an.ok?"&#10003; Dobrze! Odpowied\u017a: "+L[q.a]+". ":"&#10007; B\u0142\u0105d. Prawid\u0142owa to: "+L[q.a]+". ")+q.o[q.a]+"</div>";}
+  var isLast=(S.cur+1>=tot);
+  var ab=S.conf?'<button class="btn bs" onclick="goNext()">'+(isLast?"Wyniki &#127942;":"Nast\u0119pne &#8594;")+'</button>':'<button class="btn bp" onclick="goCheck()"'+(S.sel===null?" disabled":"")+'>Sprawd\u017a</button>';
+  document.getElementById("app").innerHTML=
+    '<div class="qhdr"><button class="btn bo" style="flex:none;padding:8px 12px;font-size:.78rem" onclick="goMenu()">&#10005;</button>'+
+    '<div class="prog-w"><div class="prog-b" style="width:'+prog+'%"></div></div>'+
+    '<span class="qcnt">'+(S.cur+1)+'/'+tot+'</span><span class="slive">'+S.sc+'/'+S.done+'</span></div>'+
+    '<div class="qcard"><div class="qmeta"><span class="qnum">PYTANIE '+(S.cur+1)+'</span>'+
+    '<span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(q.c)+'</span></div>'+
+    '<p class="qtxt">'+q.t+'</p></div>'+
+    '<div class="opts">'+opts+'</div>'+fb+
+    '<div class="acts"><button class="btn bo" style="flex:none;padding:13px 17px" onclick="goPrev()"'+(S.cur===0?" disabled":"")+'>&#8592;</button>'+ab+'</div>';
+}
+
+function dResult(){
+  var tot=S.qq.length;var pct=tot?Math.round(S.sc/tot*100):0;
+  var em=pct>=80?"&#127942;":pct>=60?"&#128218;":"&#128170;";
+  var col=pct>=80?"g":pct>=60?"y":"r";
+  var msg=pct>=90?"Genialnie! Wiedza na poziomie eksperckim."
+    :pct>=70?"Bardzo dobrze! Solidne przygotowanie."
+    :pct>=50?"Zaliczone, ale przejrzyj b\u0142\u0119dy."
+    :"Warto jeszcze raz przestudiowa\u0107 materia\u0142.";
+  var bars=cats().map(function(cat){
+    var cqs=catQ(S.qq,cat);if(!cqs.length)return"";
+    var idxs=cqs.map(function(q){return S.qq.indexOf(q);});
+    var ok=idxs.filter(function(i){return S.ans[i]&&S.ans[i].ok;}).length;
+    var p=Math.round(ok/cqs.length*100);var fc=p>=80?"#4ade80":p>=60?"#facc15":"#f87171";
+    return'<div class="crow"><div class="crowh"><span class="cname">'+cl(cat)+'</span><span style="font-weight:700;color:'+fc+'">'+ok+'/'+cqs.length+' ('+p+'%)</span></div><div class="cbarw"><div class="cbarf" style="width:'+p+'%;background:'+fc+'"></div></div></div>';
+  }).join("");
+  document.getElementById("app").innerHTML=
+    '<div class="rcard"><div class="remo">'+em+'</div><div class="rpct '+col+'">'+pct+'%</div>'+
+    '<p class="rmsg">'+msg+'</p>'+
+    '<div class="rgrid">'+
+    '<div class="rstat"><div class="v" style="color:#4ade80">'+S.sc+'</div><div class="l">Dobrych</div></div>'+
+    '<div class="rstat"><div class="v" style="color:#f87171">'+(tot-S.sc)+'</div><div class="l">B\u0142\u0119dnych</div></div>'+
+    '<div class="rstat"><div class="v" style="color:#60a5fa">'+tot+'</div><div class="l">\u0141\u0105cznie</div></div>'+
+    '</div><div class="cbar"><div class="cbartit">Analiza kategorii</div>'+bars+'</div>'+
+    '<div class="rbtns">'+
+    '<button class="btn bp" onclick="goReview()">&#128203; Przejrzyj odpowiedzi</button>'+
+    '<button class="btn bs" onclick="goStart()">&#128260; Powt\u00f3rz test ('+S.n+' pyt.)</button>'+
+    '<button class="btn bo" onclick="goMenu()">\u2190 Menu g\u0142\u00f3wne</button>'+
+    '</div></div>';
+}
+
+function dReview(){
+  var filtered=S.qq.filter(function(_,i){if(S.filt==="wrong")return S.ans[i]&&!S.ans[i].ok;if(S.filt==="right")return S.ans[i]&&S.ans[i].ok;return true;});
+  var pls=["all","wrong","right"].map(function(f){var lbl=f==="all"?"Wszystkie":f==="wrong"?"B\u0142\u0119dne":"Poprawne";return'<button class="fpill'+(S.filt===f?" act":"")+'" onclick="setFilt(\''+f+'\')">'+lbl+'</button>';}).join("");
+  var items=filtered.map(function(rq){
+    var oi=S.qq.indexOf(rq);var an=S.ans[oi];var ok=an&&an.ok;var c=cc(rq.c);
+    return'<div class="ritem '+(ok?"ok":"er")+'"><div class="rmeta"><span class="rnum">PYT. '+rq.id+'</span>'+
+    '<span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(rq.c)+'</span></div>'+
+    '<p class="rq">'+rq.t+'</p>'+(!ok&&an?'<p class="ra w">&#10007; Wybra\u0142e\u015b: '+L[an.s]+'. '+rq.o[an.s]+'</p>':"")+
+    '<p class="ra c">&#10003; Prawid\u0142owa: '+L[rq.a]+'. '+rq.o[rq.a]+'</p></div>';
+  }).join("");
+  document.getElementById("app").innerHTML=
+    '<button class="bbk" onclick="S.phase=\'result\';draw()">\u2190 Wr\u00f3\u0107 do wynik\u00f3w</button>'+
+    '<div class="rvhdr"><span class="rvtit">Analiza odpowiedzi</span><div class="fpills">'+pls+'</div></div>'+items;
+}
+
+draw();
+</script>
+</body>
+</html>
