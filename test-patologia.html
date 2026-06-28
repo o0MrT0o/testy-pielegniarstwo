@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test – Patologia i Fizjologia</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{min-height:100vh;background:#0d1117;font-family:'DM Sans',sans-serif;color:#e2e8f0;display:flex;justify-content:center;padding:24px 16px 60px;}
+#app{width:100%;max-width:760px;}
+.menu-card{background:linear-gradient(135deg,#161d2a,#1a2235);border:1px solid #2a3547;border-radius:20px;padding:44px 28px;text-align:center;margin-top:32px;}
+.menu-icon{font-size:48px;margin-bottom:14px;}
+.menu-title{font-family:'DM Serif Display',serif;font-size:1.9rem;color:#f0f4ff;margin-bottom:8px;line-height:1.2;}
+.menu-sub{color:#7a8fa6;font-size:.9rem;margin-bottom:32px;}
+.count-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;}
+@media(max-width:480px){.count-grid{grid-template-columns:repeat(2,1fr);}}
+.cnt-btn{background:#1e2b3e;border:1px solid #2e3f56;border-radius:12px;color:#a8c0d8;padding:14px 6px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.cnt-btn small{display:block;font-size:.65rem;color:#5a7a96;margin-top:2px;font-weight:400;}
+.cnt-btn.active{background:#1e4080;border-color:#3b82f6;color:#93c5fd;}
+.start-btn{width:100%;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:14px;color:#fff;font-size:1rem;font-weight:600;padding:15px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.stats-row{display:flex;gap:7px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+.s-pill{border-radius:20px;padding:4px 11px;font-size:.72rem;font-weight:600;border:1px solid;}
+.qhdr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.prog-w{flex:1;background:#1e2b3e;border-radius:8px;height:6px;overflow:hidden;}
+.prog-b{height:100%;background:linear-gradient(90deg,#2563eb,#38bdf8);border-radius:8px;}
+.qcnt{font-size:.82rem;color:#7a8fa6;white-space:nowrap;}
+.slive{color:#facc15;font-size:.82rem;font-weight:600;white-space:nowrap;}
+.qcard{background:#161d2a;border:1px solid #2a3547;border-radius:18px;padding:24px 22px 20px;margin-bottom:14px;}
+.qmeta{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.qnum{font-size:.7rem;color:#3b82f6;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.cbadge{font-size:.68rem;padding:3px 10px;border-radius:20px;font-weight:600;border:1px solid;}
+.qtxt{font-size:1rem;color:#dde8f5;line-height:1.65;}
+.opts{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
+.obtn{display:flex;align-items:flex-start;gap:12px;border:1.5px solid #2a3547;border-radius:13px;padding:13px 15px;cursor:pointer;text-align:left;color:#c8d8e8;font-size:.92rem;line-height:1.5;font-family:'DM Sans',sans-serif;width:100%;transition:border-color .15s,background .15s;background:#161d2a;}
+.obtn.sel{border-color:#3b82f6;background:#1a2d4e;}
+.obtn.cor{border-color:#22c55e;background:#0f2d1a;color:#86efac;cursor:default;}
+.obtn.wrg{border-color:#ef4444;background:#2d0f0f;color:#fca5a5;cursor:default;}
+.obtn.dim{opacity:.4;cursor:default;}
+.olbl{min-width:26px;height:26px;border-radius:8px;background:#1e2b3e;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:#7a8fa6;flex-shrink:0;margin-top:1px;}
+.obtn.sel .olbl{background:#2563eb;color:#fff;}
+.obtn.cor .olbl{background:#16a34a;color:#fff;}
+.obtn.wrg .olbl{background:#dc2626;color:#fff;}
+.fb{border-radius:10px;padding:12px 15px;font-size:.86rem;margin-bottom:14px;border-left:3px solid;line-height:1.55;}
+.fb.ok{border-left-color:#22c55e;background:#0d1f12;color:#86efac;}
+.fb.no{border-left-color:#ef4444;background:#1f0d0d;color:#fca5a5;}
+.acts{display:flex;gap:9px;}
+.btn{flex:1;padding:13px;border-radius:12px;border:none;font-size:.92rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.bo{background:transparent;border:1.5px solid #2a3547;color:#7a8fa6;}
+.bp{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;}
+.bs{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;}
+.rcard{background:#161d2a;border:1px solid #2a3547;border-radius:20px;padding:36px 22px;text-align:center;margin-top:12px;}
+.remo{font-size:46px;margin-bottom:12px;}
+.rpct{font-family:'DM Serif Display',serif;font-size:4rem;font-weight:400;line-height:1;margin-bottom:6px;}
+.g{color:#4ade80;}.y{color:#facc15;}.r{color:#f87171;}
+.rmsg{color:#7a8fa6;font-size:.88rem;margin-bottom:20px;}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.rstat{background:#1e2b3e;border-radius:12px;padding:14px 8px;}
+.rstat .v{font-size:1.5rem;font-weight:700;margin-bottom:3px;}
+.rstat .l{font-size:.7rem;color:#6b8299;}
+.cbar{background:#111827;border-radius:12px;padding:14px 16px;margin-bottom:16px;text-align:left;}
+.cbartit{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#475569;margin-bottom:11px;}
+.crow{margin-bottom:9px;}
+.crowh{display:flex;justify-content:space-between;font-size:.77rem;margin-bottom:4px;}
+.cname{color:#94a3b8;}
+.cbarw{height:5px;background:#1e2b3e;border-radius:999px;overflow:hidden;}
+.cbarf{height:100%;border-radius:999px;}
+.rbtns{display:flex;flex-direction:column;gap:9px;}
+.bbk{display:flex;align-items:center;gap:6px;background:transparent;border:1.5px solid #2a3547;border-radius:10px;color:#7a8fa6;padding:8px 13px;font-size:.82rem;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:16px;}
+.rvhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;gap:8px;flex-wrap:wrap;}
+.rvtit{font-family:'DM Serif Display',serif;font-size:1.3rem;color:#f0f4ff;}
+.fpills{display:flex;gap:6px;flex-wrap:wrap;}
+.fpill{padding:4px 11px;border-radius:20px;border:1px solid #2a3547;background:transparent;color:#7a8fa6;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.fpill.act{background:#1e2b3e;border-color:#3b82f6;color:#60a5fa;}
+.ritem{background:#161d2a;border:1px solid #2a3547;border-radius:13px;padding:14px 16px;margin-bottom:9px;}
+.ritem.ok{border-left:3px solid #22c55e;}
+.ritem.er{border-left:3px solid #ef4444;}
+.rq{font-size:.87rem;color:#c8d8e8;margin-bottom:7px;line-height:1.5;}
+.ra{font-size:.81rem;margin-bottom:3px;}
+.ra.c{color:#4ade80;}.ra.w{color:#f87171;}
+.rmeta{display:flex;gap:7px;align-items:center;margin-bottom:7px;flex-wrap:wrap;}
+.rnum{font-size:.68rem;color:#5a7a96;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var Q=[
+{id:1,c:"Ginekologia",t:"W którym miejscu jajowodu najczęściej dochodzi do zapłodnienia?",o:["Lejek jajowodu (infundibulum) – część przy ujściu brzusznym","Bańka jajowodu (ampulla) – najszersza część jajowodu","Cieśń jajowodu (isthmus) – odcinek łączący bańkę z macicą","Część śródmienna – fragment przebiegający w ścianie macicy"],a:1},
+{id:2,c:"Ginekologia",t:"Jakie hormony produkują komórki tekalne pęcherzyka drugorzędowego?",o:["Progesteron – jako produkt ciałka żółtego po owulacji","Estrogeny – przez bezpośredną syntezę z cholesterolu","Androgeny (androstendion, testosteron) – aromatyzowane następnie przez komórki ziarniste","Gonadotropiny FSH i LH – jako lokalne regulatory"],a:2},
+{id:3,c:"Ginekologia",t:"Charakterystyczne objawy łożyska przodującego to:",o:["Silna boleśność brzucha i macica twarda jak deska","Narastająca boleśność brzucha z macicą miękką","Niebolesne krwawienie z pochwy, macica miękka","Rytmiczne skurcze macicy z równoczesnym krwawieniem"],a:2},
+{id:4,c:"Ginekologia",t:"Optymalne zestawienie nabłonków tarczy i kanału szyjki macicy (SCJ) występuje:",o:["W czasie pokwitania i w czasie pierwszej ciąży","Przed pokwitaniem i po menopauzie (niski poziom estrogenow)","Po porodzie i u dorosłej kobiety w wieku rozrodczym","Wyłącznie w ciąży przy wysokim poziomie estrogenow"],a:1},
+{id:5,c:"Ginekologia",t:"Nowotwory jakiego narządu najczęściej dają przerzuty do jajnika (Guz Krukenberga)?",o:["Żołądek – z charakterystycznymi komórkami sygnetowatymi","Jajowód – z uwagi na bezpośrednie sąsiedztwo","Sutek – ze względu na wydzielanie hormonów steroidowych","Jelito grube – z powodu spływu limfy do miednicy"],a:0},
+{id:6,c:"Ginekologia",t:"Koilocyty widoczne w badaniu cytologicznym szyjki macicy są patognomoniczne dla:",o:["Zakażenia wirusem cytomegalii (CMV)","Rzęsistka pochwowego (Trichomonas vaginalis)","Zakażenia wirusem brodawczaka ludzkiego (HPV)","Zakażenia Chlamydią trachomatis"],a:2},
+{id:7,c:"Ginekologia",t:"Przedwcześnie odklejające się łożysko wywołuje dolegliwości:",o:["Nagłe niebolesne krwawienie z rytmicznymi skurczami macicy","Niebolesne krwawienie z pochwy i macica miękka","Ciągły ból brzucha, macica twarda jak deska, niekiedy krwawienie","Boleśne parcia na mocz i boleśność podbrzusza"],a:2},
+{id:8,c:"Ginekologia",t:"Prawdziwe stwierdzenie dotyczące nabłonka szyjki macicy:",o:["W kanale: nabłonek jednowarstwowy sześcienny; na tarczy: rogowaciejący","W kanale: nabłonek jednowarstwowy walcowaty; na tarczy: wielowarstwowy płaski","W kanale: nabłonek gruczołowy; na tarczy: walcowaty cylindryczny","Oba nabłonki są identyczne, różnią się tylko grubością"],a:1},
+{id:9,c:"Ginekologia",t:"Typy HPV wysokiego ryzyka wywołujące raka szyjki macicy (od najaktywniejszego):",o:["16, 18, 6, 11, 45 – w tym dwa typy niskiego ryzyka","16, 18, 31, 33, 45 – najważniejsze typy onkogenne","16, 18, 45, 51, 52 – w kolejności malejącej aktywności","6, 11, 16, 18, 33 – typy niskiego i wysokiego ryzyka łącznie"],a:1},
+{id:10,c:"Ginekologia",t:"Spośród wad macicy, która daje najlepsze rokowanie odnoenie donoszenia ciąży?",o:["Macica z przegrodą – najczęstsza wada wrodzona, wiele poronienień","Macica jednorożna – wynikająca z zaniku jednego przewodu Mullera","Macica dwurożna – z częściowym połączeniem przewodów Mullera","Macica podwójna (didelphys) – pełne zdwojenie macicy i szyjki"],a:3},
+{id:11,c:"Ginekologia",t:"Tabletki antykoncepcyjne, które nie zatrzymują wody i działają lekko moczopednie to:",o:["Lesinelle zawierające lewonorgestrel (II generacja)","Yasminelle zawierające drospirenon o działaniu antyaldosteronowym","Varenelle zawierające norgestrimin generacji I","Microgynon zawierające etynyloestradiok"],a:1},
+{id:12,c:"Ginekologia",t:"Charakterystyczne objawy ciąży pozamacicznej to:",o:["Nagłe bolesne krwawienie i rytmiczne skurcze macicy","Ból brzucha po jednej stronie, promieniujący do barku, nudności/biegunka","Bolesne krwawienie, macica miękka i gúz przydatków","Niebolesne krwawienie i twarda macica z podwyższoną temperaturą"],a:1},
+{id:13,c:"Ginekologia",t:"Jakie tabletki antykoncepcyjne powinny być zalecane kobietom z wadami zastawkowymi serca?",o:["Zawierające estrogeny – korzystnie wpływają na układ sercowy","Złożone z estrogenem i progestagenem II generacji","Czysto progestagenowe (mini-pill) – bez estrogenow","Zawierające androgeny – zmniejszają ryzyko zakrzepicy"],a:2},
+{id:14,c:"Ginekologia",t:"Które hormony ułatwiają przemieszczanie się plemników przez kanał szyjki macicy?",o:["Progesteron – zagęszcza śluz szyjkowy, utrudniając penetrację","Estrogeny – rozrzedzają śluz szyjkowy i tworzą obraz paproci","Androgeny – zwiększają ruchliwość plemników","Relaksyna – rozluźnia włókna kolagenowe szyjki macicy"],a:1},
+{id:15,c:"Endokrynologia",t:"Które hormony wpływające na cykl jajnikowy produkuje podwzgórze?",o:["Gonadotropiny FSH i LH – bezpośrednio stymulujące jajniki","Gonadoliberyny (GnRH) – pulsacyjnie pobudzające przysadkę","Estrogeny i progesteron – przez ujemne sprzeżenie zwrotne","Prolaktyna i oksytocyna – kontrolujące funkcje reprodukcyjne"],a:1},
+{id:16,c:"Endokrynologia",t:"LH w fazie owulacyjnej cyklu stymuluje przede wszystkim:",o:["Wzrost i dojrzewanie pęcherzyków jajnikowych z komórką jajową","Pęknięcie dojrzałego pęcherzyka Graafa i uwolnienie komórki jajowej","Produkcję prolaktyny przez przedni płat przysadki mózgowej","Wydzielanie GnRH przez podwzgórze w sposób pulsacyjny"],a:1},
+{id:17,c:"Endokrynologia",t:"Który hormon powoduje zmiany sekrecyjne błony śluzowej macicy i umożliwia implantację?",o:["Estrogeny – stymulując proliferację błony śluzowej macicy","Progesteron – powodując zmiany sekrecyjne i rozpulchnienie endometrium","FSH – przez pobudzenie komórek ziarnistych pęcherzyków","Oksytocyna – regulując skurczowość macicy w czasie implantacji"],a:1},
+{id:18,c:"Endokrynologia",t:"Co hamuje wydzielanie GnRH z podwzgórza?",o:["Noradrenalina i adrenalina – pobudzając impulsowe uwalnianie","FSH i LH zwrotnie blokują GnRH przez receptory w podwzgórzu","Beta-endorfina, dopamina i melatonina hamują wydzielanie GnRH","Estrogeny bezpośrednio na receptory jąder podwzgórza"],a:2},
+{id:19,c:"Endokrynologia",t:"Ile hormonów syntetyzuje przedni płat przysadki mózgowej?",o:["4 (TSH, ACTH, FSH, LH)","5 (TSH, ACTH, FSH, LH, STH)","6 (TSH, ACTH, STH, PRL, FSH, LH)","8 (TSH, ACTH, STH, PRL, FSH, LH, MSH, ADH)"],a:2},
+{id:20,c:"Endokrynologia",t:"Drugorzędowe cechy płciowe to:",o:["Gruczoły płciowe wytwarzające hormony (jajniki, jądra)","Narządy płciowe biorące udział w rozmnażaniu (pochwa, macica, prącie)","Cechy budowy ciała (owłosienie, głos, tkanka tłuszczowa)","Hormony płciowe regulujące cykl miesięczny u kobiet"],a:1},
+{id:21,c:"Endokrynologia",t:"Wazopresyna (ADH): I. Produkowana przez podwzgórze. II. Zwiększa produkcję moczu.",o:["I – fałszywe, II – prawdziwe","I – prawdziwe, II – fałszywe (ADH zmniejsza produkcję moczu)","I – fałszywe, II – fałszywe","I – prawdziwe, II – prawdziwe"],a:1},
+{id:22,c:"Endokrynologia",t:"Prolactinoma (gruczolak prolaktynowy):",o:["To guz przysadki produkujący PRL, ale nie zaburza miesiączkowania","Występuje wyłącznie u kobiet i nie daje objawów u mężczyzn","Jest guzem złośliwym wymagającym natychmiastowej operacji","To guz przysadki produkujący PRL, powodujący hipogonadyzm i mlekotok"],a:3},
+{id:23,c:"Patologia",t:"Klasycznym przykładem bólu neuropatycznego jest:",o:["Polineuropatia po półpaścu (neuralgia postherpetyczna)","Ból dławicowy w niedokrwieniu mięśnia sercowego","Ból w zapaleniu wokółpaznokciowym (zanokcica)","Ból przy skręceniu stawu skokowego"],a:0},
+{id:24,c:"Patologia",t:"Dla bólu neuropatycznego charakterystyczne jest odczucie:",o:["Wyłącznie pieczenia i palenia skory","Wyłącznie przeszywania prądem (allodynia elektryczna)","Wyłącznie drętwienia i mrowienia (parestezje)","Pieczenia, przeszywania prądem i drętwienia – wszystkie razem"],a:3},
+{id:25,c:"Patologia",t:"Apoptoza – wskazane zdanie FAŁSZYWE:",o:["To programowana śmierć komórki w ustroju żywym","Umożliwia organizmowi eliminację komórek nowotworowych","Komórki ulegające apoptozie nie wywołują reakcji zapalnej","Następuje po całkowitym skróceniu telomerów chromosomalnych"],a:3},
+{id:26,c:"Patologia",t:"Prawidłowa sekwencja etapów OZW: I–zamknięcie naczynia, II–uszkodzenie blaszki, III–adhezja płytek, IV–niedokrwienie:",o:["I, II, III, IV","II, I, III, IV","II, III, I, IV","III, II, I, IV"],a:2},
+{id:27,c:"Patologia",t:"Które ze zdań dotyczących zdrowia jest PRAWDZIWE?",o:["Tylko definicja WHO: dobrostan fizyczny, psychiczny i społeczny","Tylko definicja funkcjonalna: zdolność adaptacji do środowiska","Tylko model Lalondea: styl życia, środowisko, genetyka, opieka medyczna","Wszystkie trzy powyższe ujęcia są uznane i prawdziwe"],a:3},
+{id:28,c:"Patologia",t:"Triada Virchowa opisująca główne przyczyny powstawania zakrzepów obejmuje:",o:["Nadciśnienie, cukrzycę i palenie papierosów","Uszkodzenie śródbłonka, zaburzenia przepływu krwi i nadmierną krzepliwość","Miażdżycę, wady serca i otyłość","Stazę żylną, trombocytozę i niedobory antytrombiny III"],a:1},
+{id:29,c:"Patologia",t:"Makroskopowe cechy zakrzepu (skrzepliny) odrozniające go od skrzepu pośmiertnego:",o:["Zakrzep jest elastyczny, gładki, lśniący i nieprzyczepiony do ściany","Zakrzep jest kruchy, matowy, chropowaty i przyczepiony do ściany naczynia","Zakrzep i skrzep mają identyczne cechy makroskopowe","Zakrzep tworzy odlew światła naczynia, skrzep jest kruchy"],a:1},
+{id:30,c:"Patologia",t:"Martwica rozpływna mózgu zachodzi najczęściej w przebiegu:",o:["Urazu mechanicznego mózgoczaszki z krwotokiem","Niedokrwienia mózgu (zawał) na tle zamknięcia tętnicy","Zakażenia wirusem opryszczki pospolitej HSV","Guza mózgu uciskającego sąsiednie tkanki nerwowe"],a:1},
+{id:31,c:"Patologia",t:"Los zakrzepu, który może prowadzić do powstawania ropnia to:",o:["Rozmiękanie jałowe z powrotem do normy","Rozmiękanie zakażone drobnoustrojami ropnymi","Oderwanie zakrzepu i zator dalszej tętnicy","Organizacja i rekanalizacja naczynia"],a:1},
+{id:32,c:"Neurologia",t:"Objaw Lhermittea w stwardnieniu rozsianym (SM) charakteryzuje się:",o:["Drżeniem zamiarowym uniemożliwiającym wykonywanie ruchów celowych","Mową skandowaną z zaburzeniami koordynacji artykulacji","Przeszywającym prądem wzdłuż kręgosłupa przy zgięciu głowy ku piersi","Nieregularnym chodem z poszerzoną podstawą (chód ataktyczny)"],a:2},
+{id:33,c:"Neurologia",t:"Najczęstszy typ udaru mózgu, dotyczący ok. 70–80% pacjentów to:",o:["Krwotok śródmózgowy (pęknięcie ściany tętniczki mózgowej)","Krwotok podpajęczynowókowy (pęknięcie tętniaka)","Udar niedokrwienny (zamknięcie tętnicy doprowadzającej krew)","Udar lakunarny (zamknięcie drobnych naczyń przeszywających)"],a:2},
+{id:34,c:"Neurologia",t:"Najczętszą przyczyną krwotoku podpajęczynowókowego jest:",o:["Nieleczone nadciśnienie niszczące ściany tętniczek mózgowych","Pęknięcie wrodzonego rozszerzenia tętnicy (tętniaka mózgowego)","Zaburzenia krzepnięcia krwi (hemofilia, antykoagulanty)","Oderwanie skrzepliny z serca w migotaniu przedsionków"],a:1},
+{id:35,c:"Neurologia",t:"TIA (przemijający napad niedokrwienny) definiuje się jako:",o:["Udar mózgu z trwałym ustąpieniem objawów po leczeniu","Napad z objawami udaru trwający nie dłużej niż 24 godziny","Typ udaru z objawami cofającymi się w ciągu 24–72 godzin (RIND)","Cichy udar mózgu z ledwo zauważalnymi objawami klinicznymi"],a:1},
+{id:36,c:"Neurologia",t:"Chorobę Alzheimera z patologicznego punktu widzenia definiuje:",o:["Zanik hipokampa, utrata synaps i przewlekłe zapalenie OUN","Utrata neuronów, blaszki amyloidu beta i splatątki neurofibrylarne z białkiem tau","Odkadanie dopaminy i degeneracja istoty czarnej śródmózgowia","Demielinizacja aksónów i bliznowacenie astrocytów"],a:1},
+{id:37,c:"Neurologia",t:"Bradykinezja w chorobie Parkinsona oznacza:",o:["Drżenie spoczynkowe nasilające się w spoczynku, ustępujące przy ruchu","Sztywność mięśniową o typie rury ołowianej lub koła zębatego","Spowolnienie ruchowe z trudnością inicjacji i wykonywania ruchów","Tendencję do padania do przodu z zachowaną siłą mięśniową"],a:2},
+{id:38,c:"Neurologia",t:"Klasyczna triada objawów choroby Parkinsona to:",o:["Drżenie, sztywność i bradykinezja (spowolnienie ruchowe)","Bradykinezja, ataksja i dysfagia","Drżenie zamiarowe, mowa skandowana i oczoplasak","Bradykinezja, spastyczność i arefleksja"],a:0},
+{id:39,c:"Neurologia",t:"Migotanie przedsionków zwiększa ryzyko udaru mózgu:",o:["2–3-krotnie w stosunku do populacji zdrowej","5–7-krotnie w stosunku do populacji bez migotania","10-krotnie, szczególnie przy wadach zastawkowych serca","Nieznacznie – jest mniej istotnym czynnikiem niż cukrzyca"],a:1},
+{id:40,c:"Naczynia",t:"Czynniki ryzyka sercowo-naczyniowego podlegające modyfikacji to:",o:["Nieprawidłowe żwienie, palenie tytoniu, płeć (niemodyfikowalna)","Wiek, nadwaga, otyłość (wiek niemodyfikowalny)","Mała aktywność fizyczna, wiek i podwyższone ciśnienie tętnicze","Nieprawidłowe żwienie, palenie tytoniu, cukrzyca"],a:3},
+{id:41,c:"Naczynia",t:"Miażdżyca najczęściej zajmuje (miejsca o najzaawansowanych zmianach):",o:["Tętnice płucne i naczynia krążenia małego","Brzuszną część aorty, tętnice wieńcowe i tętnicę podkolanową","Żyły głębokie kończyn dolnych i żyły biodrowe","Naczynia włosowate nerek i siatkowóki oka"],a:1},
+{id:42,c:"Naczynia",t:"W transposition of great arteries (TGA) do przeżycia noworodka niezbędne jest:",o:["Natychmiastowa operacja korekcyjna w pierwszych godzinach życia","Obecność otworu owalnego, drożnego przewodu tętniczego lub ubytku przegród","Tlenoterapia ciągła i leki rozszerzające naczynia płucne","Podanie prostaglandyn zamykających otwory komunikacyjne"],a:1},
+{id:43,c:"Naczynia",t:"Główne cechy różniące tętnice od żył:",o:["Tętnice zawierają zawsze krew utleniowaną, żyły zawsze krew odtlenowaną","Tętnice mają zastawki zapobiegające cofaniu się krwi, żyły ich nie posiadają","Tętnice: grubsza ściana, wyższe ciśnienie, brak zastawek; żyły: cienka ściana, zastawki","Żyły transportują krew do serca – jedyna istotna różnica"],a:2},
+{id:44,c:"Naczynia",t:"Zakrzepica żylna dotyczy najczęściej:",o:["Żył powierzchownych kończyn górnych","Żył głębokich kończyn dolnych","Żył nerkowych w przebiegu zesp. nerczycowego","Zatok żylnych opony twardej w zapaleniu"],a:1},
+{id:45,c:"Naczynia",t:"Miażdżyca to choroba błony wewnętrznej tętnic:",o:["Dużego krążenia – w krążeniu małym minimalna lub nieobecna","Żył i tętnic jednocześnie – wpływ ogólnoustrojowy","Wyłącznie tętnic wieńcowych i szyjnych","Wszystkich naczyń w tym kapilar i żył głębokich"],a:0},
+{id:46,c:"Pulmonologia",t:"Objawy raka płuc obejmują:",o:["Wyłącznie kaszel i chrypkę (naciek n. krtaniowego)","Wyłącznie krwioplucie i nawracające zapalenia płuc","Kaszel, chrypkę, krwioplucie i nawracające zapalenia płuc","Wyłącznie objawy ogólne: utrata masy ciała i zmęczenie"],a:2},
+{id:47,c:"Pulmonologia",t:"Wskazane zdanie FAŁSZYWE o raku drobnokomórkowym płuc (SCLC):",o:["Jest najczęstszym rakiem płuc (stanowiąc większość przypadków)","Wśród raków płuc ma najgorsze rokowanie","Może być hormonalnie czynny (SIADH, ektopowy ACTH)","Rośnie centralnie, w okolicach przywiękowych"],a:0},
+{id:48,c:"Pulmonologia",t:"Astma oskrzelowa – charakter duszności podczas napadu:",o:["Wdechowy – z typowym stridorem przy każdym wdechu","Mieszany – zarówno wdechowy jak i wydechowy w równym stopniu","Wydechowy, gdyż zwezenie oskrzeli bardziej utrudnia wydech niż wdech","Napadowy bez wyraźnego charakteru wdechowego ani wydechowego"],a:2},
+{id:49,c:"Pulmonologia",t:"Kluczowa różnica patomechanizmu astmy i POChP:",o:["Astma dotyczy górnych dróg oddechowych, POChP wyłącznie dolnych","W astmie główną rolę grają neutrofile, w POChP eozynofile","Astma: odwracalne zwezenie oskrzeli; POChP: nieodwracalne i zniszczenie miąższu","W astmie podstawą są beta-mimetyki, w POChP kortykosteroidy wziewne"],a:2},
+{id:50,c:"Pulmonologia",t:"Rak płaskonabłonkowy płuc – główny czynnik ryzyka i charakterystyczna lokalizacja:",o:["Ekspozycja na azbest; lokalizacja obwodowa w półkach płucnych","Palenie papierosów (>98% przypadków); lokalizacja centralna","Mutacja genu EGFR; lokalizacja obwodowa częsta u niepalących","Zakażenie wirusem HPV; lokalizacja przywnekowa"],a:1}
+];
+
+var L=["A","B","C","D"];
+var CC={
+  "Ginekologia":    {bg:"#1e3d2f",co:"#4ade80",bo:"#16a34a"},
+  "Endokrynologia": {bg:"#1e2d3d",co:"#38bdf8",bo:"#0ea5e9"},
+  "Patologia":      {bg:"#2d1e3d",co:"#c084fc",bo:"#9333ea"},
+  "Neurologia":     {bg:"#1e3a5f",co:"#60a5fa",bo:"#2563eb"},
+  "Naczynia":       {bg:"#3d1e2f",co:"#f472b6",bo:"#db2777"},
+  "Pulmonologia":   {bg:"#2d2a1e",co:"#facc15",bo:"#ca8a04"}
+};
+var CL={
+  "Ginekologia":"Ginekologia",
+  "Endokrynologia":"Endokrynologia",
+  "Patologia":"Patologia og\u00f3lna",
+  "Neurologia":"Neurologia",
+  "Naczynia":"Uk\u0142ad kr\u0105\u017cenia",
+  "Pulmonologia":"Pulmonologia"
+};
+var COUNTS=[10,20,30,50];
+var S={phase:"menu",qq:[],cur:0,sel:null,conf:false,ans:{},sc:0,done:0,n:20,filt:"all"};
+function shuf(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function cats(){var r=[];Q.forEach(function(q){if(r.indexOf(q.c)<0)r.push(q.c);});return r;}
+function catQ(qq,cat){return qq.filter(function(q){return q.c===cat;});}
+function goMenu(){S.phase="menu";draw();}
+function goStart(){S.qq=shuf(Q).slice(0,S.n);S.cur=0;S.sel=null;S.conf=false;S.ans={};S.sc=0;S.done=0;S.phase="quiz";draw();}
+function goPick(i){if(S.conf)return;S.sel=i;draw();}
+function goCheck(){if(S.sel===null||S.conf)return;var q=S.qq[S.cur];var ok=S.sel===q.a;S.conf=true;S.ans[S.cur]={s:S.sel,a:q.a,ok:ok};if(ok)S.sc++;S.done++;draw();}
+function goNext(){if(S.cur+1<S.qq.length){S.cur++;S.sel=null;S.conf=false;draw();}else{S.phase="result";draw();}}
+function goPrev(){if(S.cur>0){S.cur--;var a=S.ans[S.cur];S.sel=a?a.s:null;S.conf=!!a;draw();}}
+function goReview(){S.phase="review";S.filt="all";draw();}
+function setFilt(f){S.filt=f;draw();}
+function setN(n){S.n=n;draw();}
+function draw(){if(S.phase==="menu")dMenu();else if(S.phase==="quiz")dQuiz();else if(S.phase==="result")dResult();else dReview();}
+function cc(cat){return CC[cat]||{bg:"#1e2b3e",co:"#94a3b8",bo:"#334155"};}
+function cl(cat){return CL[cat]||cat;}
+function dMenu(){
+  var pills=cats().map(function(cat){var c=cc(cat);return'<span class="s-pill" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+catQ(Q,cat).length+' '+cl(cat)+'</span>';}).join("");
+  var btns=COUNTS.map(function(n){return'<button class="cnt-btn'+(S.n===n?" active":"")+'" onclick="setN('+n+')">'+n+'<small>pyta\u0144</small></button>';}).join("");
+  document.getElementById("app").innerHTML='<div class="menu-card"><div class="menu-icon">&#129516;</div><h1 class="menu-title">Patologia i Fizjologia</h1><p class="menu-sub">50 pyta\u0144 &middot; 6 kategorii &middot; Materia\u0142 z wyk\u0142ad\u00f3w i quizu</p><div class="count-grid">'+btns+'</div><button class="start-btn" onclick="goStart()">Rozpocznij test &#8594;</button><div class="stats-row">'+pills+'</div></div>';
+}
+function dQuiz(){
+  var q=S.qq[S.cur];var tot=S.qq.length;var c=cc(q.c);var prog=(S.cur/tot*100).toFixed(1);
+  var opts=q.o.map(function(txt,i){var cls="obtn";if(S.conf){if(i===q.a)cls="obtn cor";else if(i===S.sel)cls="obtn wrg";else cls="obtn dim";}else if(S.sel===i)cls="obtn sel";return'<button class="'+cls+'" onclick="goPick('+i+')"><span class="olbl">'+L[i]+'</span><span>'+txt+'</span></button>';}).join("");
+  var fb="";if(S.conf){var an=S.ans[S.cur];fb='<div class="fb '+(an.ok?"ok":"no")+'">'+(an.ok?"&#10003; Poprawna odpowied\u017a! "+L[q.a]+". "+q.o[q.a]:"&#10007; B\u0142\u0105d. Prawid\u0142owa: "+L[q.a]+". "+q.o[q.a])+"</div>";}
+  var isLast=(S.cur+1>=tot);
+  var ab=S.conf?'<button class="btn bs" onclick="goNext()">'+(isLast?"Zako\u0144cz &#10003;":"Nast\u0119pne &#8594;")+'</button>':'<button class="btn bp" onclick="goCheck()"'+(S.sel===null?" disabled":"")+'>Sprawd\u017a</button>';
+  document.getElementById("app").innerHTML='<div class="qhdr"><button class="btn bo" style="flex:none;padding:8px 12px;font-size:.78rem" onclick="goMenu()">&#10005;</button><div class="prog-w"><div class="prog-b" style="width:'+prog+'%"></div></div><span class="qcnt">'+(S.cur+1)+'/'+tot+'</span><span class="slive">'+S.sc+'/'+S.done+'</span></div><div class="qcard"><div class="qmeta"><span class="qnum">PYTANIE '+(S.cur+1)+'</span><span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(q.c)+'</span></div><p class="qtxt">'+q.t+'</p></div><div class="opts">'+opts+'</div>'+fb+'<div class="acts"><button class="btn bo" style="flex:none;padding:13px 17px" onclick="goPrev()"'+(S.cur===0?" disabled":"")+'>\u2190</button>'+ab+'</div>';
+}
+function dResult(){
+  var tot=S.qq.length;var pct=tot?Math.round(S.sc/tot*100):0;
+  var em=pct>=80?"&#127942;":pct>=60?"&#128218;":"&#128170;";
+  var col=pct>=80?"g":pct>=60?"y":"r";
+  var msg=pct>=90?"Doskonale! Jeste\u015b gotowy/a na egzamin.":pct>=75?"Bardzo dobrze! Jeszcze troch\u0119 powt\u00f3rze\u0144.":pct>=60?"Niez\u0142e, ale warto przejrze\u0107 b\u0142\u0119dy.":"Zalecane dodatkowe powt\u00f3rzenie.";
+  var bars=cats().map(function(cat){var cqs=catQ(S.qq,cat);if(!cqs.length)return"";var idxs=cqs.map(function(q){return S.qq.indexOf(q);});var ok=idxs.filter(function(i){return S.ans[i]&&S.ans[i].ok;}).length;var p=Math.round(ok/cqs.length*100);var fc=p>=80?"#4ade80":p>=60?"#facc15":"#f87171";return'<div class="crow"><div class="crowh"><span class="cname">'+cl(cat)+'</span><span style="font-weight:700;color:'+fc+'">'+ok+'/'+cqs.length+' ('+p+'%)</span></div><div class="cbarw"><div class="cbarf" style="width:'+p+'%;background:'+fc+'"></div></div></div>';}).join("");
+  document.getElementById("app").innerHTML='<div class="rcard"><div class="remo">'+em+'</div><div class="rpct '+col+'">'+pct+'%</div><p class="rmsg">'+msg+'</p><div class="rgrid"><div class="rstat"><div class="v" style="color:#4ade80">'+S.sc+'</div><div class="l">Poprawnych</div></div><div class="rstat"><div class="v" style="color:#f87171">'+(tot-S.sc)+'</div><div class="l">B\u0142\u0119dnych</div></div><div class="rstat"><div class="v" style="color:#60a5fa">'+tot+'</div><div class="l">\u0141\u0105cznie</div></div></div><div class="cbar"><div class="cbartit">Wyniki wg kategorii</div>'+bars+'</div><div class="rbtns"><button class="btn bp" onclick="goReview()">&#128203; Przejrzyj odpowiedzi</button><button class="btn bs" onclick="goStart()">&#128260; Nowy test ('+S.n+' pyta\u0144)</button><button class="btn bo" onclick="goMenu()">\u2190 Menu</button></div></div>';
+}
+function dReview(){
+  var filtered=S.qq.filter(function(_,i){if(S.filt==="wrong")return S.ans[i]&&!S.ans[i].ok;if(S.filt==="right")return S.ans[i]&&S.ans[i].ok;return true;});
+  var pls=["all","wrong","right"].map(function(f){var lbl=f==="all"?"Wszystkie":f==="wrong"?"B\u0142\u0119dne":"Poprawne";return'<button class="fpill'+(S.filt===f?" act":"")+'" onclick="setFilt(\''+f+'\')">'+lbl+'</button>';}).join("");
+  var items=filtered.map(function(rq){var oi=S.qq.indexOf(rq);var an=S.ans[oi];var ok=an&&an.ok;var c=cc(rq.c);return'<div class="ritem '+(ok?"ok":"er")+'"><div class="rmeta"><span class="rnum">PYT. '+rq.id+'</span><span class="cbadge" style="background:'+c.bg+';color:'+c.co+';border-color:'+c.bo+'">'+cl(rq.c)+'</span></div><p class="rq">'+rq.t+'</p>'+(!ok&&an?'<p class="ra w">&#10007; Twoja: '+L[an.s]+'. '+rq.o[an.s]+'</p>':'')+'<p class="ra c">&#10003; Prawid\u0142owa: '+L[rq.a]+'. '+rq.o[rq.a]+'</p></div>';}).join("");
+  document.getElementById("app").innerHTML='<button class="bbk" onclick="S.phase=\'result\';draw()">\u2190 Powr\u00f3t do wynik\u00f3w</button><div class="rvhdr"><span class="rvtit">Przegl\u0105d odpowiedzi</span><div class="fpills">'+pls+'</div></div>'+items;
+}
+draw();
+</script>
+</body>
+</html>
