@@ -1,0 +1,97 @@
+name: TEMP SBV15 Grand Prismatic Build
+on:
+  push:
+    branches: [tmp-sbv15-render-20261004]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install production dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core zip
+          python -m pip install --upgrade pip
+          pip install numpy==2.2.6 soundfile==0.14.0 kokoro-onnx==0.6.1 onnxruntime==1.22.1 espeakng-loader==0.2.4 Pillow==12.3.0 requests
+      - name: Download authentic source footage and locked voice model
+        run: |
+          mkdir -p assets15 voice15
+          python - <<'PY'
+          from pathlib import Path
+          import requests, time
+          files={
+            'assets15/gps_v1.webm':'https://upload.wikimedia.org/wikipedia/commons/c/c7/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video1.webm',
+            'assets15/gps_v2.webm':'https://upload.wikimedia.org/wikipedia/commons/0/08/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video2.webm',
+            'assets15/gps_v3.webm':'https://upload.wikimedia.org/wikipedia/commons/3/33/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video3.webm',
+            'assets15/gps_v4.webm':'https://upload.wikimedia.org/wikipedia/commons/b/b3/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video4.webm',
+            'assets15/gps_timelapse.webm':'https://upload.wikimedia.org/wikipedia/commons/8/8d/Grand_Prismatic_Spring_%28timelapse%29.webm',
+            'assets15/gps_overlook.webm':'https://upload.wikimedia.org/wikipedia/commons/1/1a/Grand_Prismatic_Spring_Overlook_timelapse_%2836254802534%29.webm',
+            'assets15/gps_boardwalk.webm':'https://upload.wikimedia.org/wikipedia/commons/5/5a/Grand_Prismatic_Spring_boardwalk_timelapse_%2836948603771%29.webm',
+            'voice15/kokoro-v1.0.onnx':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx',
+            'voice15/voices-v1.0.bin':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin',
+          }
+          s=requests.Session(); s.headers['User-Agent']='StrangeButVerified-documentary-production/1.0 (educational video editing)'
+          for dst,url in files.items():
+              p=Path(dst); p.parent.mkdir(parents=True,exist_ok=True)
+              print('DOWNLOAD',dst,flush=True)
+              for attempt in range(4):
+                  try:
+                      with s.get(url,stream=True,timeout=300,allow_redirects=True) as r:
+                          r.raise_for_status()
+                          with open(p,'wb') as f:
+                              for c in r.iter_content(1024*1024):
+                                  if c: f.write(c)
+                      break
+                  except Exception:
+                      if attempt==3: raise
+                      time.sleep(3*(attempt+1))
+          PY
+          for f in assets15/*.webm; do ffprobe -v error "$f" >/dev/null; done
+          sha256sum voice15/kokoro-v1.0.onnx voice15/voices-v1.0.bin
+      - name: Render production master
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_TELEMETRY: '1'
+        run: python render_sbv15_grand_prismatic.py
+      - name: Build visual contact sheet
+        run: |
+          mkdir -p review15
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          from PIL import Image,ImageOps,ImageDraw
+          v=Path('out15/Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER.mp4')
+          dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(v)],text=True).strip())
+          times=[dur*i/19 for i in range(20)]
+          ims=[]
+          for i,t in enumerate(times):
+              p=Path('review15')/f'frame_{i:02}.jpg'
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',f'{min(t,dur-0.05):.3f}','-i',str(v),'-frames:v','1',str(p)],check=True)
+              im=Image.open(p).convert('RGB'); im=ImageOps.fit(im,(270,480),method=Image.Resampling.LANCZOS)
+              d=ImageDraw.Draw(im); d.rectangle((0,0,95,24),fill=(0,0,0)); d.text((5,5),f'{t:.1f}s',fill='white'); ims.append(im)
+          sheet=Image.new('RGB',(1350,1920),(0,0,0))
+          for i,im in enumerate(ims): sheet.paste(im,((i%5)*270,(i//5)*480))
+          sheet.save('review15/contact_final.jpg',quality=94)
+          PY
+          cp review15/contact_final.jpg out15/Strange_But_Verified_15_Contact_Sheet.jpg
+      - name: Package verified delivery
+        run: |
+          cp render_sbv15_grand_prismatic.py out15/
+          cp captions15.ass out15/
+          cp voice15/timing.json out15/Strange_But_Verified_15_Timing.json
+          cd out15
+          zip -9 ../Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER_VERIFIED.zip ./*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Strange_But_Verified_15_Grand_Prismatic_FINAL
+          path: |
+            out15/
+            Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER_VERIFIED.zip
+          retention-days: 7
+          compression-level: 0
