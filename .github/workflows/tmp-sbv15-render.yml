@@ -1,0 +1,116 @@
+name: Render SBV15 Grand Prismatic
+on:
+  push:
+    branches: [tmp-sbv15-grand-prismatic-render-20261004]
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install production dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core zip
+          python -m pip install --upgrade pip
+          pip install numpy==2.2.6 soundfile==0.14.0 kokoro-onnx==0.6.1 onnxruntime==1.22.1 espeakng-loader==0.2.4 Pillow==12.3.0 requests
+      - name: Download authentic source footage and locked voice model
+        run: |
+          set -euo pipefail
+          mkdir -p assets15 voice15
+          python - <<'PY'
+          from pathlib import Path
+          from urllib.parse import quote
+          import requests, hashlib, time
+          commons={
+            'assets15/gps_v1.webm':'Grand Prismatic Spring (Midway Geyser Basin, Yellowstone National Park) 2021-08-10, video1.webm',
+            'assets15/gps_v2.webm':'Grand Prismatic Spring (Midway Geyser Basin, Yellowstone National Park) 2021-08-10, video2.webm',
+            'assets15/gps_v3.webm':'Grand Prismatic Spring (Midway Geyser Basin, Yellowstone National Park) 2021-08-10, video3.webm',
+            'assets15/gps_v4.webm':'Grand Prismatic Spring (Midway Geyser Basin, Yellowstone National Park) 2021-08-10, video4.webm',
+            'assets15/gps_timelapse.webm':'Grand Prismatic Spring (timelapse).webm',
+            'assets15/gps_overlook.webm':'Grand Prismatic Spring Overlook timelapse (36254802534).webm',
+            'assets15/gps_boardwalk.webm':'Grand Prismatic Spring boardwalk timelapse (36948603771).webm',
+          }
+          files={dst:'https://commons.wikimedia.org/wiki/Special:Redirect/file/'+quote(name,safe='') for dst,name in commons.items()}
+          files.update({
+            'voice15/kokoro-v1.0.onnx':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx',
+            'voice15/voices-v1.0.bin':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin',
+          })
+          s=requests.Session(); s.headers['User-Agent']='SBV-documentary-production/1.0 (authentic-footage edit)'
+          for dst,url in files.items():
+              p=Path(dst); p.parent.mkdir(parents=True,exist_ok=True)
+              for attempt in range(5):
+                  try:
+                      print('GET',dst,url,flush=True)
+                      with s.get(url,stream=True,timeout=300,allow_redirects=True) as r:
+                          r.raise_for_status()
+                          with open(p,'wb') as f:
+                              for chunk in r.iter_content(1024*1024):
+                                  if chunk: f.write(chunk)
+                      break
+                  except Exception:
+                      if attempt==4: raise
+                      time.sleep(3+attempt*3)
+              print(dst,p.stat().st_size,flush=True)
+              time.sleep(1.5)
+          expected={
+            'voice15/kokoro-v1.0.onnx':('beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a',325505369),
+            'voice15/voices-v1.0.bin':('bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d',28214398),
+          }
+          for fn,(want_sha,want_size) in expected.items():
+              p=Path(fn); assert p.stat().st_size==want_size,(fn,p.stat().st_size,want_size)
+              got=hashlib.sha256(p.read_bytes()).hexdigest(); assert got==want_sha,(fn,got,want_sha)
+          PY
+          for f in assets15/*.webm; do ffprobe -v error "$f" >/dev/null; done
+      - name: Render production master
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_TELEMETRY: '1'
+        run: python render_sbv15_grand_prismatic.py
+      - name: Build visual QA contact sheet
+        run: |
+          mkdir -p review15
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          from PIL import Image,ImageOps,ImageDraw
+          v=Path('out15/Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER.mp4')
+          dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(v)],text=True).strip())
+          times=[min(max(0,dur-.05),x) for x in [0.2,1.2,2.5,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,dur-.3]]
+          ims=[]
+          for i,t in enumerate(times):
+              p=Path('review15')/f'frame_{i:02}_{t:.1f}.jpg'
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',f'{t:.3f}','-i',str(v),'-frames:v','1',str(p)],check=True)
+              im=Image.open(p).convert('RGB'); im=ImageOps.fit(im,(270,480),method=Image.Resampling.LANCZOS)
+              d=ImageDraw.Draw(im); d.rectangle((0,0,92,24),fill=(0,0,0)); d.text((5,5),f'{t:.1f}s',fill='white'); ims.append(im)
+          cols=5; rows=(len(ims)+cols-1)//cols
+          sheet=Image.new('RGB',(270*cols,480*rows),(0,0,0))
+          for i,im in enumerate(ims): sheet.paste(im,((i%cols)*270,(i//cols)*480))
+          sheet.save('review15/contact_final.jpg',quality=93)
+          PY
+      - name: Package final
+        run: |
+          cp render_sbv15_grand_prismatic.py out15/
+          cp captions15.ass out15/
+          cp voice15/timing.json out15/Strange_But_Verified_15_Timing.json
+          cp review15/contact_final.jpg out15/Strange_But_Verified_15_Contact_Sheet.jpg
+          cd out15 && zip -9 ../Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER_VERIFIED.zip ./*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Strange_But_Verified_15_Grand_Prismatic_FINAL
+          path: |
+            out15/Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER.mp4
+            out15/Strange_But_Verified_15_Cover.jpg
+            out15/Strange_But_Verified_15_Grand_Prismatic_English.srt
+            out15/Strange_But_Verified_15_Metadata.md
+            out15/Strange_But_Verified_15_Sources.md
+            out15/Strange_But_Verified_15_QA.md
+            out15/Strange_But_Verified_15_Contact_Sheet.jpg
+            Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER_VERIFIED.zip
+          retention-days: 7
+          compression-level: 0
