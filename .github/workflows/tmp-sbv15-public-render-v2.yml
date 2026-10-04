@@ -1,0 +1,130 @@
+name: Render SBV15 Grand Prismatic Fixed
+on:
+  push:
+    branches: [tmp-sbv15-grand-prismatic-render]
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core zip
+          python -m pip install --upgrade pip
+          pip install numpy==2.2.6 soundfile==0.14.0 kokoro-onnx==0.6.1 onnxruntime==1.22.1 espeakng-loader==0.2.4 Pillow==12.3.0 requests
+      - name: Download authentic footage and locked voice model
+        run: |
+          set -euo pipefail
+          mkdir -p assets15 voice15 out15 tmp15
+          python - <<'PY'
+          from pathlib import Path
+          import requests, time, random
+
+          media=[
+            ('assets15/gps_v1.webm','https://upload.wikimedia.org/wikipedia/commons/c/c7/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video1.webm'),
+            ('assets15/gps_v2.webm','https://upload.wikimedia.org/wikipedia/commons/0/08/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video2.webm'),
+            ('assets15/gps_v3.webm','https://upload.wikimedia.org/wikipedia/commons/3/33/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video3.webm'),
+            ('assets15/gps_v4.webm','https://upload.wikimedia.org/wikipedia/commons/b/b3/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video4.webm'),
+            ('assets15/gps_timelapse.webm','https://upload.wikimedia.org/wikipedia/commons/8/8d/Grand_Prismatic_Spring_%28timelapse%29.webm'),
+            ('assets15/gps_overlook.webm','https://upload.wikimedia.org/wikipedia/commons/1/1a/Grand_Prismatic_Spring_Overlook_timelapse_%2836254802534%29.webm'),
+            ('assets15/gps_boardwalk.webm','https://upload.wikimedia.org/wikipedia/commons/5/5a/Grand_Prismatic_Spring_boardwalk_timelapse_%2836948603771%29.webm'),
+          ]
+          models=[
+            ('voice15/kokoro-v1.0.onnx','https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'),
+            ('voice15/voices-v1.0.bin','https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'),
+          ]
+
+          s=requests.Session()
+          s.headers.update({'User-Agent':'StrangeButVerified-production/1.0 (documentary asset fetch; contact via GitHub o0MrT0o)','Accept':'*/*'})
+
+          def fetch(dst,url):
+              p=Path(dst); p.parent.mkdir(parents=True,exist_ok=True)
+              for attempt in range(1,10):
+                  try:
+                      print(f'GET {dst} attempt {attempt}',flush=True)
+                      with s.get(url,stream=True,timeout=300,allow_redirects=True) as r:
+                          if r.status_code==429:
+                              wait=min(90,12*attempt)+random.uniform(1,4)
+                              print(f'HTTP 429; sleeping {wait:.1f}s',flush=True)
+                              time.sleep(wait); continue
+                          r.raise_for_status()
+                          tmp=p.with_suffix(p.suffix+'.part')
+                          with open(tmp,'wb') as f:
+                              for chunk in r.iter_content(1024*1024):
+                                  if chunk: f.write(chunk)
+                          if tmp.stat().st_size < 1024:
+                              raise RuntimeError(f'download too small: {tmp.stat().st_size}')
+                          tmp.replace(p)
+                      print(f'OK {dst} {p.stat().st_size} bytes',flush=True)
+                      return
+                  except Exception as e:
+                      if attempt==9: raise
+                      wait=min(90,10*attempt)+random.uniform(1,4)
+                      print(f'RETRY {dst}: {e}; sleeping {wait:.1f}s',flush=True)
+                      time.sleep(wait)
+              raise RuntimeError(dst)
+
+          for i,(dst,url) in enumerate(media):
+              fetch(dst,url)
+              if i < len(media)-1:
+                  time.sleep(12.0+random.uniform(0,3))
+          for dst,url in models:
+              fetch(dst,url)
+          PY
+          for f in assets15/*.webm; do test -s "$f"; ffprobe -v error "$f" >/dev/null; done
+          test -s voice15/kokoro-v1.0.onnx
+          test -s voice15/voices-v1.0.bin
+      - name: Render corrected production master
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_TELEMETRY: '1'
+        run: python sbv15_run_fixed.py
+      - name: Build visual QA contact sheet
+        run: |
+          mkdir -p review15
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          from PIL import Image,ImageOps,ImageDraw
+          v=Path('out15/Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER.mp4')
+          dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(v)],text=True).strip())
+          times=[min(max(0,dur-0.05),x) for x in [0.2,1.2,2.5,4,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,dur-0.3]]
+          ims=[]
+          for i,t in enumerate(times):
+              p=Path('review15')/f'f_{i:02}.jpg'
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',f'{t:.3f}','-i',str(v),'-frames:v','1',str(p)],check=True)
+              im=Image.open(p).convert('RGB'); im=ImageOps.fit(im,(270,480),method=Image.Resampling.LANCZOS)
+              d=ImageDraw.Draw(im); d.rectangle((0,0,85,22),fill=(0,0,0)); d.text((4,4),f'{t:.1f}s',fill='white'); ims.append(im)
+          rows=(len(ims)+4)//5
+          sheet=Image.new('RGB',(270*5,480*rows),(0,0,0))
+          for i,im in enumerate(ims): sheet.paste(im,((i%5)*270,(i//5)*480))
+          sheet.save('out15/Strange_But_Verified_15_Contact_Sheet.jpg',quality=93)
+          PY
+      - name: Package
+        run: |
+          cp sbv15_render.py out15/
+          cp sbv15_run_fixed.py out15/
+          cp voice15/timing.json out15/Strange_But_Verified_15_Timing.json
+          cd out15
+          zip -9 ../Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER_VERIFIED.zip ./*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Strange_But_Verified_15_Grand_Prismatic_FINAL_FIXED
+          path: |
+            out15/Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER.mp4
+            out15/Strange_But_Verified_15_Cover.jpg
+            out15/Strange_But_Verified_15_Grand_Prismatic_English.srt
+            out15/Strange_But_Verified_15_Metadata.md
+            out15/Strange_But_Verified_15_Sources.md
+            out15/Strange_But_Verified_15_QA.md
+            out15/Strange_But_Verified_15_Contact_Sheet.jpg
+            Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER_VERIFIED.zip
+          retention-days: 7
+          compression-level: 0
