@@ -1,0 +1,29 @@
+name: SBV15 USGS source QC
+
+on:
+  push:
+    branches:
+      - tmp/sbv15-af-heart
+    paths:
+      - '.github/workflows/tmp-sbv15-usgs-qc.yml'
+
+jobs:
+  qc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download public-domain USGS source
+        run: |
+          mkdir -p sbv15/usgs_qc
+          curl -L --fail --retry 3 -o sbv15/usgs_qc/source.mp4 "https://usgs-ocapsv2-public-input-media.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/media/video/2025_July_GrandPrismatic.mp4"
+      - name: Extract representative frames
+        run: |
+          for t in 0 5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 100 110 120; do
+            ffmpeg -loglevel error -y -ss "$t" -i sbv15/usgs_qc/source.mp4 -frames:v 1 -vf "scale=640:-2" "sbv15/usgs_qc/frame_${t}.jpg"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV15-USGS-QC
+          path: sbv15/usgs_qc/frame_*.jpg
+          retention-days: 1
