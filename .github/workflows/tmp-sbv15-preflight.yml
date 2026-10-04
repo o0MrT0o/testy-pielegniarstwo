@@ -1,0 +1,63 @@
+name: SBV15 Grand Prismatic Preflight
+on:
+  push:
+    branches:
+      - tmp-sbv15-grand-prismatic-20261004
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          pip install Pillow==12.3.0
+      - name: Download authentic footage
+        run: |
+          set -euo pipefail
+          mkdir -p assets15 previews15
+          curl -fL --retry 4 -A 'Mozilla/5.0' 'https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c7/Grand_Prismatic_Spring_(Midway_Geyser_Basin,_Yellowstone_National_Park)_2021-08-10,_video1.webm/Grand_Prismatic_Spring_(Midway_Geyser_Basin,_Yellowstone_National_Park)_2021-08-10,_video1.webm.720p.vp9.webm' -o assets15/video1.webm
+          curl -fL --retry 4 -A 'Mozilla/5.0' 'https://upload.wikimedia.org/wikipedia/commons/transcoded/0/08/Grand_Prismatic_Spring_(Midway_Geyser_Basin,_Yellowstone_National_Park)_2021-08-10,_video2.webm/Grand_Prismatic_Spring_(Midway_Geyser_Basin,_Yellowstone_National_Park)_2021-08-10,_video2.webm.720p.vp9.webm' -o assets15/video2.webm
+          curl -fL --retry 4 -A 'Mozilla/5.0' 'https://upload.wikimedia.org/wikipedia/commons/transcoded/3/33/Grand_Prismatic_Spring_(Midway_Geyser_Basin,_Yellowstone_National_Park)_2021-08-10,_video3.webm/Grand_Prismatic_Spring_(Midway_Geyser_Basin,_Yellowstone_National_Park)_2021-08-10,_video3.webm.720p.vp9.webm' -o assets15/video3.webm
+          curl -fL --retry 4 -A 'Mozilla/5.0' 'https://upload.wikimedia.org/wikipedia/commons/transcoded/b/b3/Grand_Prismatic_Spring_(Midway_Geyser_Basin,_Yellowstone_National_Park)_2021-08-10,_video4.webm/Grand_Prismatic_Spring_(Midway_Geyser_Basin,_Yellowstone_National_Park)_2021-08-10,_video4.webm.720p.vp9.webm' -o assets15/video4.webm
+          curl -fL --retry 4 -A 'Mozilla/5.0' 'https://upload.wikimedia.org/wikipedia/commons/transcoded/1/1a/Grand_Prismatic_Spring_Overlook_timelapse_(36254802534).webm/Grand_Prismatic_Spring_Overlook_timelapse_(36254802534).webm.720p.vp9.webm' -o assets15/overlook.webm
+          curl -fL --retry 4 -A 'Mozilla/5.0' 'https://upload.wikimedia.org/wikipedia/commons/transcoded/5/5a/Grand_Prismatic_Spring_boardwalk_timelapse_(36948603771).webm/Grand_Prismatic_Spring_boardwalk_timelapse_(36948603771).webm.720p.vp9.webm' -o assets15/boardwalk.webm
+          for f in assets15/*.webm; do echo === $f; ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$f"; done
+      - name: Build contact sheets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          from PIL import Image,ImageOps,ImageDraw
+          out=Path('previews15')
+          for video in sorted(Path('assets15').glob('*.webm')):
+              dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(video)],text=True).strip())
+              n=30
+              times=[dur*(0.02+0.96*i/(n-1)) for i in range(n)]
+              ims=[]
+              for i,t in enumerate(times):
+                  p=out/f'{video.stem}_{i:02}.jpg'
+                  subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',f'{t:.3f}','-i',str(video),'-frames:v','1',str(p)],check=True)
+                  im=Image.open(p).convert('RGB'); im=ImageOps.fit(im,(320,180),method=Image.Resampling.LANCZOS)
+                  d=ImageDraw.Draw(im); d.rectangle((0,0,96,24),fill=(0,0,0)); d.text((5,5),f'{t:.1f}s',fill='white')
+                  ims.append(im)
+              sheet=Image.new('RGB',(320*6,180*5),(0,0,0))
+              for i,im in enumerate(ims): sheet.paste(im,((i%6)*320,(i//6)*180))
+              sheet.save(out/f'{video.stem}_contact.jpg',quality=93)
+              (out/f'{video.stem}_duration.txt').write_text(str(dur))
+          PY
+      - name: Upload previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV15_Grand_Prismatic_Preflight
+          path: previews15
+          retention-days: 7
+          compression-level: 0
