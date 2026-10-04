@@ -26,9 +26,6 @@ jobs:
           from pathlib import Path
           from urllib.parse import quote
           import requests, time, hashlib
-
-          # Download the NPS boardwalk clip first; it was the file hit by Wikimedia's
-          # rate-limit in the previous run. Then pace all further Wikimedia transfers.
           commons=[
             ('assets15/gps_boardwalk.webm','Grand Prismatic Spring boardwalk timelapse (36948603771).webm'),
             ('assets15/gps_v1.webm','Grand Prismatic Spring (Midway Geyser Basin, Yellowstone National Park) 2021-08-10, video1.webm'),
@@ -38,38 +35,25 @@ jobs:
             ('assets15/gps_timelapse.webm','Grand Prismatic Spring (timelapse).webm'),
             ('assets15/gps_overlook.webm','Grand Prismatic Spring Overlook timelapse (36254802534).webm'),
           ]
-          s=requests.Session()
-          s.headers.update({'User-Agent':'StrangeButVerified/1.0 educational documentary production; contact via repository owner'})
-          backoffs=[0,45,90,180,240]
+          s=requests.Session(); s.headers.update({'User-Agent':'StrangeButVerified/1.0 educational documentary production; contact via repository owner'})
           for idx,(dst,name) in enumerate(commons):
-              p=Path(dst); p.parent.mkdir(parents=True,exist_ok=True)
-              url='https://commons.wikimedia.org/wiki/Special:Redirect/file/'+quote(name,safe='')
+              p=Path(dst); url='https://commons.wikimedia.org/wiki/Special:Redirect/file/'+quote(name,safe='')
               ok=False
-              for attempt,wait in enumerate(backoffs):
-                  if wait:
-                      print(f'BACKOFF {wait}s before retry {attempt} for {name}',flush=True)
-                      time.sleep(wait)
+              for wait in [0,45,90,180,240]:
+                  if wait: time.sleep(wait)
                   try:
                       print('DOWNLOAD',dst,flush=True)
                       with s.get(url,stream=True,timeout=360,allow_redirects=True) as r:
-                          if r.status_code==429:
-                              print('WIKIMEDIA 429',name,flush=True)
-                              continue
+                          if r.status_code==429: continue
                           r.raise_for_status()
                           with open(p,'wb') as f:
                               for chunk in r.iter_content(1024*1024):
                                   if chunk: f.write(chunk)
-                      if p.exists() and p.stat().st_size>100000:
-                          ok=True; break
-                  except Exception as e:
-                      print('DOWNLOAD ERROR',type(e).__name__,str(e)[:300],flush=True)
-              if not ok:
-                  raise RuntimeError(f'Could not download {name}')
+                      if p.stat().st_size>100000: ok=True; break
+                  except Exception as e: print('DOWNLOAD ERROR',repr(e),flush=True)
+              if not ok: raise RuntimeError(f'Could not download {name}')
               print('DONE',dst,p.stat().st_size,flush=True)
-              if idx < len(commons)-1:
-                  time.sleep(12)
-
-          # Locked channel voice model — official kokoro-onnx release.
+              if idx<len(commons)-1: time.sleep(12)
           models={
             'voice15/kokoro-v1.0.onnx':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx',
             'voice15/voices-v1.0.bin':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin',
@@ -78,7 +62,6 @@ jobs:
               p=Path(dst)
               for attempt in range(5):
                   try:
-                      print('DOWNLOAD MODEL',dst,flush=True)
                       with s.get(url,stream=True,timeout=600,allow_redirects=True) as r:
                           r.raise_for_status()
                           with open(p,'wb') as f:
@@ -88,18 +71,30 @@ jobs:
                   except Exception:
                       if attempt==4: raise
                       time.sleep(10*(attempt+1))
-
           expected={
             'voice15/kokoro-v1.0.onnx':('beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a',325505369),
             'voice15/voices-v1.0.bin':('bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d',28214398),
           }
           for fn,(want_sha,want_size) in expected.items():
-              p=Path(fn)
-              assert p.stat().st_size==want_size,(fn,p.stat().st_size,want_size)
-              got=hashlib.sha256(p.read_bytes()).hexdigest()
-              assert got==want_sha,(fn,got,want_sha)
+              p=Path(fn); assert p.stat().st_size==want_size
+              assert hashlib.sha256(p.read_bytes()).hexdigest()==want_sha
           PY
           for f in assets15/*.webm; do ffprobe -v error "$f" >/dev/null; done
+      - name: Patch renderer syntax only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('render_sbv15_grand_prismatic.py')
+          lines=p.read_text(encoding='utf-8').splitlines()
+          found=False
+          for i,line in enumerate(lines):
+              if "'-vf',f\"ass={str(ass).replace" in line:
+                  lines[i]="         '-vf','ass='+str(ass),'-map','0:v','-map','1:a','-r',str(FPS),'-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart','-shortest',str(final)])"
+                  found=True
+          assert found, 'target renderer line not found'
+          p.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+          PY
+          python -m py_compile render_sbv15_grand_prismatic.py
       - name: Render production master
         env:
           ORT_DISABLE_TELEMETRY: '1'
@@ -114,8 +109,7 @@ jobs:
           from PIL import Image,ImageOps,ImageDraw
           v=Path('out15/Strange_But_Verified_15_Grand_Prismatic_PRODUCTION_MASTER.mp4')
           dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(v)],text=True).strip())
-          times=[dur*i/19 for i in range(20)]
-          ims=[]
+          times=[dur*i/19 for i in range(20)]; ims=[]
           for i,t in enumerate(times):
               p=Path('review15')/f'frame_{i:02}.jpg'
               subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',f'{min(t,dur-0.05):.3f}','-i',str(v),'-frames:v','1',str(p)],check=True)
