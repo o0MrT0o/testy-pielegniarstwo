@@ -1,0 +1,140 @@
+name: SBV15 Grand Prismatic CLEAN FINAL
+
+on:
+  push:
+    branches:
+      - tmp/sbv15-af-heart
+    paths:
+      - '.github/workflows/tmp-sbv15-final-clean.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          python -m pip install --upgrade pip
+          pip install kokoro-onnx soundfile espeakng-loader
+
+      - name: Download real footage and Kokoro
+        run: |
+          mkdir -p sbv15/clean/{src,clips,model,out}
+          curl -L --fail --retry 3 -o sbv15/clean/src/usgs.mp4 "https://usgs-ocapsv2-public-input-media.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/media/video/2025_July_GrandPrismatic.mp4"
+          curl -L --fail --retry 3 -A "Mozilla/5.0" -o sbv15/clean/src/nps_timelapse.webm "https://commons.wikimedia.org/wiki/Special:Redirect/file/Grand%20Prismatic%20Spring%20%28timelapse%29.webm"
+          curl -L --fail --retry 3 -A "Mozilla/5.0" -o sbv15/clean/src/v1.webm "https://commons.wikimedia.org/wiki/Special:Redirect/file/Grand%20Prismatic%20Spring%20%28Midway%20Geyser%20Basin%2C%20Yellowstone%20National%20Park%29%202021-08-10%2C%20video1.webm"
+          curl -L --fail --retry 3 -A "Mozilla/5.0" -o sbv15/clean/src/v2.webm "https://commons.wikimedia.org/wiki/Special:Redirect/file/Grand%20Prismatic%20Spring%20%28Midway%20Geyser%20Basin%2C%20Yellowstone%20National%20Park%29%202021-08-10%2C%20video2.webm"
+          curl -L --fail --retry 3 -A "Mozilla/5.0" -o sbv15/clean/src/v3.webm "https://commons.wikimedia.org/wiki/Special:Redirect/file/Grand%20Prismatic%20Spring%20%28Midway%20Geyser%20Basin%2C%20Yellowstone%20National%20Park%29%202021-08-10%2C%20video3.webm"
+          curl -L --fail --retry 3 -A "Mozilla/5.0" -o sbv15/clean/src/v4.webm "https://commons.wikimedia.org/wiki/Special:Redirect/file/Grand%20Prismatic%20Spring%20%28Midway%20Geyser%20Basin%2C%20Yellowstone%20National%20Park%29%202021-08-10%2C%20video4.webm"
+          curl -L --fail --retry 3 -o sbv15/clean/model/kokoro-v1.0.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx
+          curl -L --fail --retry 3 -o sbv15/clean/model/voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin
+          echo "beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  sbv15/clean/model/kokoro-v1.0.onnx" | sha256sum -c -
+          echo "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  sbv15/clean/model/voices-v1.0.bin" | sha256sum -c -
+
+      - name: Build diverse vertical picture master
+        run: |
+          set -e
+          makeclip () {
+            IN="$1"; START="$2"; DUR="$3"; OUT="$4"; X="$5"
+            ffmpeg -loglevel error -y -ss "$START" -t "$DUR" -i "$IN" -an \
+              -vf "scale=-2:1920:flags=lanczos,crop=1080:1920:x=(in_w-out_w)*${X}:y=0,setsar=1,fps=30" \
+              -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p "$OUT"
+          }
+          makeclip sbv15/clean/src/usgs.mp4 0.0 5.2 sbv15/clean/clips/c1.mp4 0.50
+          makeclip sbv15/clean/src/nps_timelapse.webm 5.0 5.2 sbv15/clean/clips/c2.mp4 0.50
+          makeclip sbv15/clean/src/v1.webm 2.0 5.2 sbv15/clean/clips/c3.mp4 0.48
+          makeclip sbv15/clean/src/v2.webm 3.0 5.2 sbv15/clean/clips/c4.mp4 0.52
+          makeclip sbv15/clean/src/v3.webm 7.0 5.2 sbv15/clean/clips/c5.mp4 0.46
+          makeclip sbv15/clean/src/v4.webm 10.0 5.234 sbv15/clean/clips/c6.mp4 0.54
+          printf "file 'c1.mp4'\nfile 'c2.mp4'\nfile 'c3.mp4'\nfile 'c4.mp4'\nfile 'c5.mp4'\nfile 'c6.mp4'\n" > sbv15/clean/clips/list.txt
+          ffmpeg -loglevel error -y -f concat -safe 0 -i sbv15/clean/clips/list.txt -c copy sbv15/clean/out/picture_master.mp4
+
+      - name: Generate fixed af_heart and captions
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          OMP_NUM_THREADS: '4'
+        run: |
+          cat > sbv15/clean/make_voice.py <<'PY'
+          from pathlib import Path
+          import json,re
+          import soundfile as sf
+          import espeakng_loader, onnxruntime as rt
+          rt.disable_telemetry_events()
+          from kokoro_onnx import Kokoro
+          from kokoro_onnx.config import EspeakConfig
+          root=Path('sbv15/clean'); text=Path('sbv15/narration.txt').read_text().strip()
+          sess=rt.InferenceSession(str(root/'model/kokoro-v1.0.onnx'),providers=['CPUExecutionProvider'])
+          eng=Kokoro.from_session(sess,str(root/'model/voices-v1.0.bin'),espeak_config=EspeakConfig(lib_path=espeakng_loader.get_library_path(),data_path=espeakng_loader.get_data_path()))
+          audio,sr=eng.create(text,voice='af_heart',speed=0.80,lang='en-us',sentence_pause=0.22,clause_pause=0.10)
+          sf.write(root/'out/voice_raw.wav',audio,sr,subtype='PCM_16')
+          raw=len(audio)/sr; target=29.60575
+          chunks=["Those colors aren't paint.","They're alive.","Grand Prismatic Spring","is Yellowstone's largest hot spring,","and its rainbow edges","come from heat-loving microorganisms","called thermophiles.","Different microbes thrive","at different temperatures,","so the colors change","as the water cools","toward the edge.","But the blue center","is different.","Its clear, hotter water","scatters blue light","back toward your eyes.","Strange, but verified."]
+          weights=[]
+          for c in chunks:
+              w=len(c.split())+(1.15 if re.search(r'[.!?]$',c) else 0.55 if re.search(r'[,;:]$',c) else 0)
+              weights.append(w)
+          lead=.10; tail=.08; usable=target-lead-tail; total=sum(weights); t=lead; cues=[]
+          for c,w in zip(chunks,weights):
+              d=usable*w/total; cues.append((t,min(target-tail,t+d),c)); t+=d
+          yellow={'alive','rainbow','thermophiles','microbes','temperatures','blue','light','verified'}
+          def fmt(s):
+              out=[]
+              for word in s.split():
+                  clean=re.sub(r'[^A-Za-z]','',word).lower()
+                  out.append((r'{\c&H004FD5FF&}'+word+r'{\c&H00FFFFFF&}') if clean in yellow else word)
+              return ' '.join(out)
+          def ts(x):
+              h=int(x//3600); x-=h*3600; m=int(x//60); x-=m*60; s=int(x); cs=int(round((x-s)*100));
+              if cs>=100: s+=1; cs=0
+              return f'{h}:{m:02d}:{s:02d}.{cs:02d}'
+          header="""[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nWrapStyle: 2\nScaledBorderAndShadow: yes\n\n[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\nStyle: Default,DejaVu Sans,66,&H00FFFFFF,&H000000FF,&H00141414,&H64000000,-1,0,0,0,100,100,0,0,1,4,1,2,70,70,300,1\n\n[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n"""
+          lines=[f'Dialogue: 0,{ts(a)},{ts(b)},Default,,0,0,0,,{fmt(c)}' for a,b,c in cues]
+          (root/'out/captions.ass').write_text(header+'\n'.join(lines)+'\n')
+          (root/'out/tts_meta.json').write_text(json.dumps({'voice':'af_heart','speed':0.80,'raw_duration':raw,'target_duration':target},indent=2))
+          PY
+          python sbv15/clean/make_voice.py
+          RAW=$(ffprobe -v error -show_entries format=duration -of csv=p=0 sbv15/clean/out/voice_raw.wav)
+          RATIO=$(python -c "print(float('$RAW')/29.60575)")
+          ffmpeg -loglevel error -y -i sbv15/clean/out/voice_raw.wav -filter:a "atempo=${RATIO}" -ar 24000 -ac 1 sbv15/clean/out/af_heart_final.wav
+
+      - name: Final mix and render
+        run: |
+          set -e
+          DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 sbv15/clean/out/picture_master.mp4)
+          ffmpeg -loglevel error -y -ss 0 -t "$DUR" -i sbv15/clean/src/v1.webm -vn -ar 48000 -ac 2 sbv15/clean/out/ambience.wav
+          ffmpeg -y -i sbv15/clean/out/picture_master.mp4 -i sbv15/clean/out/af_heart_final.wav -i sbv15/clean/out/ambience.wav \
+            -filter_complex "[0:v]ass=sbv15/clean/out/captions.ass[v];[1:a]apad[narr];[2:a]highpass=f=120,lowpass=f=6500,volume=0.025[amb];[amb][narr]amix=inputs=2:duration=first:dropout_transition=1.0[mix];[mix]loudnorm=I=-16:TP=-1.5:LRA=7[a]" \
+            -map "[v]" -map "[a]" -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
+            -c:a aac -b:a 192k -ar 48000 -ac 2 -t "$DUR" -movflags +faststart sbv15/clean/out/SBV15_Grand_Prismatic_CLEAN_FINAL.mp4
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,codec_type,width,height,r_frame_rate,sample_rate,channels -of json sbv15/clean/out/SBV15_Grand_Prismatic_CLEAN_FINAL.mp4 > sbv15/clean/out/final_probe.json
+          ffmpeg -hide_banner -i sbv15/clean/out/SBV15_Grand_Prismatic_CLEAN_FINAL.mp4 -filter_complex ebur128=peak=true -f null - 2> sbv15/clean/out/loudness.txt || true
+          sha256sum sbv15/clean/out/SBV15_Grand_Prismatic_CLEAN_FINAL.mp4 > sbv15/clean/out/SHA256.txt
+          cat > sbv15/clean/out/CREDITS.txt <<'TXT'
+          Grand Prismatic Spring visual sources:
+          - USGS / Yellowstone Volcano Observatory, July 2025 — Public Domain.
+          - NPS / Jacob W. Frank, Grand Prismatic Spring timelapse — Public Domain.
+          - Steven Pavlov (Wikimedia Commons), Grand Prismatic Spring videos 1–4 (2021-08-10) — CC BY-SA 4.0; cropped/edited for vertical video.
+          License: https://creativecommons.org/licenses/by-sa/4.0/
+          TXT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV15-Grand-Prismatic-CLEAN-FINAL
+          path: |
+            sbv15/clean/out/SBV15_Grand_Prismatic_CLEAN_FINAL.mp4
+            sbv15/clean/out/af_heart_final.wav
+            sbv15/clean/out/captions.ass
+            sbv15/clean/out/tts_meta.json
+            sbv15/clean/out/final_probe.json
+            sbv15/clean/out/loudness.txt
+            sbv15/clean/out/SHA256.txt
+            sbv15/clean/out/CREDITS.txt
+          retention-days: 3
