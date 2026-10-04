@@ -38,7 +38,7 @@ jobs:
           curl -L --fail --retry 3 --retry-delay 2 -o sbv15/build/visual_master.mp4 "$MASTER_URL"
           ffprobe -v error -show_entries format=duration -show_entries stream=codec_type,width,height,r_frame_rate -of json sbv15/build/visual_master.mp4
 
-      - name: Generate exact af_heart narration and timed captions
+      - name: Generate af_heart narration and timed captions
         env:
           ORT_DISABLE_TELEMETRY: '1'
           HF_HUB_DISABLE_TELEMETRY: '1'
@@ -47,7 +47,6 @@ jobs:
           cat > sbv15/build/generate.py <<'PY'
           from pathlib import Path
           import json, re
-          import numpy as np
           import soundfile as sf
           import espeakng_loader
           import onnxruntime as rt
@@ -73,13 +72,14 @@ jobs:
           audio, sr = engine.create(
               text,
               voice='af_heart',
-              speed=0.95,
+              speed=0.80,
               lang='en-us',
               sentence_pause=0.22,
               clause_pause=0.10,
           )
-          sf.write(build/'af_heart_final.wav', audio, sr, subtype='PCM_16')
-          duration = len(audio) / sr
+          sf.write(build/'af_heart_raw.wav', audio, sr, subtype='PCM_16')
+          raw_duration = len(audio) / sr
+          target_duration = 29.60575
 
           chunks = [
               "Those colors aren't paint.",
@@ -101,7 +101,6 @@ jobs:
               "back toward your eyes.",
               "Strange, but verified."
           ]
-          # Weight captions by spoken word count plus punctuation pause.
           weights=[]
           for c in chunks:
               w=len(c.split())
@@ -110,19 +109,18 @@ jobs:
               weights.append(w)
           lead=0.10
           tail=0.08
-          usable=max(0.5,duration-lead-tail)
+          usable=target_duration-lead-tail
           total=sum(weights)
           starts=[]; t=lead
           for c,w in zip(chunks,weights):
               seg=usable*w/total
-              starts.append((t,min(duration-tail,t+seg),c))
+              starts.append((t,min(target_duration-tail,t+seg),c))
               t += seg
 
           yellow = {'alive','rainbow','thermophiles','microbes','temperatures','blue','light','verified'}
           def ass_text(s):
-              words=s.split()
               out=[]
-              for word in words:
+              for word in s.split():
                   clean=re.sub(r'[^A-Za-z]','',word).lower()
                   if clean in yellow:
                       out.append(r'{\c&H004FD5FF&}'+word+r'{\c&H00FFFFFF&}')
@@ -137,15 +135,17 @@ jobs:
               return f'{h}:{m:02d}:{s:02d}.{cs:02d}'
 
           header = """[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nWrapStyle: 2\nScaledBorderAndShadow: yes\n\n[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\nStyle: Default,DejaVu Sans,66,&H00FFFFFF,&H000000FF,&H00141414,&H64000000,-1,0,0,0,100,100,0,0,1,4,1,2,70,70,315,1\n\n[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n"""
-          events=[]
-          for st,en,c in starts:
-              events.append(f'Dialogue: 0,{ts(st)},{ts(en)},Default,,0,0,0,,{ass_text(c)}')
+          events=[f'Dialogue: 0,{ts(st)},{ts(en)},Default,,0,0,0,,{ass_text(c)}' for st,en,c in starts]
           (build/'captions.ass').write_text(header+'\n'.join(events)+'\n',encoding='utf-8')
-          meta={'voice':'af_heart','speed':0.95,'sentence_pause':0.22,'clause_pause':0.10,'duration':duration,'sample_rate':sr,'caption_count':len(chunks)}
+          meta={'voice':'af_heart','kokoro_speed':0.80,'sentence_pause':0.22,'clause_pause':0.10,'raw_duration':raw_duration,'target_duration':target_duration,'sample_rate':sr,'caption_count':len(chunks)}
           (build/'tts_meta.json').write_text(json.dumps(meta,indent=2),encoding='utf-8')
           print(json.dumps(meta), flush=True)
           PY
           python sbv15/build/generate.py
+          RAWDUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 sbv15/build/af_heart_raw.wav)
+          RATIO=$(python -c "print(float('$RAWDUR')/29.60575)")
+          ffmpeg -y -i sbv15/build/af_heart_raw.wav -filter:a "atempo=${RATIO}" -ar 24000 -ac 1 sbv15/build/af_heart_final.wav
+          ffprobe -v error -show_entries format=duration -of default=nw=1 sbv15/build/af_heart_final.wav
 
       - name: Mix, caption and render final Short
         run: |
@@ -157,12 +157,12 @@ jobs:
           HAS_AUDIO=$(ffprobe -v error -select_streams a:0 -show_entries stream=index -of csv=p=0 "$MASTER" || true)
           if [ -n "$HAS_AUDIO" ]; then
             ffmpeg -y -i "$MASTER" -i "$VOICE" \
-              -filter_complex "[0:v]ass=sbv15/build/captions.ass[v];[0:a]volume=0.09[amb];[1:a]loudnorm=I=-16:TP=-1.5:LRA=7,apad[narr];[amb][narr]amix=inputs=2:duration=first:dropout_transition=1.2,alimiter=limit=0.90[a]" \
+              -filter_complex "[0:v]scale=1080:1920:flags=lanczos,setsar=1,ass=sbv15/build/captions.ass[v];[0:a]volume=0.07[amb];[1:a]apad[narr];[amb][narr]amix=inputs=2:duration=first:dropout_transition=1.2[mix];[mix]loudnorm=I=-16:TP=-1.5:LRA=7[a]" \
               -map "[v]" -map "[a]" -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
               -c:a aac -b:a 192k -ar 48000 -ac 2 -t "$MDUR" -movflags +faststart "$OUT"
           else
             ffmpeg -y -i "$MASTER" -i "$VOICE" \
-              -filter_complex "[0:v]ass=sbv15/build/captions.ass[v];[1:a]loudnorm=I=-16:TP=-1.5:LRA=7,apad,atrim=0:${MDUR}[a]" \
+              -filter_complex "[0:v]scale=1080:1920:flags=lanczos,setsar=1,ass=sbv15/build/captions.ass[v];[1:a]apad,atrim=0:${MDUR},loudnorm=I=-16:TP=-1.5:LRA=7[a]" \
               -map "[v]" -map "[a]" -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
               -c:a aac -b:a 192k -ar 48000 -ac 2 -t "$MDUR" -movflags +faststart "$OUT"
           fi
@@ -173,7 +173,7 @@ jobs:
       - name: Upload finished film
         uses: actions/upload-artifact@v4
         with:
-          name: SBV15-Grand-Prismatic-FINAL
+          name: SBV15-Grand-Prismatic-FINAL-V2
           path: |
             sbv15/build/SBV15_Grand_Prismatic_FINAL.mp4
             sbv15/build/af_heart_final.wav
