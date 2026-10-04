@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,36 +24,82 @@ jobs:
           mkdir -p assets15 voice15
           python - <<'PY'
           from pathlib import Path
-          import requests, time
-          files={
-            'assets15/gps_v1.webm':'https://upload.wikimedia.org/wikipedia/commons/c/c7/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video1.webm',
-            'assets15/gps_v2.webm':'https://upload.wikimedia.org/wikipedia/commons/0/08/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video2.webm',
-            'assets15/gps_v3.webm':'https://upload.wikimedia.org/wikipedia/commons/3/33/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video3.webm',
-            'assets15/gps_v4.webm':'https://upload.wikimedia.org/wikipedia/commons/b/b3/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video4.webm',
-            'assets15/gps_timelapse.webm':'https://upload.wikimedia.org/wikipedia/commons/8/8d/Grand_Prismatic_Spring_%28timelapse%29.webm',
-            'assets15/gps_overlook.webm':'https://upload.wikimedia.org/wikipedia/commons/1/1a/Grand_Prismatic_Spring_Overlook_timelapse_%2836254802534%29.webm',
-            'assets15/gps_boardwalk.webm':'https://upload.wikimedia.org/wikipedia/commons/5/5a/Grand_Prismatic_Spring_boardwalk_timelapse_%2836948603771%29.webm',
+          from urllib.parse import quote
+          import requests, time, hashlib
+
+          # Download the NPS boardwalk clip first; it was the file hit by Wikimedia's
+          # rate-limit in the previous run. Then pace all further Wikimedia transfers.
+          commons=[
+            ('assets15/gps_boardwalk.webm','Grand Prismatic Spring boardwalk timelapse (36948603771).webm'),
+            ('assets15/gps_v1.webm','Grand Prismatic Spring (Midway Geyser Basin, Yellowstone National Park) 2021-08-10, video1.webm'),
+            ('assets15/gps_v2.webm','Grand Prismatic Spring (Midway Geyser Basin, Yellowstone National Park) 2021-08-10, video2.webm'),
+            ('assets15/gps_v3.webm','Grand Prismatic Spring (Midway Geyser Basin, Yellowstone National Park) 2021-08-10, video3.webm'),
+            ('assets15/gps_v4.webm','Grand Prismatic Spring (Midway Geyser Basin, Yellowstone National Park) 2021-08-10, video4.webm'),
+            ('assets15/gps_timelapse.webm','Grand Prismatic Spring (timelapse).webm'),
+            ('assets15/gps_overlook.webm','Grand Prismatic Spring Overlook timelapse (36254802534).webm'),
+          ]
+          s=requests.Session()
+          s.headers.update({'User-Agent':'StrangeButVerified/1.0 educational documentary production; contact via repository owner'})
+          backoffs=[0,45,90,180,240]
+          for idx,(dst,name) in enumerate(commons):
+              p=Path(dst); p.parent.mkdir(parents=True,exist_ok=True)
+              url='https://commons.wikimedia.org/wiki/Special:Redirect/file/'+quote(name,safe='')
+              ok=False
+              for attempt,wait in enumerate(backoffs):
+                  if wait:
+                      print(f'BACKOFF {wait}s before retry {attempt} for {name}',flush=True)
+                      time.sleep(wait)
+                  try:
+                      print('DOWNLOAD',dst,flush=True)
+                      with s.get(url,stream=True,timeout=360,allow_redirects=True) as r:
+                          if r.status_code==429:
+                              print('WIKIMEDIA 429',name,flush=True)
+                              continue
+                          r.raise_for_status()
+                          with open(p,'wb') as f:
+                              for chunk in r.iter_content(1024*1024):
+                                  if chunk: f.write(chunk)
+                      if p.exists() and p.stat().st_size>100000:
+                          ok=True; break
+                  except Exception as e:
+                      print('DOWNLOAD ERROR',type(e).__name__,str(e)[:300],flush=True)
+              if not ok:
+                  raise RuntimeError(f'Could not download {name}')
+              print('DONE',dst,p.stat().st_size,flush=True)
+              if idx < len(commons)-1:
+                  time.sleep(12)
+
+          # Locked channel voice model — official kokoro-onnx release.
+          models={
             'voice15/kokoro-v1.0.onnx':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx',
             'voice15/voices-v1.0.bin':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin',
           }
-          s=requests.Session(); s.headers['User-Agent']='StrangeButVerified-documentary-production/1.0 (educational video editing)'
-          for dst,url in files.items():
-              p=Path(dst); p.parent.mkdir(parents=True,exist_ok=True)
-              print('DOWNLOAD',dst,flush=True)
-              for attempt in range(4):
+          for dst,url in models.items():
+              p=Path(dst)
+              for attempt in range(5):
                   try:
-                      with s.get(url,stream=True,timeout=300,allow_redirects=True) as r:
+                      print('DOWNLOAD MODEL',dst,flush=True)
+                      with s.get(url,stream=True,timeout=600,allow_redirects=True) as r:
                           r.raise_for_status()
                           with open(p,'wb') as f:
-                              for c in r.iter_content(1024*1024):
-                                  if c: f.write(c)
+                              for chunk in r.iter_content(1024*1024):
+                                  if chunk: f.write(chunk)
                       break
                   except Exception:
-                      if attempt==3: raise
-                      time.sleep(3*(attempt+1))
+                      if attempt==4: raise
+                      time.sleep(10*(attempt+1))
+
+          expected={
+            'voice15/kokoro-v1.0.onnx':('beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a',325505369),
+            'voice15/voices-v1.0.bin':('bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d',28214398),
+          }
+          for fn,(want_sha,want_size) in expected.items():
+              p=Path(fn)
+              assert p.stat().st_size==want_size,(fn,p.stat().st_size,want_size)
+              got=hashlib.sha256(p.read_bytes()).hexdigest()
+              assert got==want_sha,(fn,got,want_sha)
           PY
           for f in assets15/*.webm; do ffprobe -v error "$f" >/dev/null; done
-          sha256sum voice15/kokoro-v1.0.onnx voice15/voices-v1.0.bin
       - name: Render production master
         env:
           ORT_DISABLE_TELEMETRY: '1'
