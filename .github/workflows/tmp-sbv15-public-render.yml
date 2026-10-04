@@ -7,7 +7,7 @@ on:
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,27 +25,61 @@ jobs:
           mkdir -p assets15 voice15 out15 tmp15
           python - <<'PY'
           from pathlib import Path
-          import requests
-          files={
-            'assets15/gps_v1.webm':'https://upload.wikimedia.org/wikipedia/commons/c/c7/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video1.webm',
-            'assets15/gps_v2.webm':'https://upload.wikimedia.org/wikipedia/commons/0/08/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video2.webm',
-            'assets15/gps_v3.webm':'https://upload.wikimedia.org/wikipedia/commons/3/33/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video3.webm',
-            'assets15/gps_v4.webm':'https://upload.wikimedia.org/wikipedia/commons/b/b3/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video4.webm',
-            'assets15/gps_timelapse.webm':'https://upload.wikimedia.org/wikipedia/commons/8/8d/Grand_Prismatic_Spring_%28timelapse%29.webm',
-            'assets15/gps_overlook.webm':'https://upload.wikimedia.org/wikipedia/commons/1/1a/Grand_Prismatic_Spring_Overlook_timelapse_%2836254802534%29.webm',
-            'assets15/gps_boardwalk.webm':'https://upload.wikimedia.org/wikipedia/commons/5/5a/Grand_Prismatic_Spring_boardwalk_timelapse_%2836948603771%29.webm',
-            'voice15/kokoro-v1.0.onnx':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx',
-            'voice15/voices-v1.0.bin':'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin',
-          }
-          s=requests.Session(); s.headers['User-Agent']='SBV-documentary-production/1.0'
-          for dst,url in files.items():
-              print('GET',dst,flush=True)
+          import requests, time, random
+
+          media=[
+            ('assets15/gps_v1.webm','https://upload.wikimedia.org/wikipedia/commons/c/c7/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video1.webm'),
+            ('assets15/gps_v2.webm','https://upload.wikimedia.org/wikipedia/commons/0/08/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video2.webm'),
+            ('assets15/gps_v3.webm','https://upload.wikimedia.org/wikipedia/commons/3/33/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video3.webm'),
+            ('assets15/gps_v4.webm','https://upload.wikimedia.org/wikipedia/commons/b/b3/Grand_Prismatic_Spring_%28Midway_Geyser_Basin%2C_Yellowstone_National_Park%29_2021-08-10%2C_video4.webm'),
+            ('assets15/gps_timelapse.webm','https://upload.wikimedia.org/wikipedia/commons/8/8d/Grand_Prismatic_Spring_%28timelapse%29.webm'),
+            ('assets15/gps_overlook.webm','https://upload.wikimedia.org/wikipedia/commons/1/1a/Grand_Prismatic_Spring_Overlook_timelapse_%2836254802534%29.webm'),
+            ('assets15/gps_boardwalk.webm','https://upload.wikimedia.org/wikipedia/commons/5/5a/Grand_Prismatic_Spring_boardwalk_timelapse_%2836948603771%29.webm'),
+          ]
+          models=[
+            ('voice15/kokoro-v1.0.onnx','https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'),
+            ('voice15/voices-v1.0.bin','https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'),
+          ]
+
+          s=requests.Session()
+          s.headers.update({'User-Agent':'StrangeButVerified-production/1.0 (documentary asset fetch; contact via GitHub o0MrT0o)','Accept':'*/*'})
+
+          def fetch(dst,url,wikimedia=False):
               p=Path(dst); p.parent.mkdir(parents=True,exist_ok=True)
-              with s.get(url,stream=True,timeout=300,allow_redirects=True) as r:
-                  r.raise_for_status()
-                  with open(p,'wb') as f:
-                      for chunk in r.iter_content(1024*1024):
-                          if chunk: f.write(chunk)
+              for attempt in range(1,10):
+                  try:
+                      print(f'GET {dst} attempt {attempt}',flush=True)
+                      with s.get(url,stream=True,timeout=300,allow_redirects=True) as r:
+                          if r.status_code==429:
+                              wait=min(90,12*attempt)+random.uniform(1,4)
+                              print(f'HTTP 429; sleeping {wait:.1f}s',flush=True)
+                              time.sleep(wait)
+                              continue
+                          r.raise_for_status()
+                          tmp=p.with_suffix(p.suffix+'.part')
+                          with open(tmp,'wb') as f:
+                              for chunk in r.iter_content(1024*1024):
+                                  if chunk: f.write(chunk)
+                          if tmp.stat().st_size < 1024:
+                              raise RuntimeError(f'download too small: {tmp.stat().st_size}')
+                          tmp.replace(p)
+                      print(f'OK {dst} {p.stat().st_size} bytes',flush=True)
+                      return
+                  except Exception as e:
+                      if attempt==9: raise
+                      wait=min(90,10*attempt)+random.uniform(1,4)
+                      print(f'RETRY {dst}: {e}; sleeping {wait:.1f}s',flush=True)
+                      time.sleep(wait)
+              raise RuntimeError(dst)
+
+          for i,(dst,url) in enumerate(media):
+              fetch(dst,url,True)
+              if i < len(media)-1:
+                  # Wikimedia asks high-volume automated clients to throttle.
+                  time.sleep(12.0+random.uniform(0,3))
+
+          for dst,url in models:
+              fetch(dst,url,False)
           PY
           for f in assets15/*.webm; do test -s "$f"; ffprobe -v error "$f" >/dev/null; done
           test -s voice15/kokoro-v1.0.onnx
