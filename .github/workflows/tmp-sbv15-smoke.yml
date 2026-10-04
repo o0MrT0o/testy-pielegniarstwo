@@ -1,0 +1,18 @@
+name: SBV15 public runner smoke
+on:
+  push:
+    branches:
+      - tmp-sbv15-grand-prismatic-20261004
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: smoke
+        run: |
+          echo RUNNER_OK
+          ffmpeg -version | head -1
+          python --version
