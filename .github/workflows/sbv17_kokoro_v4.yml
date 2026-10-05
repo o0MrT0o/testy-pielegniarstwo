@@ -1,0 +1,86 @@
+name: SBV17 Kokoro v4 voice
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  make-voice:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Kokoro
+        run: |
+          python -m pip install --upgrade pip
+          pip install kokoro-onnx soundfile espeakng-loader
+      - name: Download exact model and voices
+        run: |
+          wget -q https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx
+          wget -q https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin
+          python - <<'PY'
+          import hashlib
+          checks={
+            'kokoro-v1.0.onnx':('beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a',325505369),
+            'voices-v1.0.bin':('bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d',28214398),
+          }
+          for p,(h,n) in checks.items():
+            b=open(p,'rb').read()
+            assert len(b)==n, (p,len(b),n)
+            assert hashlib.sha256(b).hexdigest()==h, p
+            print(p,'verified')
+          PY
+      - name: Generate af_heart narration
+        run: |
+          cat > make_voice.py <<'PY'
+          from pathlib import Path
+          import json, os
+          os.environ['OMP_NUM_THREADS']='4'
+          os.environ['ORT_DISABLE_TELEMETRY']='1'
+          os.environ['HF_HUB_DISABLE_TELEMETRY']='1'
+          import numpy as np
+          import soundfile as sf
+          import espeakng_loader
+          import onnxruntime as rt
+          rt.disable_telemetry_events()
+          from kokoro_onnx import Kokoro
+          from kokoro_onnx.config import EspeakConfig
+
+          parts = [
+            "Some sand dunes can actually sing.",
+            "At Great Sand Dunes in Colorado, dry sand sliding down a steep slope can produce a deep, booming hum.",
+            "The sound comes from huge numbers of grains moving together, although scientists still debate exactly how the vibration becomes so loud.",
+            "And in Japan, some beaches make a higher-pitched squeak when dry sand is rubbed or stepped on.",
+            "Wet the grains, and the sound can disappear.",
+            "Same material. Two very strange instruments.",
+          ]
+          out=Path('voice'); out.mkdir(exist_ok=True)
+          opts=rt.SessionOptions(); opts.intra_op_num_threads=4; opts.inter_op_num_threads=1
+          session=rt.InferenceSession('kokoro-v1.0.onnx',sess_options=opts,providers=['CPUExecutionProvider'])
+          engine=Kokoro.from_session(session,'voices-v1.0.bin',espeak_config=EspeakConfig(lib_path=espeakng_loader.get_library_path(),data_path=espeakng_loader.get_data_path()))
+          audio_parts=[]; timings=[]; start=0.0
+          for i,text in enumerate(parts):
+            audio,sr=engine.create(text,voice='af_heart',speed=0.88,lang='en-us',sentence_pause=0.18,clause_pause=0.09)
+            sf.write(out/f'part_{i}.wav',audio,sr)
+            dur=len(audio)/sr
+            timings.append({'part':i,'start':start,'end':start+dur,'text':text})
+            audio_parts.append(audio)
+            gap=0.10 if i!=len(parts)-1 else 0.12
+            audio_parts.append(np.zeros(round(sr*gap),dtype=np.float32))
+            start += dur+gap
+            print(i,round(dur,3),text)
+          combined=np.concatenate(audio_parts)
+          sf.write(out/'narration.wav',combined,sr)
+          (out/'narration.txt').write_text('\n\n'.join(parts)+'\n',encoding='utf-8')
+          (out/'timing.json').write_text(json.dumps({'voice':'Kokoro af_heart','speed':0.88,'sample_rate':sr,'duration':start,'parts':timings},indent=2),encoding='utf-8')
+          print('TOTAL',round(start,3))
+          PY
+          python make_voice.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbv17-af-heart-v4
+          path: voice/
+          retention-days: 1
