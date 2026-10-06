@@ -1,0 +1,51 @@
+name: SBV Golden Orb Source Audit
+
+on:
+  push:
+    branches: [sbv-render-duobrachium-temp]
+    paths:
+      - '.github/workflows/sbv-golden-orb-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Download NOAA source videos
+        run: |
+          mkdir -p audit
+          curl -L --fail --retry 4 -o audit/golden_2023.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2023/09/golden-orb-hires.mp4'
+          curl -L --fail --retry 4 -o audit/golden_2026.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2026/04/Mysterious-Golden-Orb-Identified-1080p.mp4'
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 audit/golden_2023.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 audit/golden_2026.mp4
+      - name: Build contact sheets
+        run: |
+          python - <<'PY'
+          import subprocess, os, math
+          os.makedirs('audit/frames', exist_ok=True)
+          sources=[('2023','audit/golden_2023.mp4'),('2026','audit/golden_2026.mp4')]
+          for tag,path in sources:
+              dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',path],text=True).strip())
+              times=[dur*i/15 for i in range(15)]
+              frames=[]
+              for i,t in enumerate(times):
+                  out=f'audit/frames/{tag}_{i:02d}.jpg'
+                  subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',f'{t:.3f}','-i',path,'-frames:v','1','-vf','scale=320:180',out],check=True)
+                  frames.append(out)
+              inputs=[]
+              for f in frames: inputs += ['-i',f]
+              layout=[]
+              for i in range(15): layout.append(f'{(i%5)*320}_{(i//5)*180}')
+              subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error',*inputs,'-filter_complex',f"xstack=inputs=15:layout={'|'.join(layout)}",'-frames:v','1',f'audit/{tag}_contact.jpg'],check=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Golden-Orb-Source-Audit
+          path: |
+            audit/2023_contact.jpg
+            audit/2026_contact.jpg
+          retention-days: 2
