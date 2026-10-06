@@ -1,0 +1,165 @@
+name: SBV19 Golden Orb Mobile V5
+
+on:
+  push:
+    branches: [sbv-render-duobrachium-temp]
+    paths:
+      - '.github/workflows/sbv-golden-orb-mobile-v5.yml'
+      - 'sbv_render/apply_sbv19_mobile_v5.py'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install production dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core libsndfile1
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy<3' soundfile onnxruntime espeakng-loader 'kokoro-onnx==0.6.1'
+
+      - name: Download locked narrator model
+        run: |
+          mkdir -p build_golden/models build_golden/assets
+          curl -L --fail --retry 4 -o build_golden/models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 4 -o build_golden/models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  build_golden/models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  build_golden/models/voices-v1.0.bin' | sha256sum -c -
+
+      - name: Download authentic NOAA footage
+        run: |
+          curl -L --fail --retry 4 -o build_golden/assets/golden_2023.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2023/09/golden-orb-hires.mp4'
+          curl -L --fail --retry 4 -o build_golden/assets/golden_2026.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2026/04/Mysterious-Golden-Orb-Identified-1080p.mp4'
+          test -s build_golden/assets/golden_2023.mp4
+          test -s build_golden/assets/golden_2026.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_golden/assets/golden_2023.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_golden/assets/golden_2026.mp4
+
+      - name: Restore audited source-credit timing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('sbv_render/render_golden_orb.py')
+          s=p.read_text()
+          old="f.write(f'Dialogue: 4,{astamp(.55)},{astamp(bounds[6])},Brand,,0,0,0,,STRANGE, BUT VERIFIED\\n')"
+          new="f.write(f'Dialogue: 4,{astamp(.55)},{astamp(TOTAL)},Brand,,0,0,0,,STRANGE, BUT VERIFIED\\n')"
+          if old not in s: raise SystemExit('Missing first Brand source-credit pattern')
+          s=s.replace(old,new,1)
+          old="f.write(f'Dialogue: 3,{astamp(.55)},{astamp(bounds[6])},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  REAL 2023 FOOTAGE\\n')"
+          new="f.write(f'Dialogue: 3,{astamp(.55)},{astamp(bounds[3])},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  REAL 2023 FOOTAGE\\n')"
+          if old not in s: raise SystemExit('Missing first 2023 source-credit pattern')
+          s=s.replace(old,new,1)
+          old="    f.write(f'Dialogue: 4,{astamp(bounds[6])},{astamp(TOTAL)},Brand,,0,0,0,,STRANGE, BUT VERIFIED\\n')\n"
+          if old not in s: raise SystemExit('Missing duplicate Brand pattern')
+          s=s.replace(old,'',1)
+          old="f.write(f'Dialogue: 3,{astamp(bounds[6])},{astamp(TOTAL)},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  IDENTIFIED 2026\\n')"
+          new="f.write(f'Dialogue: 3,{astamp(bounds[3])},{astamp(bounds[9])},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  2026 IDENTIFICATION VIDEO\\n')\n    f.write(f'Dialogue: 3,{astamp(bounds[9])},{astamp(TOTAL)},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  REAL 2023 FOOTAGE\\n')"
+          if old not in s: raise SystemExit('Missing 2026 source-credit pattern')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+
+      - name: Restore NATGEO breathing moment
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('sbv_render/render_golden_orb.py')
+          s=p.read_text()
+          old="GAPS=[.07,.08,.08,.10,.10,.32,.10,.10,.18,.18]"
+          new="GAPS=[.07,.08,.08,.10,.10,2.82,.10,.10,.18,.18]"
+          if old not in s: raise SystemExit('Missing GAPS pattern')
+          s=s.replace(old,new,1)
+          old="(bounds[5],bounds[6],'TWO AND A HALF YEARS LATER...'),"
+          new="(bounds[5],parts[5]['end']+.12,'TWO AND A HALF YEARS LATER...'),"
+          if old not in s: raise SystemExit('Missing breathing caption pattern')
+          s=s.replace(old,new,1)
+          old="f.write(f'Dialogue: 3,{astamp(bounds[5]+.20)},{astamp(bounds[6])},Card,,0,0,0,,2023  DISCOVERY   →   2026  IDENTIFICATION\\n')"
+          new="f.write(f'Dialogue: 3,{astamp(bounds[5]+.20)},{astamp(parts[5][\"end\"]+.12)},Card,,0,0,0,,2023  DISCOVERY   →   2026  IDENTIFICATION\\n')"
+          if old not in s: raise SystemExit('Missing breathing card pattern')
+          s=s.replace(old,new,1)
+          old="# No fake underwater ambience. Narration remains dominant; deliberate pause before reveal.\nmaster=B/'master.wav'\nrun(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',V/'narration_timeline.wav','-af','highpass=f=55,loudnorm=I=-15.2:LRA=4:TP=-1.6,alimiter=limit=.83:attack=5:release=80','-ar','48000','-ac','2','-t',f'{TOTAL:.3f}',master])"
+          new="# Restrained illustrative deep-sea ambience only during the deliberate narration pause before reveal.\nmaster=B/'master.wav'\nambient=B/'deep_sea_ambience.wav'\namb_start=parts[5]['end']+.18\namb_dur=max(2.35,bounds[6]-amb_start-.12)\nrun(['ffmpeg','-y','-hide_banner','-loglevel','error','-f','lavfi','-i',f'anoisesrc=color=brown:amplitude=0.018:duration={amb_dur:.3f}:sample_rate=48000','-af',f'highpass=f=28,lowpass=f=220,tremolo=f=0.16:d=0.18,volume=-15dB,afade=t=in:st=0:d=0.35,afade=t=out:st={max(.4,amb_dur-.40):.3f}:d=0.40','-ar','48000','-ac','2',ambient])\ndelay_ms=int(round(amb_start*1000))\nfc=f\"[0:a]highpass=f=55[n];[1:a]adelay={delay_ms}|{delay_ms}[amb];[n][amb]amix=inputs=2:normalize=0[m];[m]loudnorm=I=-15.2:LRA=4:TP=-1.6,alimiter=limit=.83:attack=5:release=80[out]\"\nrun(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',V/'narration_timeline.wav','-i',ambient,'-filter_complex',fc,'-map','[out]','-ar','48000','-ac','2','-t',f'{TOTAL:.3f}',master])"
+          if old not in s: raise SystemExit('Missing master audio pattern')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+
+      - name: Apply mobile-first framing and Shorts-safe captions
+        run: python sbv_render/apply_sbv19_mobile_v5.py
+
+      - name: Render Golden Orb mobile master
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+        run: python sbv_render/render_golden_orb.py
+
+      - name: Rename final and run QA
+        run: |
+          cp build_golden/Strange_But_Verified_19_Golden_Orb_FINAL.mp4 build_golden/Strange_But_Verified_19_Golden_Orb_MOBILE_V5.mp4
+          FINAL=build_golden/Strange_But_Verified_19_Golden_Orb_MOBILE_V5.mp4
+          ffmpeg -v error -i "$FINAL" -f null - 2> build_golden/mobile_decode.txt
+          ffmpeg -hide_banner -i "$FINAL" -af loudnorm=I=-14:TP=-1:LRA=7:print_format=summary -f null - > build_golden/mobile_loudness.txt 2>&1
+          ffprobe -v error -show_entries format=duration,bit_rate -show_entries stream=index,codec_name,width,height,r_frame_rate,pix_fmt,sample_rate,channels -of json "$FINAL" > build_golden/mobile_ffprobe.json
+
+          mkdir -p build_golden/mobile_qa
+          for t in 0.8 4.2 7.8 11.5 15.0 19.0 23.0 27.0 30.5 33.8 37.8 42.2; do
+            ffmpeg -y -hide_banner -loglevel error -ss "$t" -i "$FINAL" -frames:v 1 -vf scale=270:480 "build_golden/mobile_qa/q_${t}.jpg"
+          done
+          ffmpeg -y -hide_banner -loglevel error \
+            -i build_golden/mobile_qa/q_0.8.jpg -i build_golden/mobile_qa/q_4.2.jpg -i build_golden/mobile_qa/q_7.8.jpg -i build_golden/mobile_qa/q_11.5.jpg \
+            -i build_golden/mobile_qa/q_15.0.jpg -i build_golden/mobile_qa/q_19.0.jpg -i build_golden/mobile_qa/q_23.0.jpg -i build_golden/mobile_qa/q_27.0.jpg \
+            -i build_golden/mobile_qa/q_30.5.jpg -i build_golden/mobile_qa/q_33.8.jpg -i build_golden/mobile_qa/q_37.8.jpg -i build_golden/mobile_qa/q_42.2.jpg \
+            -filter_complex 'xstack=inputs=12:layout=0_0|270_0|540_0|810_0|0_480|270_480|540_480|810_480|0_960|270_960|540_960|810_960' \
+            -frames:v 1 build_golden/mobile_contact.jpg
+          ffmpeg -y -hide_banner -loglevel error -i "$FINAL" -vf 'fps=2,scale=270:480,tile=6x1' -t 3 -frames:v 1 build_golden/mobile_first3.jpg
+          ffmpeg -y -hide_banner -loglevel error -ss 27.0 -i "$FINAL" -vf 'fps=3,scale=270:480,tile=12x1' -t 4 -frames:v 1 build_golden/mobile_pause.jpg
+          ffmpeg -y -hide_banner -loglevel error -ss 20.0 -i "$FINAL" -frames:v 1 \
+            -vf "drawbox=x=0:y=0:w=1080:h=234:color=red@0.16:t=fill,drawbox=x=0:y=1420:w=1080:h=500:color=red@0.18:t=fill,drawbox=x=920:y=234:w=160:h=1186:color=red@0.16:t=fill,drawbox=x=90:y=234:w=770:h=1186:color=0x35d07f@0.85:t=4" \
+            build_golden/shorts_safezone_proof.jpg
+
+          cat > build_golden/MOBILE_V5_AUDIT.md <<'EOF'
+          # SBV19 Golden Orb — Mobile-first V5 audit
+
+          - Rebuilt from the accepted NATGEO version, including the 2.82 s documentary breathing gap and restrained illustrative deep-sea ambience.
+          - Authentic NOAA footage enlarged for phone-first 9:16 viewing.
+          - Wide/context and Relicanthus shots target about 67% of frame height to preserve tentacles and context.
+          - Normal shots target about 77% of frame height.
+          - Tight/key Golden Orb shots target about 85% of frame height.
+          - Blurred background is supporting fill rather than the dominant picture area.
+          - Main captions are 560 px from the bottom with a 220 px right margin for Shorts UI safety.
+          - Brand/source labels are shifted inward/down from high-risk UI edges.
+          - No generated documentary footage or fabricated scene content is used.
+          EOF
+
+      - name: Upload mobile-first production package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV19-Golden-Orb-MOBILE-V5
+          path: |
+            build_golden/Strange_But_Verified_19_Golden_Orb_MOBILE_V5.mp4
+            build_golden/Strange_But_Verified_19_Golden_Orb_EN.srt
+            build_golden/MOBILE_V5_AUDIT.md
+            build_golden/QA.md
+            build_golden/shot_list.md
+            build_golden/sources.md
+            build_golden/metadata.md
+            build_golden/captions.ass
+            build_golden/voice/timing.json
+            build_golden/voice/narration.txt
+            build_golden/mobile_decode.txt
+            build_golden/mobile_loudness.txt
+            build_golden/mobile_ffprobe.json
+            build_golden/mobile_contact.jpg
+            build_golden/mobile_first3.jpg
+            build_golden/mobile_pause.jpg
+            build_golden/shorts_safezone_proof.jpg
+            build_golden/deep_sea_ambience.wav
+          retention-days: 5
+          if-no-files-found: error
