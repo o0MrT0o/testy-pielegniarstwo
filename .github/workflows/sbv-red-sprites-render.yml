@@ -54,6 +54,43 @@ jobs:
           cp build_sprites/assets/sprite_2024.jpg build_sprites/source_sprite2024.jpg
           cp build_sprites/assets/sprite_1989.jpg build_sprites/source_sprite1989.jpg
 
+      - name: Apply retention and source-duration corrections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('sbv_render/render_red_sprites.py')
+          s=p.read_text()
+          old='''TEXTS=[
+          "This red flash isn't below a thunderstorm. It's above it — almost in space.",
+          "For decades, pilots reported giant crimson flashes over storms, but scientists had almost no proof.",
+          "Then, in 1989, a camera caught one by accident.",
+          "They're called red sprites: electrical discharges triggered by powerful lightning far below.",
+          "They usually form around fifty to eighty-five kilometers above Earth, and some stretch tens of kilometers tall.",
+          "Yet many last only milliseconds.",
+          "Astronauts on the International Space Station have caught them on camera.",
+          "Watch the storm below.",
+          "There. A structure tens of kilometers tall — gone almost instantly."
+          ]'''.replace('          ','')
+          new='''TEXTS=[
+          "This red flash isn't below the storm. It's above it — almost in space.",
+          "Pilots reported crimson bursts like this for decades, but scientists had almost no proof.",
+          "Then, in 1989, a camera caught one by accident.",
+          "They're red sprites: electrical discharges triggered by powerful lightning below.",
+          "They form around fifty to eighty-five kilometers up, and can stretch tens of kilometers tall.",
+          "Yet many last only milliseconds.",
+          "Astronauts on the ISS have caught them on camera.",
+          "Watch the storm below.",
+          "There. Gone almost instantly."
+          ]'''.replace('          ','')
+          if old not in s: raise SystemExit('Narration block not found')
+          s=s.replace(old,new,1)
+          s=s.replace("add(x[1],x[2],'video','iss_storms.mp4',57.0,'wide'", "add(x[1],x[2],'video','iss_storms.mp4',32.0,'wide'",1)
+          s=s.replace("add(x[0],x[1],'video','iss_storms.mp4',70.0,'normal'", "add(x[0],x[1],'video','iss_storms.mp4',47.0,'normal'",1)
+          s=s.replace("if TOTAL>46:", "if TOTAL>45:",1)
+          s=s.replace("f'THERE.\\\\N{{\\\\c{yellow}}}GONE ALMOST INSTANTLY.{{\\\\c{white}}}'", "f'THERE.\\\\N{{\\\\c{yellow}}}GONE ALMOST INSTANTLY.{{\\\\c{white}}}'",1)
+          p.write_text(s)
+          PY
+
       - name: Render final Short and QA
         env:
           ORT_DISABLE_TELEMETRY: '1'
