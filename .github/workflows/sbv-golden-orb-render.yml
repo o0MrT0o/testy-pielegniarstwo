@@ -72,6 +72,40 @@ jobs:
           p.write_text(s)
           PY
 
+      - name: Add documentary breathing moment
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('sbv_render/render_golden_orb.py')
+          s = p.read_text()
+
+          old = "GAPS=[.07,.08,.08,.10,.10,.32,.10,.10,.18,.18]"
+          new = "GAPS=[.07,.08,.08,.10,.10,2.82,.10,.10,.18,.18]"
+          if old not in s: raise SystemExit('Missing GAPS pattern')
+          s = s.replace(old, new, 1)
+
+          old = "(bounds[5],bounds[6],'TWO AND A HALF YEARS LATER...'),"
+          new = "(bounds[5],parts[5]['end']+.12,'TWO AND A HALF YEARS LATER...'),"
+          if old not in s: raise SystemExit('Missing breathing caption pattern')
+          s = s.replace(old, new, 1)
+
+          old = "f.write(f'Dialogue: 3,{astamp(bounds[5]+.20)},{astamp(bounds[6])},Card,,0,0,0,,2023  DISCOVERY   →   2026  IDENTIFICATION\\n')"
+          new = "f.write(f'Dialogue: 3,{astamp(bounds[5]+.20)},{astamp(parts[5]['end']+.12)},Card,,0,0,0,,2023  DISCOVERY   →   2026  IDENTIFICATION\\n')"
+          if old not in s: raise SystemExit('Missing breathing card pattern')
+          s = s.replace(old, new, 1)
+
+          old = "# No fake underwater ambience. Narration remains dominant; deliberate pause before reveal.\nmaster=B/'master.wav'\nrun(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',V/'narration_timeline.wav','-af','highpass=f=55,loudnorm=I=-15.2:LRA=4:TP=-1.6,alimiter=limit=.83:attack=5:release=80','-ar','48000','-ac','2','-t',f'{TOTAL:.3f}',master])"
+          new = "# Restrained illustrative deep-sea ambience only during the deliberate narration pause before reveal.\nmaster=B/'master.wav'\nambient=B/'deep_sea_ambience.wav'\namb_start=parts[5]['end']+.18\namb_dur=max(2.35,bounds[6]-amb_start-.12)\nrun(['ffmpeg','-y','-hide_banner','-loglevel','error','-f','lavfi','-i',f'anoisesrc=color=brown:amplitude=0.018:duration={amb_dur:.3f}:sample_rate=48000','-af',f'highpass=f=28,lowpass=f=220,tremolo=f=0.16:d=0.18,volume=-15dB,afade=t=in:st=0:d=.35,afade=t=out:st={max(.4,amb_dur-.40):.3f}:d=.40','-ar','48000','-ac','2',ambient])\ndelay_ms=int(round(amb_start*1000))\nfc=f\"[0:a]highpass=f=55[n];[1:a]adelay={delay_ms}|{delay_ms}[amb];[n][amb]amix=inputs=2:normalize=0[m];[m]loudnorm=I=-15.2:LRA=4:TP=-1.6,alimiter=limit=.83:attack=5:release=80[out]\"\nrun(['ffmpeg','-y','-hide_banner','-loglevel','error','-i',V/'narration_timeline.wav','-i',ambient,'-filter_complex',fc,'-map','[out]','-ar','48000','-ac','2','-t',f'{TOTAL:.3f}',master])"
+          if old not in s: raise SystemExit('Missing master audio pattern')
+          s = s.replace(old, new, 1)
+
+          s = s.replace('- No fake underwater soundscape.\\n', '- One restrained ~2.5 s illustrative deep-sea ambience bed during the narration pause before reveal.\\n', 1)
+          s = s.replace('- Narration-only mix with deliberate pause before reveal.\\n', '- Narration remains dominant; ambience is limited to the breathing moment before reveal.\\n', 1)
+          s = s.replace('| 2.5 years | Two and a half years later… | Return to orb closeup | NOAA 2026 | narration | 2023 → 2026 card; short pause |', '| 2.5 years | Two and a half years later… | Return to orb closeup | NOAA 2026 | narration → 2.5 s quiet deep-sea ambience | 2023 → 2026 card; documentary breathing moment |', 1)
+
+          p.write_text(s)
+          PY
+
       - name: Render final Short and QA
         env:
           ORT_DISABLE_TELEMETRY: '1'
@@ -80,7 +114,7 @@ jobs:
       - name: Upload production package
         uses: actions/upload-artifact@v4
         with:
-          name: SBV19-Golden-Orb-FINAL-AUDITED
+          name: SBV19-Golden-Orb-FINAL-NATGEO
           path: |
             build_golden/Strange_But_Verified_19_Golden_Orb_FINAL.mp4
             build_golden/Strange_But_Verified_19_Golden_Orb_EN.srt
@@ -96,5 +130,6 @@ jobs:
             build_golden/voice/narration.txt
             build_golden/decode.txt
             build_golden/loudness.txt
+            build_golden/deep_sea_ambience.wav
           retention-days: 5
           if-no-files-found: error
