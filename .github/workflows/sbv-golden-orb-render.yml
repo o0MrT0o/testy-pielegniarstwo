@@ -43,6 +43,26 @@ jobs:
           ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_golden/assets/golden_2023.mp4
           ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_golden/assets/golden_2026.mp4
 
+      - name: Correct source-credit timing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('sbv_render/render_golden_orb.py')
+          s = p.read_text()
+          replacements = {
+              "astamp(.55)},{astamp(bounds[6])},Brand": "astamp(.55)},{astamp(bounds[3])},Brand",
+              "astamp(.55)},{astamp(bounds[6])},Source": "astamp(.55)},{astamp(bounds[3])},Source",
+              "astamp(bounds[6])},{astamp(TOTAL)},Brand": "astamp(bounds[3])},{astamp(TOTAL)},Brand",
+              "astamp(bounds[6])},{astamp(TOTAL)},Source": "astamp(bounds[3])},{astamp(TOTAL)},Source",
+              "NOAA OCEAN EXPLORATION  |  IDENTIFIED 2026": "NOAA OCEAN EXPLORATION  |  2026 IDENTIFICATION VIDEO",
+          }
+          for old, new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'Missing expected source-credit pattern: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
       - name: Render final Short and QA
         env:
           ORT_DISABLE_TELEMETRY: '1'
