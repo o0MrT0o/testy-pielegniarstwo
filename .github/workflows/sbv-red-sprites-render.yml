@@ -47,12 +47,15 @@ jobs:
           ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_sprites/assets/sprite_2012.mp4
           ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_sprites/assets/iss_storms.mp4
 
-      - name: Build source audit sheets
+      - name: Build source audit sheets and verified hero frame
         run: |
           ffmpeg -y -hide_banner -loglevel error -i build_sprites/assets/sprite_2012.mp4 -vf 'fps=1/1,scale=320:-2,tile=4x3:padding=4:margin=4' -frames:v 1 build_sprites/source_sprite2012.jpg
           ffmpeg -y -hide_banner -loglevel error -i build_sprites/assets/iss_storms.mp4 -vf 'fps=1/8,scale=320:-2,tile=4x4:padding=4:margin=4' -frames:v 1 build_sprites/source_issstorms.jpg
           cp build_sprites/assets/sprite_2024.jpg build_sprites/source_sprite2024.jpg
           cp build_sprites/assets/sprite_1989.jpg build_sprites/source_sprite1989.jpg
+          # Verified sprite frame: source event is visible at ~6.50 s. Crop remains a real source frame;
+          # the small yellow rectangle is a transparent explanatory marker only.
+          ffmpeg -y -hide_banner -loglevel error -ss 6.50 -i build_sprites/assets/sprite_2012.mp4 -frames:v 1 -vf "crop=240:200:620:20,drawbox=x=147:y=52:w=38:h=52:color=yellow@0.82:t=2,scale=960:800:flags=lanczos" build_sprites/assets/sprite_hero.png
 
       - name: Apply final editorial corrections
         run: |
@@ -92,17 +95,19 @@ jobs:
           s=s.replace('d=.30','d=0.30').replace('d=.35','d=0.35')
 
           old="add(bounds[7],TOTAL,'video','sprite_2012.mp4',4.55,'wide','NASA EARTH OBSERVATORY  |  ISS 2012 FOOTAGE')"
-          new="add(bounds[7],parts[8]['start'],'video','sprite_2012.mp4',6.20,'heroslow','NASA EARTH OBSERVATORY  |  ISS 2012  |  10× SLOWER')\nadd(parts[8]['start'],TOTAL,'video','sprite_2012.mp4',6.36,'heroslow','NASA EARTH OBSERVATORY  |  ISS 2012  |  REPLAY · 10× SLOWER')"
+          new="hero_still_start=parts[7]['end']+.10\nadd(bounds[7],hero_still_start,'video','sprite_2012.mp4',5.25,'tight','NASA EARTH OBSERVATORY  |  ISS 2012 FOOTAGE')\nadd(hero_still_start,parts[8]['start'],'image','sprite_hero.png',0,'normal','NASA EO  |  REAL ISS FRAME 2012  |  MARKER ADDED')\nadd(parts[8]['start'],TOTAL,'video','sprite_2012.mp4',6.36,'heroslow','NASA EO  |  ISS 2012  |  REPLAY · 10× SLOWER')"
           if old not in s: raise SystemExit('Hero shot pattern not found')
           s=s.replace(old,new,1)
+
+          s=s.replace("'sprite_triptych.jpg':A/'sprite_triptych.jpg','sprite_2012_still.jpg':A/'sprite_2012_still.jpg'}", "'sprite_triptych.jpg':A/'sprite_triptych.jpg','sprite_2012_still.jpg':A/'sprite_2012_still.jpg',\n'sprite_hero.png':A/'sprite_hero.png'}",1)
 
           old="    if mode=='wide': fg='[fg0]scale=1010:-2:flags=lanczos[fg];'\n    elif mode=='tight': fg=\"[fg0]scale=1220:-2:flags=lanczos,crop=1080:ih:x='(iw-1080)/2':y=0[fg];\"\n    else: fg='[fg0]scale=1080:-2:flags=lanczos[fg];'"
           new="    if mode=='wide': fg='[fg0]scale=1010:-2:flags=lanczos[fg];'\n    elif mode=='tight': fg=\"[fg0]scale=1220:-2:flags=lanczos,crop=1080:ih:x='(iw-1080)/2':y=0[fg];\"\n    elif mode=='heroslow': fg=\"[fg0]scale=2600:-2:flags=lanczos,crop=1080:ih:x='iw-1080':y=0[fg];\"\n    else: fg='[fg0]scale=1080:-2:flags=lanczos[fg];'"
           if old not in s: raise SystemExit('Framing pattern not found')
           s=s.replace(old,new,1)
 
-          old="vf='[0:v]fps=30,setsar=1,split=2[bg0][fg0];[bg0]scale="
-          new="timefx='setpts=10*PTS,' if mode=='heroslow' else ''\n    vf='[0:v]'+timefx+'fps=30,setsar=1,split=2[bg0][fg0];[bg0]scale="
+          old="vf='[0:v]fps=30,setsar=1,split=2[bg0][fg0];[bg0]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=28:3,eq=brightness=-.32:saturation=.86[bg];'+fg+'[bg][fg]overlay=(W-w)/2:240,format=yuv420p[v]'"
+          new="timefx='setpts=10*PTS,' if mode=='heroslow' else ''\n    vf='[0:v]'+timefx+'fps=30,setsar=1,split=2[bg0][fg0];[bg0]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=28:3,eq=brightness=-.32:saturation=.86[bg];'+fg+'[bg][fg]overlay=(W-w)/2:240,format=yuv420p[v]'"
           if old not in s: raise SystemExit('Video timing filter pattern not found')
           s=s.replace(old,new,1)
 
@@ -117,7 +122,7 @@ jobs:
           s=s.replace(marker,add_replay,1)
 
           s=s.replace('There Is Lightning Above Thunderstorms','This Red Flash Appears Above Thunderstorms',1)
-          s=s.replace('| Hero moment | Continuous authentic ISS footage; narrator says “Watch the storm below,” then stops | NASA EO 2012 | ~2.3 s breathing moment + quiet public-domain thunder ambience |','| Hero moment | Authentic ISS footage, tightly reframed and slowed 10× so the real sprite at source ~6.50 s is visible; narrator says “Watch the storm below,” then stops; event is shown once more as a labeled slow replay | NASA EO 2012 | ~2.2 s breathing moment + quiet public-domain thunder ambience |',1)
+          s=s.replace('| Hero moment | Continuous authentic ISS footage; narrator says “Watch the storm below,” then stops | NASA EO 2012 | ~2.3 s breathing moment + quiet public-domain thunder ambience |','| Hero moment | Authentic ISS footage leads into the exact real ISS frame at source ~6.50 s; a small marker identifies the red sprite during the breathing pause, followed by one labeled 10× slow replay | NASA EO 2012 | ~2.2 s breathing moment + quiet public-domain thunder ambience |',1)
 
           p.write_text(s)
           PY
@@ -145,6 +150,7 @@ jobs:
             build_sprites/source_issstorms.jpg
             build_sprites/source_sprite2024.jpg
             build_sprites/source_sprite1989.jpg
+            build_sprites/assets/sprite_hero.png
             build_sprites/captions.ass
             build_sprites/voice/timing.json
             build_sprites/voice/narration.txt
