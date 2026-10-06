@@ -24,7 +24,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg fonts-dejavu-core libsndfile1
           python -m pip install --upgrade pip
-          python -m pip install 'numpy<3' soundfile onnxruntime espeakng-loader 'kokoro-onnx==0.6.1' yt-dlp
+          python -m pip install 'numpy<3' soundfile onnxruntime espeakng-loader 'kokoro-onnx==0.6.1'
 
       - name: Download exact Strange But Verified voice model
         run: |
@@ -34,21 +34,26 @@ jobs:
           echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  build_casper/models/kokoro-v1.0.onnx' | sha256sum -c -
           echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  build_casper/models/voices-v1.0.bin' | sha256sum -c -
 
-      - name: Download authentic ROV footage
+      - name: Download real source assets
         run: |
           curl -L --fail --retry 4 -o build_casper/assets/casper_2016.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2025/04/EX1603_DIVE01_20160227_OCTOPUS_LOGO.mp4'
-          yt-dlp --no-playlist --merge-output-format mp4 -f 'bv*[height<=1080]+ba/b[height<=1080]' -o 'build_casper/assets/casper_2023.%(ext)s' 'https://www.youtube.com/watch?v=eH98nntC6_I'
-          yt-dlp --no-playlist --merge-output-format mp4 -f 'bv*[height<=1080]+ba/b[height<=1080]' -o 'build_casper/assets/casper_2025.%(ext)s' 'https://www.youtube.com/watch?v=bNjQ6n7YKpE'
+          curl -L --fail --retry 4 -o build_casper/assets/casper_2023.jpg 'https://oceanexplorer.noaa.gov/wp-content/uploads/2026/02/NA154-Casper-Octopus-OET.jpg'
+          curl -L --fail --retry 4 -o build_casper/assets/casper_2025.jpg 'https://oceanexplorer.noaa.gov/wp-content/uploads/2026/02/casper-2025.jpg'
+          curl -L --fail --retry 4 -o build_casper/assets/rov_context.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2022/02/loading-rovs-1280x720-1.mp4'
           test -s build_casper/assets/casper_2016.mp4
-          test -s build_casper/assets/casper_2023.mp4
-          test -s build_casper/assets/casper_2025.mp4
-          for f in build_casper/assets/casper_2016.mp4 build_casper/assets/casper_2023.mp4 build_casper/assets/casper_2025.mp4; do ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$f"; done
+          test -s build_casper/assets/casper_2023.jpg
+          test -s build_casper/assets/casper_2025.jpg
+          test -s build_casper/assets/rov_context.mp4
+          file build_casper/assets/casper_2023.jpg build_casper/assets/casper_2025.jpg
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_casper/assets/casper_2016.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_casper/assets/rov_context.mp4
 
       - name: Build source audit sheets
         run: |
-          for y in 2016 2023 2025; do
-            ffmpeg -y -hide_banner -loglevel error -i "build_casper/assets/casper_${y}.mp4" -vf "fps=1/5,scale=320:-2,tile=4x4:padding=4:margin=4" -frames:v 1 "build_casper/source_${y}.jpg"
-          done
+          ffmpeg -y -hide_banner -loglevel error -i build_casper/assets/casper_2016.mp4 -vf 'fps=1/5,scale=320:-2,tile=4x4:padding=4:margin=4' -frames:v 1 build_casper/source_2016.jpg
+          ffmpeg -y -hide_banner -loglevel error -i build_casper/assets/rov_context.mp4 -vf 'fps=1/3,scale=320:-2,tile=4x4:padding=4:margin=4' -frames:v 1 build_casper/source_rov.jpg
+          cp build_casper/assets/casper_2023.jpg build_casper/source_2023.jpg
+          cp build_casper/assets/casper_2025.jpg build_casper/source_2025.jpg
 
       - name: Render final Short and QA
         env:
@@ -72,6 +77,7 @@ jobs:
             build_casper/source_2016.jpg
             build_casper/source_2023.jpg
             build_casper/source_2025.jpg
+            build_casper/source_rov.jpg
             build_casper/captions.ass
             build_casper/voice/timing.json
             build_casper/voice/narration.txt
