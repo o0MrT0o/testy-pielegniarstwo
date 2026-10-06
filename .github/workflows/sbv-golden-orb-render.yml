@@ -1,0 +1,71 @@
+name: SBV Golden Orb Final Render
+
+on:
+  push:
+    branches: [sbv-render-duobrachium-temp]
+    paths:
+      - '.github/workflows/sbv-golden-orb-render.yml'
+      - 'sbv_render/render_golden_orb.py'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install production dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core libsndfile1
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy<3' soundfile onnxruntime espeakng-loader 'kokoro-onnx==0.6.1'
+
+      - name: Download exact Strange But Verified voice model
+        run: |
+          mkdir -p build_golden/models build_golden/assets
+          curl -L --fail --retry 4 -o build_golden/models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 4 -o build_golden/models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  build_golden/models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  build_golden/models/voices-v1.0.bin' | sha256sum -c -
+
+      - name: Download authentic NOAA footage
+        run: |
+          curl -L --fail --retry 4 -o build_golden/assets/golden_2023.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2023/09/golden-orb-hires.mp4'
+          curl -L --fail --retry 4 -o build_golden/assets/golden_2026.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2026/04/Mysterious-Golden-Orb-Identified-1080p.mp4'
+          test -s build_golden/assets/golden_2023.mp4
+          test -s build_golden/assets/golden_2026.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_golden/assets/golden_2023.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_golden/assets/golden_2026.mp4
+
+      - name: Render final Short and QA
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+        run: python sbv_render/render_golden_orb.py
+
+      - name: Upload production package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV19-Golden-Orb-FINAL
+          path: |
+            build_golden/Strange_But_Verified_19_Golden_Orb_FINAL.mp4
+            build_golden/Strange_But_Verified_19_Golden_Orb_EN.srt
+            build_golden/QA.md
+            build_golden/shot_list.md
+            build_golden/sources.md
+            build_golden/metadata.md
+            build_golden/contact.jpg
+            build_golden/first3.jpg
+            build_golden/audit_1s.jpg
+            build_golden/captions.ass
+            build_golden/voice/timing.json
+            build_golden/voice/narration.txt
+            build_golden/decode.txt
+            build_golden/loudness.txt
+          retention-days: 5
+          if-no-files-found: error
