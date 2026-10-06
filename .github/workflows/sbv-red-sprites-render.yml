@@ -92,13 +92,18 @@ jobs:
           s=s.replace('d=.30','d=0.30').replace('d=.35','d=0.35')
 
           old="add(bounds[7],TOTAL,'video','sprite_2012.mp4',4.55,'wide','NASA EARTH OBSERVATORY  |  ISS 2012 FOOTAGE')"
-          new="add(bounds[7],parts[8]['start'],'video','sprite_2012.mp4',3.30,'hero','NASA EARTH OBSERVATORY  |  ISS 2012 FOOTAGE')\nadd(parts[8]['start'],TOTAL,'video','sprite_2012.mp4',5.45,'hero','NASA EARTH OBSERVATORY  |  ISS 2012 FOOTAGE  |  REPLAY')"
+          new="add(bounds[7],parts[8]['start'],'video','sprite_2012.mp4',6.20,'heroslow','NASA EARTH OBSERVATORY  |  ISS 2012  |  10× SLOWER')\nadd(parts[8]['start'],TOTAL,'video','sprite_2012.mp4',6.36,'heroslow','NASA EARTH OBSERVATORY  |  ISS 2012  |  REPLAY · 10× SLOWER')"
           if old not in s: raise SystemExit('Hero shot pattern not found')
           s=s.replace(old,new,1)
 
           old="    if mode=='wide': fg='[fg0]scale=1010:-2:flags=lanczos[fg];'\n    elif mode=='tight': fg=\"[fg0]scale=1220:-2:flags=lanczos,crop=1080:ih:x='(iw-1080)/2':y=0[fg];\"\n    else: fg='[fg0]scale=1080:-2:flags=lanczos[fg];'"
-          new="    if mode=='wide': fg='[fg0]scale=1010:-2:flags=lanczos[fg];'\n    elif mode=='tight': fg=\"[fg0]scale=1220:-2:flags=lanczos,crop=1080:ih:x='(iw-1080)/2':y=0[fg];\"\n    elif mode=='hero': fg=\"[fg0]scale=1580:-2:flags=lanczos,crop=1080:ih:x='iw-1080':y=0[fg];\"\n    else: fg='[fg0]scale=1080:-2:flags=lanczos[fg];'"
+          new="    if mode=='wide': fg='[fg0]scale=1010:-2:flags=lanczos[fg];'\n    elif mode=='tight': fg=\"[fg0]scale=1220:-2:flags=lanczos,crop=1080:ih:x='(iw-1080)/2':y=0[fg];\"\n    elif mode=='heroslow': fg=\"[fg0]scale=2600:-2:flags=lanczos,crop=1080:ih:x='iw-1080':y=0[fg];\"\n    else: fg='[fg0]scale=1080:-2:flags=lanczos[fg];'"
           if old not in s: raise SystemExit('Framing pattern not found')
+          s=s.replace(old,new,1)
+
+          old="vf='[0:v]fps=30,setsar=1,split=2[bg0][fg0];[bg0]scale="
+          new="timefx='setpts=10*PTS,' if mode=='heroslow' else ''\n    vf='[0:v]'+timefx+'fps=30,setsar=1,split=2[bg0][fg0];[bg0]scale="
+          if old not in s: raise SystemExit('Video timing filter pattern not found')
           s=s.replace(old,new,1)
 
           s=s.replace("f'THIS FLASH ISN\\'T BELOW THE STORM\\\\N{{\\\\c{yellow}}}IT\\'S ABOVE IT{{\\\\c{white}}}'", "f'NOT BELOW THE STORM\\\\N{{\\\\c{yellow}}}ABOVE IT — ALMOST IN SPACE{{\\\\c{white}}}'",1)
@@ -107,12 +112,12 @@ jobs:
           s=s.replace('Style: Caption,DejaVu Sans,58,','Style: Caption,DejaVu Sans,54,',1)
 
           marker="    f.write(f'Dialogue: 3,{astamp(bounds[5]+.16)},{astamp(bounds[6])},Card,,0,0,0,,DURATION  ·  MILLISECONDS\\n')"
-          add_replay=marker+"\n    f.write(f'Dialogue: 5,{astamp(parts[8][\"start\"]+.04)},{astamp(min(TOTAL,parts[8][\"start\"]+1.30))},Tag,,0,0,0,,REPLAY\\n')"
+          add_replay=marker+"\n    f.write(f'Dialogue: 5,{astamp(parts[8][\"start\"]+.04)},{astamp(min(TOTAL,parts[8][\"start\"]+1.30))},Tag,,0,0,0,,REPLAY · 10× SLOWER\\n')"
           if marker not in s: raise SystemExit('Replay marker insertion point not found')
           s=s.replace(marker,add_replay,1)
 
           s=s.replace('There Is Lightning Above Thunderstorms','This Red Flash Appears Above Thunderstorms',1)
-          s=s.replace('| Hero moment | Continuous authentic ISS footage; narrator says “Watch the storm below,” then stops | NASA EO 2012 | ~2.3 s breathing moment + quiet public-domain thunder ambience |','| Hero moment | Authentic ISS footage reframed toward the sprite; narrator says “Watch the storm below,” then stops; exact event is shown again once as a labeled replay | NASA EO 2012 | ~2.2 s breathing moment + quiet public-domain thunder ambience |',1)
+          s=s.replace('| Hero moment | Continuous authentic ISS footage; narrator says “Watch the storm below,” then stops | NASA EO 2012 | ~2.3 s breathing moment + quiet public-domain thunder ambience |','| Hero moment | Authentic ISS footage, tightly reframed and slowed 10× so the real sprite at source ~6.50 s is visible; narrator says “Watch the storm below,” then stops; event is shown once more as a labeled slow replay | NASA EO 2012 | ~2.2 s breathing moment + quiet public-domain thunder ambience |',1)
 
           p.write_text(s)
           PY
