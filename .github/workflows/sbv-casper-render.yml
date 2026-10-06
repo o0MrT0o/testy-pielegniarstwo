@@ -1,0 +1,82 @@
+name: SBV Casper Octopus Final Render
+
+on:
+  push:
+    branches: [sbv-render-duobrachium-temp]
+    paths:
+      - '.github/workflows/sbv-casper-render.yml'
+      - 'sbv_render/render_casper.py'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install production dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core libsndfile1
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy<3' soundfile onnxruntime espeakng-loader 'kokoro-onnx==0.6.1' yt-dlp
+
+      - name: Download exact Strange But Verified voice model
+        run: |
+          mkdir -p build_casper/models build_casper/assets
+          curl -L --fail --retry 4 -o build_casper/models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 4 -o build_casper/models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  build_casper/models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  build_casper/models/voices-v1.0.bin' | sha256sum -c -
+
+      - name: Download authentic ROV footage
+        run: |
+          curl -L --fail --retry 4 -o build_casper/assets/casper_2016.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2025/04/EX1603_DIVE01_20160227_OCTOPUS_LOGO.mp4'
+          yt-dlp --no-playlist --merge-output-format mp4 -f 'bv*[height<=1080]+ba/b[height<=1080]' -o 'build_casper/assets/casper_2023.%(ext)s' 'https://www.youtube.com/watch?v=eH98nntC6_I'
+          yt-dlp --no-playlist --merge-output-format mp4 -f 'bv*[height<=1080]+ba/b[height<=1080]' -o 'build_casper/assets/casper_2025.%(ext)s' 'https://www.youtube.com/watch?v=bNjQ6n7YKpE'
+          test -s build_casper/assets/casper_2016.mp4
+          test -s build_casper/assets/casper_2023.mp4
+          test -s build_casper/assets/casper_2025.mp4
+          for f in build_casper/assets/casper_2016.mp4 build_casper/assets/casper_2023.mp4 build_casper/assets/casper_2025.mp4; do ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$f"; done
+
+      - name: Build source audit sheets
+        run: |
+          for y in 2016 2023 2025; do
+            ffmpeg -y -hide_banner -loglevel error -i "build_casper/assets/casper_${y}.mp4" -vf "fps=1/5,scale=320:-2,tile=4x4:padding=4:margin=4" -frames:v 1 "build_casper/source_${y}.jpg"
+          done
+
+      - name: Render final Short and QA
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+        run: python sbv_render/render_casper.py
+
+      - name: Upload production package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV20-Casper-Octopus-FINAL
+          path: |
+            build_casper/Strange_But_Verified_20_Casper_Octopus_FINAL.mp4
+            build_casper/Strange_But_Verified_20_Casper_Octopus_EN.srt
+            build_casper/QA.md
+            build_casper/shot_list.md
+            build_casper/sources.md
+            build_casper/metadata.md
+            build_casper/contact.jpg
+            build_casper/first3.jpg
+            build_casper/pause_keyframes.jpg
+            build_casper/source_2016.jpg
+            build_casper/source_2023.jpg
+            build_casper/source_2025.jpg
+            build_casper/captions.ass
+            build_casper/voice/timing.json
+            build_casper/voice/narration.txt
+            build_casper/decode.txt
+            build_casper/loudness.txt
+            build_casper/deep_sea_ambience.wav
+          retention-days: 5
+          if-no-files-found: error
