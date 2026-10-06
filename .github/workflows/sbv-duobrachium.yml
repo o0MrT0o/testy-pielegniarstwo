@@ -11,51 +11,129 @@ on:
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: sbv-duobrachium-render
 
-      - name: Install media tools
+      - name: Install media and narration tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core espeak-ng
           python -m pip install --upgrade pip
-          python -m pip install yt-dlp
+          python -m pip install yt-dlp kokoro-onnx soundfile numpy
 
-      - name: Download authentic NOAA sources
+      - name: Download authentic NOAA sources and Kokoro model
         run: |
           mkdir -p build/assets
           curl -L --fail --retry 3 -o build/assets/duobrachium.mp4 \
             'https://oceanexplorer.noaa.gov/wp-content/uploads/2022/08/ex1502-0410-ctenophore-640x364-1.mp4'
-          curl -L --fail --retry 3 -o build/assets/duobrachium_still.png \
-            'https://upload.wikimedia.org/wikipedia/commons/b/b0/Duobrachium_sparksae_on_10_April_2015.png'
-          curl -L --fail --retry 3 -o build/assets/deep_discoverer.png \
-            'https://upload.wikimedia.org/wikipedia/commons/7/73/Deep_Discoverer_in_deep_water_off_Puerto_Rico_April_2015.png'
-          curl -L --fail --retry 3 -o build/assets/rov_pilots.png \
-            'https://upload.wikimedia.org/wikipedia/commons/c/c0/ROV_Deep_Discoverer_pilots_aboard_NOAAS_Okeanos_Explorer_%28R_337%29_26_April_2015.png'
-          curl -L --fail --retry 3 -o build/assets/rov_dunk.png \
-            'https://upload.wikimedia.org/wikipedia/commons/4/48/Deep_Discoverer_NOAAS_Okeanos_Explorer_9_April_2015.png'
-          curl -L --fail --retry 3 -o build/assets/okeanos_sunrise.png \
-            'https://upload.wikimedia.org/wikipedia/commons/1/10/NOAAS_Okeanos_Explorer_%28R_337%29_as_the_sun_rises_over_Puerto_Rico_April_2015.png'
           yt-dlp --no-playlist --merge-output-format mp4 -o 'build/assets/noaa_broll.%(ext)s' \
             'https://videos.fisheries.noaa.gov/detail/video/6216412836001/b-roll%3A-discovery-of-the-ctenophore-duobrachium-sparksae?autoStart=true&q=b-roll'
-          ls -lh build/assets
+          curl -L --fail --retry 3 -o build/kokoro-v1.0.onnx \
+            'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 3 -o build/voices-v1.0.bin \
+            'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build/assets/noaa_broll.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build/assets/duobrachium.mp4
 
-      - name: Build B-roll contact sheets
+      - name: Generate exact SBV af_heart narration and edit timeline
         run: |
-          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build/assets/noaa_broll.mp4 > build/broll_duration.txt
-          ffmpeg -hide_banner -loglevel error -y -i build/assets/noaa_broll.mp4 \
-            -vf "fps=1/30,scale=480:-2,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='%{pts\\:hms}':x=12:y=12:fontsize=28:fontcolor=white:borderw=3:bordercolor=black,tile=4x5:padding=6:margin=6" \
-            -frames:v 1 build/broll_contact_00_570.jpg
-          ffmpeg -hide_banner -loglevel error -y -ss 0 -i build/assets/duobrachium.mp4 \
-            -vf "fps=1/2,scale=480:-2,tile=4x4:padding=6:margin=6" -frames:v 1 build/animal_contact.jpg
+          python sbv/render_duobrachium.py
+          cat build/timing.json
 
-      - name: Upload inspection artifact
+      - name: Render final vertical master
+        run: |
+          ffmpeg -hide_banner -y \
+            -i build/assets/duobrachium.mp4 \
+            -i build/assets/noaa_broll.mp4 \
+            -i build/narration.wav \
+            -filter_complex_script build/filter_complex.txt \
+            -map '[vout]' -map 2:a:0 \
+            -af 'loudnorm=I=-15.5:TP=-2.5:LRA=5' \
+            -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p -r 30 \
+            -c:a aac -b:a 192k -ar 48000 -ac 2 \
+            -movflags +faststart -shortest \
+            build/Strange_But_Verified_Duobrachium_FINAL.mp4
+
+      - name: Technical QA and preview
+        run: |
+          set -e
+          FINAL='build/Strange_But_Verified_Duobrachium_FINAL.mp4'
+          ffmpeg -v error -i "$FINAL" -f null -
+          ffprobe -v error -show_entries format=duration,size,bit_rate:stream=index,codec_name,codec_type,width,height,r_frame_rate,sample_rate,channels -of json "$FINAL" > build/ffprobe.json
+          ffmpeg -hide_banner -i "$FINAL" -vf 'blackdetect=d=0.15:pix_th=0.10' -an -f null - 2> build/blackdetect.txt || true
+          if grep -q 'black_start:' build/blackdetect.txt; then
+            echo 'QA FAIL: black interval >=0.15s detected'
+            cat build/blackdetect.txt
+            exit 1
+          fi
+          ffmpeg -hide_banner -i "$FINAL" -af 'loudnorm=I=-15.5:TP=-1.5:LRA=7:print_format=json' -f null - 2> build/loudness.txt || true
+          sha256sum "$FINAL" > build/sha256.txt
+          ffmpeg -hide_banner -loglevel error -y -i "$FINAL" \
+            -vf "fps=1/4,scale=360:-2,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='%{pts\\:hms}':x=10:y=10:fontsize=22:fontcolor=white:borderw=3:bordercolor=black,tile=3x4:padding=8:margin=8" \
+            -frames:v 1 build/final_contact_sheet.jpg
+          {
+            echo '# Strange But Verified — Duobrachium — FINAL QA'
+            echo
+            echo '## Technical'
+            echo '```json'
+            cat build/ffprobe.json
+            echo '```'
+            echo
+            echo '## Loudness measurement'
+            echo '```'
+            tail -n 40 build/loudness.txt
+            echo '```'
+            echo
+            echo '## Black-frame scan'
+            echo 'PASS — no black interval >= 0.15 s detected.'
+            echo
+            echo '## SHA-256'
+            echo '```'
+            cat build/sha256.txt
+            echo '```'
+            echo
+            echo '## Editorial integrity'
+            echo '- Real NOAA moving footage only; no generated documentary imagery.'
+            echo '- Dedicated Duobrachium footage plus NOAA Fisheries expedition B-roll.'
+            echo '- Kokoro af_heart v1.0 narration at speed 0.88.'
+            echo '- No fake bubbling, splash, wave or underwater SFX.'
+            echo '- Captions are semantic chunks, not word-by-word animation.'
+          } > build/QA.md
+          cat > build/SOURCES.md <<'EOF'
+          # Sources & rights — Strange But Verified — Duobrachium sparksae
+
+          ## Primary animal footage
+          NOAA Ocean Exploration — ctenophore HD video, Okeanos Explorer / Deep Discoverer expedition.
+          https://oceanexplorer.noaa.gov/wp-content/uploads/2022/08/ex1502-0410-ctenophore-640x364-1.mp4
+          Source page: https://oceanexplorer.noaa.gov/multimedia/okeanos-explorations-22voyage-to-the-ridge-features-return-pr-usvi-media-ctenophore/
+          U.S. federal-government NOAA material; on-screen credit retained in the edit.
+
+          ## Expedition B-roll
+          NOAA Fisheries — B-roll: Discovery of the Ctenophore Duobrachium sparksae.
+          https://videos.fisheries.noaa.gov/detail/video/6216412836001/b-roll%3A-discovery-of-the-ctenophore-duobrachium-sparksae
+          NOAA labels its B-roll packages public domain; used for ROV, expedition, control-room and laboratory context.
+
+          ## Scientific fact basis
+          Ford, Bezio & Collins (2020), description of Duobrachium sparksae.
+          Safe wording used in the film: first time NOAA designated a new genus and species using video alone; the film does not claim this was the first species ever described from video.
+          Holotype video identifier shown: USNM 1607331.
+
+          ## Narration
+          Kokoro v1.0 / af_heart, speed 0.88. Model weights Apache-2.0; no real person's voice cloned.
+          EOF
+
+      - name: Upload final master
         uses: actions/upload-artifact@v4
         with:
-          name: sbv-source-inspection
+          name: Strange-But-Verified-Duobrachium-FINAL
           path: |
-            build/broll_contact_00_570.jpg
-            build/animal_contact.jpg
-            build/broll_duration.txt
-          retention-days: 3
+            build/Strange_But_Verified_Duobrachium_FINAL.mp4
+            build/final_contact_sheet.jpg
+            build/QA.md
+            build/SOURCES.md
+            build/timing.json
+            build/overlay.ass
+          retention-days: 7
