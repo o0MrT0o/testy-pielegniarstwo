@@ -43,23 +43,32 @@ jobs:
           ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_golden/assets/golden_2023.mp4
           ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_golden/assets/golden_2026.mp4
 
-      - name: Correct source-credit timing
+      - name: Correct source-credit timing after audit
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('sbv_render/render_golden_orb.py')
           s = p.read_text()
-          replacements = {
-              "astamp(.55)},{astamp(bounds[6])},Brand": "astamp(.55)},{astamp(bounds[3])},Brand",
-              "astamp(.55)},{astamp(bounds[6])},Source": "astamp(.55)},{astamp(bounds[3])},Source",
-              "astamp(bounds[6])},{astamp(TOTAL)},Brand": "astamp(bounds[3])},{astamp(TOTAL)},Brand",
-              "astamp(bounds[6])},{astamp(TOTAL)},Source": "astamp(bounds[3])},{astamp(TOTAL)},Source",
-              "NOAA OCEAN EXPLORATION  |  IDENTIFIED 2026": "NOAA OCEAN EXPLORATION  |  2026 IDENTIFICATION VIDEO",
-          }
-          for old, new in replacements.items():
-              if old not in s:
-                  raise SystemExit(f'Missing expected source-credit pattern: {old}')
-              s = s.replace(old, new, 1)
+
+          old = "f.write(f'Dialogue: 4,{astamp(.55)},{astamp(bounds[6])},Brand,,0,0,0,,STRANGE, BUT VERIFIED\\n')"
+          new = "f.write(f'Dialogue: 4,{astamp(.55)},{astamp(TOTAL)},Brand,,0,0,0,,STRANGE, BUT VERIFIED\\n')"
+          if old not in s: raise SystemExit('Missing first Brand source-credit pattern')
+          s = s.replace(old, new, 1)
+
+          old = "f.write(f'Dialogue: 3,{astamp(.55)},{astamp(bounds[6])},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  REAL 2023 FOOTAGE\\n')"
+          new = "f.write(f'Dialogue: 3,{astamp(.55)},{astamp(bounds[3])},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  REAL 2023 FOOTAGE\\n')"
+          if old not in s: raise SystemExit('Missing first 2023 source-credit pattern')
+          s = s.replace(old, new, 1)
+
+          old = "f.write(f'Dialogue: 4,{astamp(bounds[6])},{astamp(TOTAL)},Brand,,0,0,0,,STRANGE, BUT VERIFIED\\n')\n"
+          if old not in s: raise SystemExit('Missing duplicate Brand pattern')
+          s = s.replace(old, '', 1)
+
+          old = "f.write(f'Dialogue: 3,{astamp(bounds[6])},{astamp(TOTAL)},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  IDENTIFIED 2026\\n')"
+          new = "f.write(f'Dialogue: 3,{astamp(bounds[3])},{astamp(bounds[9])},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  2026 IDENTIFICATION VIDEO\\n')\n    f.write(f'Dialogue: 3,{astamp(bounds[9])},{astamp(TOTAL)},Source,,0,0,0,,NOAA OCEAN EXPLORATION  |  REAL 2023 FOOTAGE\\n')"
+          if old not in s: raise SystemExit('Missing 2026 source-credit pattern')
+          s = s.replace(old, new, 1)
+
           p.write_text(s)
           PY
 
@@ -71,7 +80,7 @@ jobs:
       - name: Upload production package
         uses: actions/upload-artifact@v4
         with:
-          name: SBV19-Golden-Orb-FINAL
+          name: SBV19-Golden-Orb-FINAL-AUDITED
           path: |
             build_golden/Strange_But_Verified_19_Golden_Orb_FINAL.mp4
             build_golden/Strange_But_Verified_19_Golden_Orb_EN.srt
