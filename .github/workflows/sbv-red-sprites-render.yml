@@ -87,7 +87,7 @@ jobs:
           s=s.replace("add(x[1],x[2],'video','iss_storms.mp4',57.0,'wide'", "add(x[1],x[2],'video','iss_storms.mp4',32.0,'wide'",1)
           s=s.replace("add(x[0],x[1],'video','iss_storms.mp4',70.0,'normal'", "add(x[0],x[1],'video','iss_storms.mp4',47.0,'normal'",1)
           s=s.replace("if TOTAL>46:", "if TOTAL>45:",1)
-          s=s.replace("f'THERE.\\\\N{{\\\\c{yellow}}}GONE ALMOST INSTANTLY.{{\\\\c{white}}}'", "f'THERE.\\\\N{{\\\\c{yellow}}}GONE ALMOST INSTANTLY.{{\\\\c{white}}}'",1)
+          s=s.replace('d=.30','d=0.30').replace('d=.35','d=0.35')
           p.write_text(s)
           PY
 
