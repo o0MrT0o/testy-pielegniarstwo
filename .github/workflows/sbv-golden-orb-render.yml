@@ -90,7 +90,7 @@ jobs:
           s = s.replace(old, new, 1)
 
           old = "f.write(f'Dialogue: 3,{astamp(bounds[5]+.20)},{astamp(bounds[6])},Card,,0,0,0,,2023  DISCOVERY   →   2026  IDENTIFICATION\\n')"
-          new = "f.write(f'Dialogue: 3,{astamp(bounds[5]+.20)},{astamp(parts[5]['end']+.12)},Card,,0,0,0,,2023  DISCOVERY   →   2026  IDENTIFICATION\\n')"
+          new = "f.write(f'Dialogue: 3,{astamp(bounds[5]+.20)},{astamp(parts[5][\"end\"]+.12)},Card,,0,0,0,,2023  DISCOVERY   →   2026  IDENTIFICATION\\n')"
           if old not in s: raise SystemExit('Missing breathing card pattern')
           s = s.replace(old, new, 1)
 
