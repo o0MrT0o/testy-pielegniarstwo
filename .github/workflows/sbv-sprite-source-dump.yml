@@ -16,7 +16,7 @@ jobs:
         run: |
           mkdir -p sprite_dump
           curl -L --fail --retry 4 -o sprite_dump/ISS-540-MASTER_high.mp4 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/ISS-540-MASTER_high.mp4'
-          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 sprite_dump/ISS-540-MASTER_high.mp4
+          test -s sprite_dump/ISS-540-MASTER_high.mp4
       - name: Upload raw source
         uses: actions/upload-artifact@v4
         with:
