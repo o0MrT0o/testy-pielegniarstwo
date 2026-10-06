@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import math
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,7 +10,6 @@ import soundfile as sf
 from kokoro_onnx import Kokoro
 
 ROOT = Path('build')
-ASSETS = ROOT / 'assets'
 ROOT.mkdir(exist_ok=True)
 
 MODEL = ROOT / 'kokoro-v1.0.onnx'
@@ -22,7 +19,7 @@ ASS = ROOT / 'overlay.ass'
 FILTER = ROOT / 'filter_complex.txt'
 TIMING = ROOT / 'timing.json'
 
-YELLOW = '&H004DC9F4&'  # RGB #F4C94D in ASS BGR order
+YELLOW = '&H004DC9F4&'
 WHITE = '&H00FFFFFF&'
 
 
@@ -43,7 +40,7 @@ parts = [
             'Scientists named this animal',
             f'{{\\c{YELLOW}}}WITHOUT EVER TOUCHING IT{{\\c{WHITE}}}',
         ],
-        0.52,
+        0.45,
     ),
     Part(
         "In 2015, NOAA's Deep Discoverer found three ghostlike comb jellies 3.9 kilometers down, north of Puerto Rico.",
@@ -53,29 +50,29 @@ parts = [
             f'{{\\c{YELLOW}}}3.9 KILOMETERS DOWN{{\\c{WHITE}}}',
             'north of Puerto Rico',
         ],
-        0.22,
+        0.18,
     ),
     Part(
-        "The robot couldn't collect them. But its HD camera recorded features smaller than a millimeter — body shape, tentacles, even reproductive structures.",
+        "The robot couldn't collect them. But HD video captured sub-millimeter details — body shape, tentacles, even reproductive structures.",
         [
             "The robot couldn't collect them",
-            'But its HD camera recorded',
-            'features smaller than a millimeter',
+            'But HD video captured',
+            'sub-millimeter details',
             'body shape • tentacles',
             'even reproductive structures',
         ],
-        0.24,
+        0.18,
     ),
     Part(
-        'Researchers compared that footage with known ctenophores. In 2020, they formally named a new genus and species: Duo-brack-ee-um sparks-ee.',
+        'Researchers compared the footage with known ctenophores. In 2020, they named a new genus and species: Duo-brack-ee-um sparks-ee.',
         [
             'Researchers compared the footage',
             'with known ctenophores',
-            'In 2020, they formally named',
+            'In 2020, they named',
             f'a {{\\c{YELLOW}}}NEW GENUS + SPECIES{{\\c{WHITE}}}',
             '{\\i1}Duobrachium sparksae{\\i0}',
         ],
-        0.25,
+        0.20,
     ),
     Part(
         'It was the first time NOAA had done that using video alone.',
@@ -83,21 +80,21 @@ parts = [
             'It was the first time NOAA',
             f'had done that using {{\\c{YELLOW}}}VIDEO ALONE{{\\c{WHITE}}}',
         ],
-        0.28,
+        0.22,
     ),
     Part(
-        "And the holotype — the official reference for the species — isn't preserved in a jar.",
+        "And the holotype — the official reference — isn't preserved in a jar.",
         [
             'And the holotype —',
-            'the official reference for the species —',
+            'the official reference —',
             "isn't preserved in a jar",
         ],
-        0.58,
+        0.50,
     ),
     Part(
         "It's a video.",
         [f'{{\\c{YELLOW}}}IT’S A VIDEO{{\\c{WHITE}}}'],
-        0.58,
+        0.55,
     ),
 ]
 
@@ -111,8 +108,7 @@ def sec_to_ass(t: float) -> str:
 
 
 def visible_word_count(text: str) -> int:
-    cleaned = re.sub(r'\{[^}]*\}', '', text)
-    cleaned = cleaned.replace('•', ' ')
+    cleaned = re.sub(r'\{[^}]*\}', '', text).replace('•', ' ')
     words = re.findall(r"[A-Za-z0-9.+'’:-]+", cleaned)
     return max(1, len(words))
 
@@ -139,7 +135,6 @@ def make_narration() -> tuple[np.ndarray, int, float]:
             close()
 
     full = np.concatenate(rendered)
-    # Keep conservative headroom before final loudness normalization.
     peak = float(np.max(np.abs(full))) if full.size else 1.0
     if peak > 0.92:
         full *= 0.92 / peak
@@ -148,7 +143,6 @@ def make_narration() -> tuple[np.ndarray, int, float]:
 
 
 def make_ass(total: float) -> None:
-    # Existing SBV channel template: upper-left brand/source hierarchy, captions anchored left of Shorts controls.
     header = '''[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -174,12 +168,10 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
     def add(start: float, end: float, style: str, text: str) -> None:
         ev.append(f'Dialogue: 0,{sec_to_ass(start)},{sec_to_ass(end)},{style},,0,0,0,,{text}')
 
-    # Persistent channel/source hierarchy.
     add(0, total, 'Brand', '{\\pos(64,60)}STRANGE, BUT VERIFIED')
     add(0, total, 'Meta', '{\\pos(64,142)}DEEP ATLANTIC • PUERTO RICO')
     add(0, total, 'Credit', '{\\pos(68,213)}NOAA OCEAN EXPLORATION • PUBLIC DOMAIN')
 
-    # Semantic captions with word-proportional timing inside each actual TTS segment.
     for p in parts:
         weights = [visible_word_count(c) for c in p.chunks]
         total_w = sum(weights)
@@ -188,14 +180,13 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
         for i, (chunk, w) in enumerate(zip(p.chunks, weights)):
             dur = span * w / total_w
             nxt = p.speech_end if i == len(p.chunks) - 1 else cur + dur
-            # Slightly lift captions and leave right-side Shorts controls empty.
             add(cur, nxt, 'Caption', '{\\an2\\pos(490,1460)}' + chunk)
             cur = nxt
 
     p2, p3, p4, p5, p6 = parts[1], parts[2], parts[3], parts[4], parts[5]
     add(p2.start + 0.48 * (p2.speech_end-p2.start), p2.speech_end + 0.08, 'Special',
         '{\\pos(540,352)}3,900 m  /  12,800 ft')
-    add(p3.start, p3.start + 0.34 * (p3.speech_end-p3.start), 'Special',
+    add(p3.start, p3.start + 0.36 * (p3.speech_end-p3.start), 'Special',
         f'{{\\pos(540,352)\\c{YELLOW}}}NO PHYSICAL SPECIMEN')
     add(p4.start + 0.43 * (p4.speech_end-p4.start), p4.speech_end + 0.05, 'Special',
         '{\\pos(540,350)}2015 DISCOVERY  →  2020 DESCRIPTION')
@@ -203,38 +194,35 @@ Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
         '{\\pos(540,438)}Duobrachium sparksae')
     add(p5.start, p5.speech_end + 0.08, 'Special',
         f'{{\\pos(540,352)\\c{YELLOW}}}VIDEO ALONE')
-    add(p6.start + 0.18, p6.speech_end + 0.18, 'Data',
+    add(p6.start + 0.15, p6.speech_end + 0.15, 'Data',
         f'{{\\pos(540,404)}}{{\\c{YELLOW}}}HOLOTYPE: VIDEO{{\\c{WHITE}}}\\N{{\\fs30}}USNM 1607331')
 
     ASS.write_text(header + '\n'.join(ev) + '\n', encoding='utf-8')
 
 
 def make_filter(total: float) -> None:
-    # Build visual boundaries from actual narration durations. This keeps the edit synchronized even if TTS duration shifts.
-    p1, p2, p3, p4, p5, p6, p7 = parts
+    _, p2, p3, p4, p5, p6, p7 = parts
     m2 = p2.start + 0.50 * (p2.speech_end - p2.start)
-    m3 = p3.start + 0.34 * (p3.speech_end - p3.start)
+    m3 = p3.start + 0.36 * (p3.speech_end - p3.start)
     m4 = p4.start + 0.47 * (p4.speech_end - p4.start)
 
-    # (input index: 0=dedicated animal clip, 1=NOAA 9:14 B-roll, source start, output start, output end)
     segs = [
-        (0, 6.0, 0.0, p2.start),                         # cold open: strongest real animal footage
-        (1, 390.0, p2.start, m2),                         # ROV/deployment context
-        (1, 115.0, m2, p3.start),                         # separate authentic animal footage
-        (1, 480.0, p3.start, m3),                         # Deep Discoverer working underwater
-        (0, 13.0, m3, p4.start),                          # morphology close-up
-        (1, 450.0, p4.start, m4),                         # lab/research context
-        (0, 21.0, m4, p5.start),                          # species reveal, distinct source interval
-        (1, 420.0, p5.start, p6.start),                   # control room / video evidence
-        (1, 458.0, p6.start, p7.start),                   # different lab interval under holotype card
-        (0, 28.0, p7.start, total),                       # clean final animal/payoff
+        (0, 6.0, 0.0, p2.start),
+        (1, 390.0, p2.start, m2),
+        (1, 115.0, m2, p3.start),
+        (1, 480.0, p3.start, m3),
+        (0, 13.0, m3, p4.start),
+        (1, 450.0, p4.start, m4),
+        (0, 21.0, m4, p5.start),
+        (1, 420.0, p5.start, p6.start),
+        (1, 458.0, p6.start, p7.start),
+        (0, 28.0, p7.start, total),
     ]
 
     lines: list[str] = []
     outs: list[str] = []
     for i, (src, src_start, out_start, out_end) in enumerate(segs):
         dur = max(0.20, out_end - out_start)
-        # Use a blurred/darkened duplicate only as a framing device; all visible subject pixels are authentic source media.
         lines.append(
             f'[{src}:v]trim=start={src_start:.3f}:duration={dur:.3f},setpts=PTS-STARTPTS,split=2[s{i}b][s{i}f]'
         )
@@ -246,7 +234,7 @@ def make_filter(total: float) -> None:
             f'[s{i}f]scale=1080:-2:flags=lanczos,unsharp=3:3:0.28:3:3:0[fg{i}]'
         )
         lines.append(
-            f'[bg{i}][fg{i}]overlay=(W-w)/2:(H-h)/2:shortest=1,fps=30,format=yuv420p[v{i}]'
+            f'[bg{i}][fg{i}]overlay=(W-w)/2:(H-h)/2:shortest=1,setsar=1,fps=30,format=yuv420p[v{i}]'
         )
         outs.append(f'[v{i}]')
 
@@ -257,12 +245,8 @@ def make_filter(total: float) -> None:
     TIMING.write_text(json.dumps({
         'total_duration': total,
         'parts': [
-            {
-                'tts': p.tts,
-                'start': p.start,
-                'speech_end': p.speech_end,
-                'end': p.end,
-            } for p in parts
+            {'tts': p.tts, 'start': p.start, 'speech_end': p.speech_end, 'end': p.end}
+            for p in parts
         ],
         'visual_segments': [
             {'input': s, 'source_start': ss, 'output_start': os, 'output_end': oe}
