@@ -1,0 +1,141 @@
+name: SBV21 Red Sprites Mobile V5
+
+on:
+  push:
+    branches: [sbv-render-duobrachium-temp]
+    paths:
+      - '.github/workflows/sbv-red-sprites-mobile-v5.yml'
+      - 'sbv_render/apply_sbv21_mobile_v5.py'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install production dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core libsndfile1
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy<3' soundfile onnxruntime espeakng-loader 'kokoro-onnx==0.6.1'
+
+      - name: Download locked narrator model
+        run: |
+          mkdir -p build_sprites/models build_sprites/assets
+          curl -L --fail --retry 4 -o build_sprites/models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 4 -o build_sprites/models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  build_sprites/models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  build_sprites/models/voices-v1.0.bin' | sha256sum -c -
+
+      - name: Download authentic NASA UAF sources
+        run: |
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_2012.mp4 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/ISS-540-MASTER_high.mp4'
+          curl -L --fail --retry 4 -o build_sprites/assets/iss_storms.mp4 'https://svs.gsfc.nasa.gov/vis/a030000/a030100/a030180/iss028_nighttime_20110819_720p.mp4'
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_2024.jpg 'https://assets.science.nasa.gov/dynamicimage/assets/science/esd/eo/images/imagerecords/153000/153422/iss071e234765_lrg.jpg?crop=faces%2Cfocalpoint&fit=clip&h=5005&w=7508'
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_1989.jpg 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/redSprite_1024x576.jpg'
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_triptych.jpg 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/sprite_triptych_1920x1080.jpg'
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_2012_still.jpg 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/ISS031-E-10712_still01_1920x1080.jpg'
+          curl -L --fail --retry 4 -o build_sprites/assets/thunder.ogg 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Thunderstorm%20after%20hot%20summer%20day%2017%20minutes%2003%20of%2004.ogg'
+          for f in build_sprites/assets/sprite_2012.mp4 build_sprites/assets/iss_storms.mp4 build_sprites/assets/sprite_2024.jpg build_sprites/assets/sprite_1989.jpg build_sprites/assets/sprite_triptych.jpg build_sprites/assets/sprite_2012_still.jpg build_sprites/assets/thunder.ogg; do test -s "$f"; done
+
+      - name: Apply premium motion and Shorts-safe patch
+        run: python sbv_render/apply_sbv21_premium_v4.py
+
+      - name: Add extra Shorts UI buffer
+        run: |
+          sed -i 's/,100,220,500,1/,100,220,560,1/' sbv_render/render_red_sprites.py
+          sed -i 's/,7,80,220,260,1/,7,110,220,260,1/' sbv_render/render_red_sprites.py
+          sed -i 's/,7,80,220,302,1/,7,110,220,302,1/' sbv_render/render_red_sprites.py
+
+      - name: Apply mobile-first source framing
+        run: python sbv_render/apply_sbv21_mobile_v5.py
+
+      - name: Render mobile-first master
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+        run: python sbv_render/render_red_sprites.py
+
+      - name: Add restrained motion-design callouts
+        run: |
+          mv build_sprites/Strange_But_Verified_21_Red_Sprites_FINAL.mp4 build_sprites/SBV21_MOBILE_BASE.mp4
+          cat > build_sprites/mobile_overlay.txt <<'EOF'
+          drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='ABOVE THE STORM':fontsize=34:fontcolor=white:box=1:boxcolor=black@0.58:boxborderw=16:x=(w-text_w)/2:y=610:enable='between(t,0.70,1.50)',
+          drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='NOT IN THE CLOUD':fontsize=34:fontcolor=0xFFD960:box=1:boxcolor=black@0.60:boxborderw=16:x=(w-text_w)/2:y=610:enable='between(t,5.30,6.15)',
+          drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='SPRITE':fontsize=32:fontcolor=0xFFD960:box=1:boxcolor=black@0.58:boxborderw=12:x=650:y=500:enable='between(t,18.15,19.20)',
+          drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='FILMED FROM ORBIT':fontsize=32:fontcolor=white:box=1:boxcolor=black@0.56:boxborderw=14:x=(w-text_w)/2:y=610:enable='between(t,29.35,30.15)',
+          drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='THERE ↓':fontsize=34:fontcolor=0xFFD960:box=1:boxcolor=black@0.56:boxborderw=14:x=(w-text_w)/2:y=520:enable='between(t,35.32,35.95)'
+          EOF
+          ffmpeg -y -hide_banner -loglevel error \
+            -i build_sprites/SBV21_MOBILE_BASE.mp4 \
+            -vf "$(tr -d '\n' < build_sprites/mobile_overlay.txt)" \
+            -map 0:v:0 -map 0:a:0 \
+            -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
+            -c:a copy -movflags +faststart \
+            build_sprites/Strange_But_Verified_21_Red_Sprites_MOBILE_V5.mp4
+
+      - name: Final technical and visual QA
+        run: |
+          FINAL=build_sprites/Strange_But_Verified_21_Red_Sprites_MOBILE_V5.mp4
+          ffmpeg -v error -i "$FINAL" -f null - 2> build_sprites/mobile_decode.txt
+          ffmpeg -hide_banner -i "$FINAL" -af loudnorm=I=-14:TP=-1:LRA=7:print_format=summary -f null - > build_sprites/mobile_loudness.txt 2>&1
+          ffprobe -v error -show_entries format=duration,bit_rate -show_entries stream=index,codec_name,width,height,r_frame_rate,pix_fmt,sample_rate,channels -of json "$FINAL" > build_sprites/mobile_ffprobe.json
+          mkdir -p build_sprites/mobile_qa
+          for t in 0.35 3.85 7.35 10.85 14.35 17.85 18.55 21.35 24.85 28.35 31.85 35.55 38.85; do
+            ffmpeg -y -hide_banner -loglevel error -ss "$t" -i "$FINAL" -frames:v 1 -vf scale=270:480 "build_sprites/mobile_qa/q_${t}.jpg"
+          done
+          ffmpeg -y -hide_banner -loglevel error \
+            -i build_sprites/mobile_qa/q_0.35.jpg -i build_sprites/mobile_qa/q_3.85.jpg -i build_sprites/mobile_qa/q_7.35.jpg -i build_sprites/mobile_qa/q_10.85.jpg \
+            -i build_sprites/mobile_qa/q_14.35.jpg -i build_sprites/mobile_qa/q_17.85.jpg -i build_sprites/mobile_qa/q_21.35.jpg -i build_sprites/mobile_qa/q_24.85.jpg \
+            -i build_sprites/mobile_qa/q_28.35.jpg -i build_sprites/mobile_qa/q_31.85.jpg -i build_sprites/mobile_qa/q_35.55.jpg -i build_sprites/mobile_qa/q_38.85.jpg \
+            -filter_complex 'xstack=inputs=12:layout=0_0|270_0|540_0|810_0|0_480|270_480|540_480|810_480|0_960|270_960|540_960|810_960' \
+            -frames:v 1 build_sprites/mobile_contact.jpg
+          ffmpeg -y -hide_banner -loglevel error -i "$FINAL" -vf 'fps=2,scale=270:480,tile=6x1' -t 3 -frames:v 1 build_sprites/mobile_first3.jpg
+          ffmpeg -y -hide_banner -loglevel error -ss 34.15 -i "$FINAL" -vf 'fps=4,scale=270:480,tile=12x1' -t 3 -frames:v 1 build_sprites/mobile_hero.jpg
+          ffmpeg -y -hide_banner -loglevel error -ss 18.55 -i "$FINAL" -frames:v 1 build_sprites/mobile_sprite_callout.jpg
+          ffmpeg -y -hide_banner -loglevel error -ss 21.50 -i "$FINAL" -frames:v 1 \
+            -vf "drawbox=x=0:y=0:w=1080:h=234:color=red@0.16:t=fill,drawbox=x=0:y=1420:w=1080:h=500:color=red@0.18:t=fill,drawbox=x=920:y=234:w=160:h=1186:color=red@0.16:t=fill,drawbox=x=90:y=234:w=770:h=1186:color=0x35d07f@0.85:t=4" \
+            build_sprites/shorts_safezone_proof.jpg
+          cat > build_sprites/MOBILE_V5_AUDIT.md <<'EOF'
+          # SBV21 Red Sprites — Mobile-first V5 audit
+
+          - Reframed authentic 16:9 NASA/UAF media to occupy most of the 9:16 phone display.
+          - Wide/context shots target about 69% of frame height; normal shots about 77%; key/tight shots about 84%; hero panels about 89%.
+          - Blurred background is now only supporting fill instead of the dominant visual area.
+          - Main captions remain 560 px from the bottom with a 220 px right margin for Shorts UI safety.
+          - Existing premium micro-motion and pattern interrupts are retained.
+          - Hero remains the real NASA before → sprite → after sequence with one explicit replay.
+          - No synthetic documentary footage or generated reconstruction was introduced.
+          EOF
+
+      - name: Upload mobile-first production package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV21-Red-Sprites-MOBILE-V5
+          path: |
+            build_sprites/Strange_But_Verified_21_Red_Sprites_MOBILE_V5.mp4
+            build_sprites/Strange_But_Verified_21_Red_Sprites_EN.srt
+            build_sprites/MOBILE_V5_AUDIT.md
+            build_sprites/QA.md
+            build_sprites/shot_list.md
+            build_sprites/sources.md
+            build_sprites/metadata.md
+            build_sprites/captions.ass
+            build_sprites/voice/timing.json
+            build_sprites/voice/narration.txt
+            build_sprites/mobile_decode.txt
+            build_sprites/mobile_loudness.txt
+            build_sprites/mobile_ffprobe.json
+            build_sprites/mobile_contact.jpg
+            build_sprites/mobile_first3.jpg
+            build_sprites/mobile_hero.jpg
+            build_sprites/mobile_sprite_callout.jpg
+            build_sprites/shorts_safezone_proof.jpg
+            build_sprites/mobile_overlay.txt
+          retention-days: 5
+          if-no-files-found: error
