@@ -1,0 +1,61 @@
+name: SBV Duobrachium Render
+
+on:
+  push:
+    branches: [sbv-duobrachium-render]
+    paths:
+      - '.github/workflows/sbv-duobrachium.yml'
+      - 'sbv/**'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install media tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          python -m pip install --upgrade pip
+          python -m pip install yt-dlp
+
+      - name: Download authentic NOAA sources
+        run: |
+          mkdir -p build/assets
+          curl -L --fail --retry 3 -o build/assets/duobrachium.mp4 \
+            'https://oceanexplorer.noaa.gov/wp-content/uploads/2022/08/ex1502-0410-ctenophore-640x364-1.mp4'
+          curl -L --fail --retry 3 -o build/assets/duobrachium_still.png \
+            'https://upload.wikimedia.org/wikipedia/commons/b/b0/Duobrachium_sparksae_on_10_April_2015.png'
+          curl -L --fail --retry 3 -o build/assets/deep_discoverer.png \
+            'https://upload.wikimedia.org/wikipedia/commons/7/73/Deep_Discoverer_in_deep_water_off_Puerto_Rico_April_2015.png'
+          curl -L --fail --retry 3 -o build/assets/rov_pilots.png \
+            'https://upload.wikimedia.org/wikipedia/commons/c/c0/ROV_Deep_Discoverer_pilots_aboard_NOAAS_Okeanos_Explorer_%28R_337%29_26_April_2015.png'
+          curl -L --fail --retry 3 -o build/assets/rov_dunk.png \
+            'https://upload.wikimedia.org/wikipedia/commons/4/48/Deep_Discoverer_NOAAS_Okeanos_Explorer_9_April_2015.png'
+          curl -L --fail --retry 3 -o build/assets/okeanos_sunrise.png \
+            'https://upload.wikimedia.org/wikipedia/commons/1/10/NOAAS_Okeanos_Explorer_%28R_337%29_as_the_sun_rises_over_Puerto_Rico_April_2015.png'
+          yt-dlp --no-playlist --merge-output-format mp4 -o 'build/assets/noaa_broll.%(ext)s' \
+            'https://videos.fisheries.noaa.gov/detail/video/6216412836001/b-roll%3A-discovery-of-the-ctenophore-duobrachium-sparksae?autoStart=true&q=b-roll'
+          ls -lh build/assets
+
+      - name: Build B-roll contact sheets
+        run: |
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build/assets/noaa_broll.mp4 > build/broll_duration.txt
+          ffmpeg -hide_banner -loglevel error -y -i build/assets/noaa_broll.mp4 \
+            -vf "fps=1/30,scale=480:-2,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='%{pts\\:hms}':x=12:y=12:fontsize=28:fontcolor=white:borderw=3:bordercolor=black,tile=4x5:padding=6:margin=6" \
+            -frames:v 1 build/broll_contact_00_570.jpg
+          ffmpeg -hide_banner -loglevel error -y -ss 0 -i build/assets/duobrachium.mp4 \
+            -vf "fps=1/2,scale=480:-2,tile=4x4:padding=6:margin=6" -frames:v 1 build/animal_contact.jpg
+
+      - name: Upload inspection artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbv-source-inspection
+          path: |
+            build/broll_contact_00_570.jpg
+            build/animal_contact.jpg
+            build/broll_duration.txt
+          retention-days: 3
