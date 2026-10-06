@@ -54,12 +54,13 @@ jobs:
           cp build_sprites/assets/sprite_2024.jpg build_sprites/source_sprite2024.jpg
           cp build_sprites/assets/sprite_1989.jpg build_sprites/source_sprite1989.jpg
 
-      - name: Apply retention and source-duration corrections
+      - name: Apply final editorial corrections
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('sbv_render/render_red_sprites.py')
           s=p.read_text()
+
           old='''TEXTS=[
           "This red flash isn't below a thunderstorm. It's above it — almost in space.",
           "For decades, pilots reported giant crimson flashes over storms, but scientists had almost no proof.",
@@ -84,10 +85,35 @@ jobs:
           ]'''.replace('          ','')
           if old not in s: raise SystemExit('Narration block not found')
           s=s.replace(old,new,1)
+
           s=s.replace("add(x[1],x[2],'video','iss_storms.mp4',57.0,'wide'", "add(x[1],x[2],'video','iss_storms.mp4',32.0,'wide'",1)
           s=s.replace("add(x[0],x[1],'video','iss_storms.mp4',70.0,'normal'", "add(x[0],x[1],'video','iss_storms.mp4',47.0,'normal'",1)
           s=s.replace("if TOTAL>46:", "if TOTAL>45:",1)
           s=s.replace('d=.30','d=0.30').replace('d=.35','d=0.35')
+
+          old="add(bounds[7],TOTAL,'video','sprite_2012.mp4',4.55,'wide','NASA EARTH OBSERVATORY  |  ISS 2012 FOOTAGE')"
+          new="add(bounds[7],parts[8]['start'],'video','sprite_2012.mp4',3.30,'hero','NASA EARTH OBSERVATORY  |  ISS 2012 FOOTAGE')\nadd(parts[8]['start'],TOTAL,'video','sprite_2012.mp4',5.45,'hero','NASA EARTH OBSERVATORY  |  ISS 2012 FOOTAGE  |  REPLAY')"
+          if old not in s: raise SystemExit('Hero shot pattern not found')
+          s=s.replace(old,new,1)
+
+          old="    if mode=='wide': fg='[fg0]scale=1010:-2:flags=lanczos[fg];'\n    elif mode=='tight': fg=\"[fg0]scale=1220:-2:flags=lanczos,crop=1080:ih:x='(iw-1080)/2':y=0[fg];\"\n    else: fg='[fg0]scale=1080:-2:flags=lanczos[fg];'"
+          new="    if mode=='wide': fg='[fg0]scale=1010:-2:flags=lanczos[fg];'\n    elif mode=='tight': fg=\"[fg0]scale=1220:-2:flags=lanczos,crop=1080:ih:x='(iw-1080)/2':y=0[fg];\"\n    elif mode=='hero': fg=\"[fg0]scale=1580:-2:flags=lanczos,crop=1080:ih:x='iw-1080':y=0[fg];\"\n    else: fg='[fg0]scale=1080:-2:flags=lanczos[fg];'"
+          if old not in s: raise SystemExit('Framing pattern not found')
+          s=s.replace(old,new,1)
+
+          s=s.replace("f'THIS FLASH ISN\\'T BELOW THE STORM\\\\N{{\\\\c{yellow}}}IT\\'S ABOVE IT{{\\\\c{white}}}'", "f'NOT BELOW THE STORM\\\\N{{\\\\c{yellow}}}ABOVE IT — ALMOST IN SPACE{{\\\\c{white}}}'",1)
+          s=s.replace("f'RED SPRITES\\\\N{{\\\\c{yellow}}}TRIGGERED BY POWERFUL LIGHTNING{{\\\\c{white}}}'", "f'RED SPRITES\\\\N{{\\\\c{yellow}}}TRIGGERED BY LIGHTNING{{\\\\c{white}}}'",1)
+          s=s.replace("'ASTRONAUTS HAVE FILMED THEM\\\\NFROM THE ISS'", "'FILMED FROM THE ISS'",1)
+          s=s.replace('Style: Caption,DejaVu Sans,58,','Style: Caption,DejaVu Sans,54,',1)
+
+          marker="    f.write(f'Dialogue: 3,{astamp(bounds[5]+.16)},{astamp(bounds[6])},Card,,0,0,0,,DURATION  ·  MILLISECONDS\\n')"
+          add_replay=marker+"\n    f.write(f'Dialogue: 5,{astamp(parts[8][\"start\"]+.04)},{astamp(min(TOTAL,parts[8][\"start\"]+1.30))},Tag,,0,0,0,,REPLAY\\n')"
+          if marker not in s: raise SystemExit('Replay marker insertion point not found')
+          s=s.replace(marker,add_replay,1)
+
+          s=s.replace('There Is Lightning Above Thunderstorms','This Red Flash Appears Above Thunderstorms',1)
+          s=s.replace('| Hero moment | Continuous authentic ISS footage; narrator says “Watch the storm below,” then stops | NASA EO 2012 | ~2.3 s breathing moment + quiet public-domain thunder ambience |','| Hero moment | Authentic ISS footage reframed toward the sprite; narrator says “Watch the storm below,” then stops; exact event is shown again once as a labeled replay | NASA EO 2012 | ~2.2 s breathing moment + quiet public-domain thunder ambience |',1)
+
           p.write_text(s)
           PY
 
