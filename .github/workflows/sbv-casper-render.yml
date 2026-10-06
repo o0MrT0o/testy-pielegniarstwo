@@ -55,22 +55,26 @@ jobs:
           cp build_casper/assets/casper_2023.jpg build_casper/source_2023.jpg
           cp build_casper/assets/casper_2025.jpg build_casper/source_2025.jpg
 
-      - name: Correct source timestamps after source-duration audit
+      - name: Apply source-audit and caption-safe corrections
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('sbv_render/render_casper.py')
           s=p.read_text()
-          replacements={
-            "'casper_2016.mp4',40.0": "'casper_2016.mp4',39.0",
-            "'casper_2016.mp4',50.0": "'casper_2016.mp4',12.0",
-            "'casper_2016.mp4',58.0": "'casper_2016.mp4',24.0",
-            "'casper_2016.mp4',66.0": "'casper_2016.mp4',34.0",
-            "'casper_2016.mp4',34.0": "'casper_2016.mp4',8.0",
-            "'casper_2016.mp4',22.0": "'casper_2016.mp4',4.0",
-          }
-          for old,new in replacements.items():
-              if old not in s: raise SystemExit(f'Missing timestamp pattern: {old}')
+          replacements=[
+            ("'casper_2016.mp4',40.0", "'casper_2016.mp4',39.0"),
+            ("'casper_2016.mp4',50.0", "'casper_2016.mp4',12.0"),
+            ("'casper_2016.mp4',58.0", "'casper_2016.mp4',24.0"),
+            ("'casper_2016.mp4',66.0", "'casper_2016.mp4',34.0"),
+            ("'casper_2016.mp4',34.0", "'casper_2016.mp4',8.0"),
+            ("'casper_2016.mp4',22.0", "'casper_2016.mp4',4.0"),
+            ("'rov_context.mp4',5.0", "'rov_context.mp4',19.0"),
+            ("'rov_context.mp4',12.0", "'rov_context.mp4',9.0"),
+            ("NO SPECIMEN HAS EVER BEEN COLLECTED", "NO SPECIMEN\\\\NHAS EVER BEEN COLLECTED"),
+            ("ITS FAMILY TREE STAYS UNCERTAIN", "ITS PLACE STAYS UNCERTAIN"),
+          ]
+          for old,new in replacements:
+              if old not in s: raise SystemExit(f'Missing correction pattern: {old}')
               s=s.replace(old,new,1)
           p.write_text(s)
           PY
