@@ -60,7 +60,7 @@ jobs:
           if old not in s: raise SystemExit('Missing first 2023 source-credit pattern')
           s = s.replace(old, new, 1)
 
-          old = "f.write(f'Dialogue: 4,{astamp(bounds[6])},{astamp(TOTAL)},Brand,,0,0,0,,STRANGE, BUT VERIFIED\\n')\n"
+          old = "    f.write(f'Dialogue: 4,{astamp(bounds[6])},{astamp(TOTAL)},Brand,,0,0,0,,STRANGE, BUT VERIFIED\\n')\n"
           if old not in s: raise SystemExit('Missing duplicate Brand pattern')
           s = s.replace(old, '', 1)
 
