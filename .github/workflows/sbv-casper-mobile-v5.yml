@@ -1,0 +1,139 @@
+name: SBV20 Casper Octopus Mobile V5
+
+on:
+  push:
+    branches: [sbv-render-duobrachium-temp]
+    paths:
+      - '.github/workflows/sbv-casper-mobile-v5.yml'
+      - 'sbv_render/apply_sbv20_mobile_v5.py'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install production dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core libsndfile1
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy<3' soundfile onnxruntime espeakng-loader 'kokoro-onnx==0.6.1'
+
+      - name: Download locked narrator model
+        run: |
+          mkdir -p build_casper/models build_casper/assets
+          curl -L --fail --retry 4 -o build_casper/models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 4 -o build_casper/models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  build_casper/models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  build_casper/models/voices-v1.0.bin' | sha256sum -c -
+
+      - name: Download authentic NOAA OET sources
+        run: |
+          curl -L --fail --retry 4 -o build_casper/assets/casper_2016.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2025/04/EX1603_DIVE01_20160227_OCTOPUS_LOGO.mp4'
+          curl -L --fail --retry 4 -o build_casper/assets/casper_2023.jpg 'https://oceanexplorer.noaa.gov/wp-content/uploads/2026/02/NA154-Casper-Octopus-OET.jpg'
+          curl -L --fail --retry 4 -o build_casper/assets/casper_2025.jpg 'https://oceanexplorer.noaa.gov/wp-content/uploads/2026/02/casper-2025.jpg'
+          curl -L --fail --retry 4 -o build_casper/assets/rov_context.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2022/02/loading-rovs-1280x720-1.mp4'
+          for f in build_casper/assets/casper_2016.mp4 build_casper/assets/casper_2023.jpg build_casper/assets/casper_2025.jpg build_casper/assets/rov_context.mp4; do test -s "$f"; done
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_casper/assets/casper_2016.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_casper/assets/rov_context.mp4
+
+      - name: Apply audited source-time corrections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('sbv_render/render_casper.py')
+          s=p.read_text()
+          replacements=[
+            ("'casper_2016.mp4',40.0", "'casper_2016.mp4',39.0"),
+            ("'casper_2016.mp4',50.0", "'casper_2016.mp4',12.0"),
+            ("'casper_2016.mp4',58.0", "'casper_2016.mp4',24.0"),
+            ("'casper_2016.mp4',66.0", "'casper_2016.mp4',34.0"),
+            ("'casper_2016.mp4',34.0", "'casper_2016.mp4',8.0"),
+            ("'casper_2016.mp4',22.0", "'casper_2016.mp4',4.0"),
+            ("'rov_context.mp4',5.0", "'rov_context.mp4',19.0"),
+            ("'rov_context.mp4',12.0", "'rov_context.mp4',9.0"),
+          ]
+          for old,new in replacements:
+              if old not in s: raise SystemExit(f'Missing correction pattern: {old}')
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+
+      - name: Apply mobile-first framing and Shorts-safe captions
+        run: python sbv_render/apply_sbv20_mobile_v5.py
+
+      - name: Render mobile-first Casper master
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+        run: python sbv_render/render_casper.py
+
+      - name: Rename final and run QA
+        run: |
+          cp build_casper/Strange_But_Verified_20_Casper_Octopus_FINAL.mp4 build_casper/Strange_But_Verified_20_Casper_Octopus_MOBILE_V5.mp4
+          FINAL=build_casper/Strange_But_Verified_20_Casper_Octopus_MOBILE_V5.mp4
+          ffmpeg -v error -i "$FINAL" -f null - 2> build_casper/mobile_decode.txt
+          ffmpeg -hide_banner -i "$FINAL" -af loudnorm=I=-14:TP=-1:LRA=7:print_format=summary -f null - > build_casper/mobile_loudness.txt 2>&1
+          ffprobe -v error -show_entries format=duration,bit_rate -show_entries stream=index,codec_name,width,height,r_frame_rate,pix_fmt,sample_rate,channels -of json "$FINAL" > build_casper/mobile_ffprobe.json
+
+          mkdir -p build_casper/mobile_qa
+          for t in 0.8 4.5 7.3 11.0 16.0 20.2 23.0 26.0 30.8 33.2 36.5 41.0; do
+            ffmpeg -y -hide_banner -loglevel error -ss "$t" -i "$FINAL" -frames:v 1 -vf scale=270:480 "build_casper/mobile_qa/q_${t}.jpg"
+          done
+          ffmpeg -y -hide_banner -loglevel error \
+            -i build_casper/mobile_qa/q_0.8.jpg -i build_casper/mobile_qa/q_4.5.jpg -i build_casper/mobile_qa/q_7.3.jpg -i build_casper/mobile_qa/q_11.0.jpg \
+            -i build_casper/mobile_qa/q_16.0.jpg -i build_casper/mobile_qa/q_20.2.jpg -i build_casper/mobile_qa/q_23.0.jpg -i build_casper/mobile_qa/q_26.0.jpg \
+            -i build_casper/mobile_qa/q_30.8.jpg -i build_casper/mobile_qa/q_33.2.jpg -i build_casper/mobile_qa/q_36.5.jpg -i build_casper/mobile_qa/q_41.0.jpg \
+            -filter_complex 'xstack=inputs=12:layout=0_0|270_0|540_0|810_0|0_480|270_480|540_480|810_480|0_960|270_960|540_960|810_960' \
+            -frames:v 1 build_casper/mobile_contact.jpg
+          ffmpeg -y -hide_banner -loglevel error -i "$FINAL" -vf 'fps=2,scale=270:480,tile=6x1' -t 3 -frames:v 1 build_casper/mobile_first3.jpg
+          ffmpeg -y -hide_banner -loglevel error -ss 29.9 -i "$FINAL" -vf 'fps=3,scale=270:480,tile=9x1' -t 3 -frames:v 1 build_casper/mobile_pause.jpg
+          ffmpeg -y -hide_banner -loglevel error -ss 26.0 -i "$FINAL" -frames:v 1 \
+            -vf "drawbox=x=0:y=0:w=1080:h=234:color=red@0.16:t=fill,drawbox=x=0:y=1420:w=1080:h=500:color=red@0.18:t=fill,drawbox=x=920:y=234:w=160:h=1186:color=red@0.16:t=fill,drawbox=x=90:y=234:w=770:h=1186:color=0x35d07f@0.85:t=4" \
+            build_casper/shorts_safezone_proof.jpg
+
+          cat > build_casper/MOBILE_V5_AUDIT.md <<'EOF'
+          # SBV20 Casper Octopus — Mobile-first V5 audit
+
+          - Authentic source media enlarged for phone-first 9:16 viewing.
+          - Wide/context shots target about 69% of frame height.
+          - Normal shots target about 77% of frame height.
+          - Tight/key shots target about 84% of frame height.
+          - Blurred background is supporting fill rather than the dominant visual area.
+          - Still images receive only restrained Ken Burns motion; real NOAA footage keeps native motion.
+          - Main captions are 560 px from the bottom with a 220 px right margin for Shorts UI safety.
+          - Brand/source labels are shifted inward/down from high-risk UI edges.
+          - Narration, story structure, factual sourcing and documentary breathing beat are preserved.
+          - No generated documentary footage or fabricated scene content is used.
+          EOF
+
+      - name: Upload mobile-first production package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV20-Casper-Octopus-MOBILE-V5
+          path: |
+            build_casper/Strange_But_Verified_20_Casper_Octopus_MOBILE_V5.mp4
+            build_casper/Strange_But_Verified_20_Casper_Octopus_EN.srt
+            build_casper/MOBILE_V5_AUDIT.md
+            build_casper/QA.md
+            build_casper/shot_list.md
+            build_casper/sources.md
+            build_casper/metadata.md
+            build_casper/captions.ass
+            build_casper/voice/timing.json
+            build_casper/voice/narration.txt
+            build_casper/mobile_decode.txt
+            build_casper/mobile_loudness.txt
+            build_casper/mobile_ffprobe.json
+            build_casper/mobile_contact.jpg
+            build_casper/mobile_first3.jpg
+            build_casper/mobile_pause.jpg
+            build_casper/shorts_safezone_proof.jpg
+          retention-days: 5
+          if-no-files-found: error
