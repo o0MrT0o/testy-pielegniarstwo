@@ -1,0 +1,88 @@
+name: SBV Red Sprites Final Render
+
+on:
+  push:
+    branches: [sbv-render-duobrachium-temp]
+    paths:
+      - '.github/workflows/sbv-red-sprites-render.yml'
+      - 'sbv_render/render_red_sprites.py'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install production dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core libsndfile1
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy<3' soundfile onnxruntime espeakng-loader 'kokoro-onnx==0.6.1'
+
+      - name: Download exact Strange But Verified voice model
+        run: |
+          mkdir -p build_sprites/models build_sprites/assets
+          curl -L --fail --retry 4 -o build_sprites/models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 4 -o build_sprites/models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  build_sprites/models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  build_sprites/models/voices-v1.0.bin' | sha256sum -c -
+
+      - name: Download authentic NASA/UAF visual sources
+        run: |
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_2012.mp4 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/ISS-540-MASTER_high.mp4'
+          curl -L --fail --retry 4 -o build_sprites/assets/iss_storms.mp4 'https://svs.gsfc.nasa.gov/vis/a030000/a030100/a030180/iss028_nighttime_20110819_720p.mp4'
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_2024.jpg 'https://assets.science.nasa.gov/dynamicimage/assets/science/esd/eo/images/imagerecords/153000/153422/iss071e234765_lrg.jpg?crop=faces%2Cfocalpoint&fit=clip&h=5005&w=7508'
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_1989.jpg 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/redSprite_1024x576.jpg'
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_triptych.jpg 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/sprite_triptych_1920x1080.jpg'
+          curl -L --fail --retry 4 -o build_sprites/assets/sprite_2012_still.jpg 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/ISS031-E-10712_still01_1920x1080.jpg'
+          curl -L --fail --retry 4 -o build_sprites/assets/thunder.ogg 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Thunderstorm%20after%20hot%20summer%20day%2017%20minutes%2003%20of%2004.ogg'
+          for f in build_sprites/assets/sprite_2012.mp4 build_sprites/assets/iss_storms.mp4 build_sprites/assets/sprite_2024.jpg build_sprites/assets/sprite_1989.jpg build_sprites/assets/sprite_triptych.jpg build_sprites/assets/sprite_2012_still.jpg build_sprites/assets/thunder.ogg; do test -s "$f"; done
+          file build_sprites/assets/sprite_2024.jpg build_sprites/assets/sprite_1989.jpg build_sprites/assets/sprite_triptych.jpg build_sprites/assets/thunder.ogg
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_sprites/assets/sprite_2012.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build_sprites/assets/iss_storms.mp4
+
+      - name: Build source audit sheets
+        run: |
+          ffmpeg -y -hide_banner -loglevel error -i build_sprites/assets/sprite_2012.mp4 -vf 'fps=1/1,scale=320:-2,tile=4x3:padding=4:margin=4' -frames:v 1 build_sprites/source_sprite2012.jpg
+          ffmpeg -y -hide_banner -loglevel error -i build_sprites/assets/iss_storms.mp4 -vf 'fps=1/8,scale=320:-2,tile=4x4:padding=4:margin=4' -frames:v 1 build_sprites/source_issstorms.jpg
+          cp build_sprites/assets/sprite_2024.jpg build_sprites/source_sprite2024.jpg
+          cp build_sprites/assets/sprite_1989.jpg build_sprites/source_sprite1989.jpg
+
+      - name: Render final Short and QA
+        env:
+          ORT_DISABLE_TELEMETRY: '1'
+        run: python sbv_render/render_red_sprites.py
+
+      - name: Upload production package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV21-Red-Sprites-FINAL
+          path: |
+            build_sprites/Strange_But_Verified_21_Red_Sprites_FINAL.mp4
+            build_sprites/Strange_But_Verified_21_Red_Sprites_EN.srt
+            build_sprites/QA.md
+            build_sprites/shot_list.md
+            build_sprites/sources.md
+            build_sprites/metadata.md
+            build_sprites/contact.jpg
+            build_sprites/first3.jpg
+            build_sprites/hero.jpg
+            build_sprites/source_sprite2012.jpg
+            build_sprites/source_issstorms.jpg
+            build_sprites/source_sprite2024.jpg
+            build_sprites/source_sprite1989.jpg
+            build_sprites/captions.ass
+            build_sprites/voice/timing.json
+            build_sprites/voice/narration.txt
+            build_sprites/decode.txt
+            build_sprites/loudness.txt
+            build_sprites/thunder_breath.wav
+            build_sprites/ffprobe.json
+          retention-days: 5
+          if-no-files-found: error
