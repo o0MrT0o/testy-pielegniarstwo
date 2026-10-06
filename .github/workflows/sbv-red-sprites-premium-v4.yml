@@ -47,6 +47,12 @@ jobs:
       - name: Apply premium motion and Shorts safe-zone patch
         run: python sbv_render/apply_sbv21_premium_v4.py
 
+      - name: Add extra Shorts UI buffer
+        run: |
+          sed -i 's/,100,220,500,1/,100,220,560,1/' sbv_render/render_red_sprites.py
+          sed -i 's/,7,80,220,260,1/,7,110,220,260,1/' sbv_render/render_red_sprites.py
+          sed -i 's/,7,80,220,302,1/,7,110,220,302,1/' sbv_render/render_red_sprites.py
+
       - name: Render rebuilt master
         env:
           ORT_DISABLE_TELEMETRY: '1'
@@ -98,9 +104,9 @@ jobs:
           cat > build_sprites/PREMIUM_V4_AUDIT.md <<'EOF'
           # SBV21 Red Sprites — Premium V4 audit
 
-          - Main captions raised to 500 px from the bottom of a 1080×1920 frame.
+          - Main captions raised to 560 px from the bottom of a 1080×1920 frame.
           - Caption right margin increased to 220 px to clear the Shorts action rail.
-          - Brand/source moved below the conservative top UI-risk band.
+          - Brand/source moved below the conservative top UI-risk band and farther from the left edge.
           - Hook receives restrained camera push-in, not a random effect.
           - Historical 1989 proof and milliseconds sequence receive short micro push-ins.
           - Real 2012 sprite still gets a factual on-screen callout tied to the visible sprite.
