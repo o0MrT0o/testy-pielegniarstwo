@@ -1,0 +1,25 @@
+name: SBV Sprite Source Dump
+
+on:
+  push:
+    branches: [sbv-render-duobrachium-temp]
+    paths:
+      - '.github/workflows/sbv-sprite-source-dump.yml'
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download source
+        run: |
+          mkdir -p sprite_dump
+          curl -L --fail --retry 4 -o sprite_dump/ISS-540-MASTER_high.mp4 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011059/ISS-540-MASTER_high.mp4'
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 sprite_dump/ISS-540-MASTER_high.mp4
+      - name: Upload raw source
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV21-Sprite-Raw-Source
+          path: sprite_dump/ISS-540-MASTER_high.mp4
+          retention-days: 2
