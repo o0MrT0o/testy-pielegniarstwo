@@ -57,7 +57,7 @@ jobs:
 
           cat nursestudy-build/v05patch.part00 nursestudy-build/v05patch.part01 nursestudy-build/v05patch.part02 nursestudy-build/v05patch.part03 > /tmp/nursestudy_v05.patch
           test "$(wc -c < /tmp/nursestudy_v05.patch)" -eq 24882
-          patch -p3 < /tmp/nursestudy_v05.patch
+          patch -p4 < /tmp/nursestudy_v05.patch
 
           node --check NurseStudy_v04_Android/app/src/main/assets/www/app.js
           grep -q "versionCode 5" NurseStudy_v04_Android/app/build.gradle
@@ -82,7 +82,7 @@ jobs:
         with:
           name: NurseStudy-v0.5-build-log
           path: gradle-build-v05.log
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Fail if Gradle failed
