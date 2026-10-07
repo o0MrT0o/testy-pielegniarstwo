@@ -1,12 +1,12 @@
-name: Build NurseStudy v0.4 AdMob APK
+name: Build NurseStudy v0.5 Quiz APK
 
 on:
   push:
     branches:
-      - nursestudy-ads-v04
+      - nursestudy-quiz-v05
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
-      - 'nursestudy-build/v04ads.part*'
+      - 'nursestudy-build/v05patch.part*'
   workflow_dispatch:
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
         with:
           gradle-version: '8.14.2'
 
-      - name: Restore exact v0.4 Android project
+      - name: Restore v0.4 and apply v0.5 quiz patch
         shell: bash
         run: |
           set -euo pipefail
@@ -54,9 +54,16 @@ jobs:
           mkdir -p /tmp/nursestudy_v04
           unzip -q /tmp/NurseStudy_v04_Android_source.zip -d /tmp/nursestudy_v04
           cp -a /tmp/nursestudy_v04/NurseStudy_v04_Android ./NurseStudy_v04_Android
-          printf 'android.useAndroidX=true\nandroid.enableJetifier=true\n' > NurseStudy_v04_Android/gradle.properties
-          test -f NurseStudy_v04_Android/app/build.gradle
-          test -f NurseStudy_v04_Android/app/src/main/java/pl/nursestudy/app/MainActivity.java
+
+          cat nursestudy-build/v05patch.part00 nursestudy-build/v05patch.part01 nursestudy-build/v05patch.part02 nursestudy-build/v05patch.part03 > /tmp/nursestudy_v05.patch
+          test "$(wc -c < /tmp/nursestudy_v05.patch)" -eq 24882
+          patch -p3 < /tmp/nursestudy_v05.patch
+
+          node --check NurseStudy_v04_Android/app/src/main/assets/www/app.js
+          grep -q "versionCode 5" NurseStudy_v04_Android/app/build.gradle
+          grep -q "versionName '0.5.0-test'" NurseStudy_v04_Android/app/build.gradle
+          grep -q "nursestudy-v5-quiz" NurseStudy_v04_Android/app/src/main/assets/www/sw.js
+          grep -q "android.useAndroidX=true" NurseStudy_v04_Android/gradle.properties
 
       - name: Build debug APK and capture log
         id: gradle_build
@@ -64,7 +71,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build.log
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v05.log
           STATUS=${PIPESTATUS[0]}
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           exit 0
@@ -73,8 +80,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.4-build-log
-          path: gradle-build.log
+          name: NurseStudy-v0.5-build-log
+          path: gradle-build-v05.log
           if-no-files-found: error
           retention-days: 7
 
@@ -96,7 +103,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.4-AdMob-test-APK
+          name: NurseStudy-v0.5-Quiz-AdMob-test-APK
           path: NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
