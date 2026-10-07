@@ -1,13 +1,12 @@
-name: Build NurseStudy v0.6 Core UX APK
+name: Build NurseStudy v0.7 Content Architecture APK
 
 on:
   push:
     branches:
-      - nursestudy-core-v06
+      - nursestudy-arch-v07
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
-      - 'nursestudy-build/v06patchpy.part*'
-      - 'nursestudy-build/v06p05b64.*'
+      - 'nursestudy-build/v07_patch.py'
   workflow_dispatch:
 
 jobs:
@@ -42,7 +41,7 @@ jobs:
         with:
           gradle-version: '8.14.2'
 
-      - name: Restore v0.5 and apply v0.6 fixes
+      - name: Restore v0.6 and apply v0.7 architecture
         shell: bash
         run: |
           set -euo pipefail
@@ -69,15 +68,15 @@ jobs:
 
           cd NurseStudy_v04_Android
           python3 /tmp/v06_patch.py
+          echo "9e61bf1baba1bad051634d268b4d75165f98e294371ec67ac28e662edbfe1012  ../nursestudy-build/v07_patch.py" | sha256sum -c -
+          python3 ../nursestudy-build/v07_patch.py
+          node --check app/src/main/assets/www/content-data.js
           node --check app/src/main/assets/www/app.js
-          grep -q "versionCode 6" app/build.gradle
-          grep -q "versionName '0.6.0-test'" app/build.gradle
-          grep -q "play-services-ads:25.5.0" app/build.gradle
-          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          grep -q "window.NurseStudyNavigation" app/src/main/assets/www/app.js
-          grep -q "setAdsEnabled" app/src/main/java/pl/nursestudy/app/MainActivity.java
-          grep -q "setBannerVisible" app/src/main/java/pl/nursestudy/app/MainActivity.java
-          grep -q "nursestudy-v6-core" app/src/main/assets/www/sw.js
+          node tools/validate-content.mjs
+          grep -q "versionCode 7" app/build.gradle
+          grep -q "versionName '0.7.0-test'" app/build.gradle
+          grep -q "content-data.js" app/src/main/assets/www/index.html
+          grep -q "nursestudy-v7-content-arch" app/src/main/assets/www/sw.js
 
       - name: Build debug APK and capture log
         id: gradle_build
@@ -85,7 +84,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v06.log
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v07.log
           STATUS=${PIPESTATUS[0]}
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           exit 0
@@ -94,8 +93,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.6-build-log
-          path: gradle-build-v06.log
+          name: NurseStudy-v0.7-build-log
+          path: gradle-build-v07.log
           if-no-files-found: warn
           retention-days: 7
 
@@ -117,7 +116,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.6-CoreUX-AdMob-test-APK
+          name: NurseStudy-v0.7-ContentArch-AdMob-test-APK
           path: NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
