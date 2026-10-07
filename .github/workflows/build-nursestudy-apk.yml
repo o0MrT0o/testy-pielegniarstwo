@@ -70,7 +70,9 @@ jobs:
           python3 ../nursestudy-build/v07_patch.py
 
           cd ..
-          cat nursestudy-build/v08content.part00 nursestudy-build/v08content.part01 nursestudy-build/v08content.part02 nursestudy-build/v08content.part03 nursestudy-build/v08content.part04 nursestudy-build/v08content.part05 > /tmp/v08content.b64
+          # part00 acquired one transport byte on upload; retain only the exact 8000-byte payload chunk.
+          head -c 8000 nursestudy-build/v08content.part00 > /tmp/v08content.b64
+          cat nursestudy-build/v08content.part01 nursestudy-build/v08content.part02 nursestudy-build/v08content.part03 nursestudy-build/v08content.part04 nursestudy-build/v08content.part05 >> /tmp/v08content.b64
           test "$(wc -c < /tmp/v08content.b64)" -eq 46004
           echo "54f801cc58a8266c0f9c096df114391ec66c850b0408d066a8f7f7bb7270ec31  /tmp/v08content.b64" | sha256sum -c -
           base64 -d /tmp/v08content.b64 | gzip -d > NurseStudy_v04_Android/app/src/main/assets/www/content-data.js
