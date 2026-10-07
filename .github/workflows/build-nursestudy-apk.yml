@@ -45,11 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat nursestudy-build/v04ads.part00 \
-              nursestudy-build/v04ads.part01 \
-              nursestudy-build/v04ads.part02 \
-              nursestudy-build/v04ads.part03 \
-              nursestudy-build/v04ads.part04 > /tmp/nursestudy_v04.b64
+          cat nursestudy-build/v04ads.part00 nursestudy-build/v04ads.part01 nursestudy-build/v04ads.part02 nursestudy-build/v04ads.part03 nursestudy-build/v04ads.part04 > /tmp/nursestudy_v04.b64
           test "$(wc -c < /tmp/nursestudy_v04.b64)" -eq 66996
           base64 -d /tmp/nursestudy_v04.b64 > /tmp/NurseStudy_v04_Android_source.zip
           echo "65fcf2991ab03488bac9264bc1d2dfcd38bfc3f0cc50df87f8b6d7e101f5ac75  /tmp/NurseStudy_v04_Android_source.zip" | sha256sum -c -
@@ -61,10 +57,30 @@ jobs:
           test -f NurseStudy_v04_Android/app/build.gradle
           test -f NurseStudy_v04_Android/app/src/main/java/pl/nursestudy/app/MainActivity.java
 
-      - name: Build debug APK
+      - name: Build debug APK and capture log
+        id: gradle_build
         working-directory: NurseStudy_v04_Android
         shell: bash
-        run: gradle :app:assembleDebug --no-daemon
+        run: |
+          set +e
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build.log
+          STATUS=${PIPESTATUS[0]}
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NurseStudy-v0.4-build-log
+          path: gradle-build.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail if Gradle failed
+        if: steps.gradle_build.outputs.status != '0'
+        shell: bash
+        run: exit 1
 
       - name: Verify APK
         shell: bash
