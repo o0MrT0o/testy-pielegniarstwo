@@ -45,7 +45,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           cat nursestudy-build/v04ads.part00 nursestudy-build/v04ads.part01 nursestudy-build/v04ads.part02 nursestudy-build/v04ads.part03 nursestudy-build/v04ads.part04 > /tmp/nursestudy_v04.b64
           test "$(wc -c < /tmp/nursestudy_v04.b64)" -eq 66996
           base64 -d /tmp/nursestudy_v04.b64 > /tmp/NurseStudy_v04_Android_source.zip
@@ -67,6 +66,17 @@ jobs:
           cd NurseStudy_v04_Android
           python3 /tmp/v06_patch.py
           node --check app/src/main/assets/www/app.js
+
+          echo '--- build.gradle ---'
+          grep -nE 'versionCode|versionName|play-services-ads' app/build.gradle || true
+          echo '--- manifest ---'
+          grep -n 'allowBackup' app/src/main/AndroidManifest.xml || true
+          echo '--- routing/ads bridge ---'
+          grep -n 'window.NurseStudyNavigation' app/src/main/assets/www/app.js | head -1 || true
+          grep -nE 'setAdsEnabled|setBannerVisible' app/src/main/java/pl/nursestudy/app/MainActivity.java | head -6 || true
+          echo '--- cache ---'
+          head -5 app/src/main/assets/www/sw.js
+
           grep -q "versionCode 6" app/build.gradle
           grep -q "versionName '0.6.0-test'" app/build.gradle
           grep -q "play-services-ads:25.5.0" app/build.gradle
