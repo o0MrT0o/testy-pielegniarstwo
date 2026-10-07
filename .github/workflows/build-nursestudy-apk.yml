@@ -6,7 +6,7 @@ on:
       - nursestudy-ads-v04
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
-      - 'nursestudy-build/**'
+      - 'nursestudy-build/v04ads.part*'
   workflow_dispatch:
 
 jobs:
@@ -41,346 +41,28 @@ jobs:
         with:
           gradle-version: '8.14.2'
 
-      - name: Prepare Android project with AdMob layer
+      - name: Restore exact v0.4 Android project
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf app settings.gradle build.gradle /tmp/nursestudy
-          mkdir -p app/src/main/java/pl/nursestudy/app app/src/main/assets/www app/src/main/res/drawable /tmp/nursestudy
-
-          cat nursestudy-build/v03big.part00 nursestudy-build/v03big.part01 nursestudy-build/v03big.part02 nursestudy-build/v03big.part03 > /tmp/nursestudy_payload.b64
-          base64 -d /tmp/nursestudy_payload.b64 > /tmp/NurseStudy_v0.3_source.zip
-          sha256sum /tmp/NurseStudy_v0.3_source.zip
-          unzip -t /tmp/NurseStudy_v0.3_source.zip >/dev/null
-          unzip -q /tmp/NurseStudy_v0.3_source.zip -d /tmp/nursestudy
-          cp -a /tmp/nursestudy/nursestudy_v03/. app/src/main/assets/www/
-
-          cat > settings.gradle <<'GRADLE'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = 'NurseStudy'
-          include ':app'
-          GRADLE
-
-          cat > build.gradle <<'GRADLE'
-          plugins {
-              id 'com.android.application' version '8.10.1' apply false
-          }
-          GRADLE
-
-          cat > app/build.gradle <<'GRADLE'
-          plugins {
-              id 'com.android.application'
-          }
-
-          android {
-              namespace 'pl.nursestudy.app'
-              compileSdk 36
-
-              defaultConfig {
-                  applicationId 'pl.nursestudy.app'
-                  minSdk 26
-                  targetSdk 36
-                  versionCode 4
-                  versionName '0.4.0-test'
-
-                  manifestPlaceholders = [ADMOB_APP_ID: 'ca-app-pub-3940256099942544~3347511713']
-                  buildConfigField 'String', 'ADMOB_BANNER_ID', '"ca-app-pub-3940256099942544/9214589741"'
-                  buildConfigField 'String', 'ADMOB_INTERSTITIAL_ID', '"ca-app-pub-3940256099942544/1033173712"'
-              }
-
-              buildFeatures {
-                  buildConfig true
-              }
-          }
-
-          dependencies {
-              implementation 'com.google.android.gms:play-services-ads:25.4.0'
-              implementation 'com.google.android.ump:user-messaging-platform:4.0.0'
-          }
-          GRADLE
-
-          cat > app/src/main/AndroidManifest.xml <<'XML'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-              <application
-                  android:allowBackup="true"
-                  android:hardwareAccelerated="true"
-                  android:label="NurseStudy"
-                  android:icon="@drawable/ic_launcher"
-                  android:usesCleartextTraffic="false"
-                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
-
-                  <meta-data
-                      android:name="com.google.android.gms.ads.APPLICATION_ID"
-                      android:value="${ADMOB_APP_ID}" />
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:screenOrientation="unspecified"
-                      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|uiMode">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          XML
-
-          cat > app/src/main/java/pl/nursestudy/app/MainActivity.java <<'JAVA'
-          package pl.nursestudy.app;
-
-          import android.app.Activity;
-          import android.content.Intent;
-          import android.net.Uri;
-          import android.os.Bundle;
-          import android.util.DisplayMetrics;
-          import android.view.View;
-          import android.webkit.JavascriptInterface;
-          import android.webkit.WebResourceRequest;
-          import android.webkit.WebSettings;
-          import android.webkit.WebView;
-          import android.webkit.WebViewClient;
-          import android.widget.Button;
-          import android.widget.FrameLayout;
-          import android.widget.LinearLayout;
-
-          import com.google.android.gms.ads.AdError;
-          import com.google.android.gms.ads.AdListener;
-          import com.google.android.gms.ads.AdRequest;
-          import com.google.android.gms.ads.AdSize;
-          import com.google.android.gms.ads.AdView;
-          import com.google.android.gms.ads.FullScreenContentCallback;
-          import com.google.android.gms.ads.LoadAdError;
-          import com.google.android.gms.ads.MobileAds;
-          import com.google.android.gms.ads.interstitial.InterstitialAd;
-          import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
-          import com.google.android.ump.ConsentInformation;
-          import com.google.android.ump.ConsentRequestParameters;
-          import com.google.android.ump.UserMessagingPlatform;
-
-          public class MainActivity extends Activity {
-              private WebView webView;
-              private FrameLayout adContainer;
-              private Button privacyButton;
-              private AdView bannerAd;
-              private InterstitialAd interstitialAd;
-              private ConsentInformation consentInformation;
-              private boolean adsInitialized = false;
-              private boolean bannerLoaded = false;
-              private boolean adsEnabledByPlan = true;
-              private int completedQuizzesSinceInterstitial = 0;
-
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-                  createLayout();
-                  configureWebView();
-                  requestConsentAndInitializeAds();
-                  webView.loadUrl("file:///android_asset/www/index.html");
-              }
-
-              private void createLayout() {
-                  LinearLayout root = new LinearLayout(this);
-                  root.setOrientation(LinearLayout.VERTICAL);
-                  webView = new WebView(this);
-                  root.addView(webView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-                  privacyButton = new Button(this);
-                  privacyButton.setText("Ustawienia prywatności reklam");
-                  privacyButton.setAllCaps(false);
-                  privacyButton.setVisibility(View.GONE);
-                  privacyButton.setOnClickListener(v -> showPrivacyOptions());
-                  root.addView(privacyButton, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-                  adContainer = new FrameLayout(this);
-                  adContainer.setVisibility(View.GONE);
-                  root.addView(adContainer, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-                  setContentView(root);
-              }
-
-              private void configureWebView() {
-                  WebSettings settings = webView.getSettings();
-                  settings.setJavaScriptEnabled(true);
-                  settings.setDomStorageEnabled(true);
-                  settings.setAllowFileAccess(true);
-                  settings.setAllowContentAccess(true);
-                  settings.setBuiltInZoomControls(false);
-                  settings.setDisplayZoomControls(false);
-                  webView.addJavascriptInterface(new AdsBridge(), "AndroidAds");
-                  webView.setWebViewClient(new WebViewClient() {
-                      @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                          Uri uri = request.getUrl();
-                          String scheme = uri.getScheme();
-                          if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
-                              startActivity(new Intent(Intent.ACTION_VIEW, uri));
-                              return true;
-                          }
-                          return false;
-                      }
-                      @Override public void onPageFinished(WebView view, String url) {
-                          super.onPageFinished(view, url);
-                          injectAdHooks(view);
-                      }
-                  });
-              }
-
-              private void injectAdHooks(WebView view) {
-                  String js = "(function(){" +
-                          "if(window.__nurseStudyAdsHook)return;window.__nurseStudyAdsHook=true;" +
-                          "var st=document.createElement('style');st.textContent='.ad-slot{display:none!important}';document.head.appendChild(st);" +
-                          "var lastQuizResult=false;" +
-                          "function scan(){try{" +
-                          "document.querySelectorAll('.setting-row').forEach(function(r){if((r.textContent||'').indexOf('Placeholder reklam')>=0)r.style.display='none';});" +
-                          "var plan='free';try{var x=JSON.parse(localStorage.getItem('nursestudy-state')||'{}');plan=x.plan||'free';}catch(e){}" +
-                          "if(window.AndroidAds)AndroidAds.setAdsEnabled(plan==='free');" +
-                          "var card=document.querySelector('.quiz-result');var txt=card?(card.textContent||''):'';" +
-                          "var now=!!(card&&txt.indexOf('WYNIK')>=0&&txt.indexOf('poprawnych')>=0);" +
-                          "if(now&&!lastQuizResult&&window.AndroidAds)AndroidAds.onQuizCompleted();lastQuizResult=now;" +
-                          "}catch(e){}}" +
-                          "new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});scan();" +
-                          "})();";
-                  view.evaluateJavascript(js, null);
-              }
-
-              private void requestConsentAndInitializeAds() {
-                  consentInformation = UserMessagingPlatform.getConsentInformation(this);
-                  ConsentRequestParameters params = new ConsentRequestParameters.Builder().setTagForUnderAgeOfConsent(false).build();
-                  consentInformation.requestConsentInfoUpdate(this, params,
-                          () -> {
-                              updatePrivacyButton();
-                              UserMessagingPlatform.loadAndShowConsentFormIfRequired(this, formError -> {
-                                  updatePrivacyButton();
-                                  if (consentInformation.canRequestAds()) initializeAdsOnce();
-                              });
-                              if (consentInformation.canRequestAds()) initializeAdsOnce();
-                          },
-                          requestConsentError -> {
-                              updatePrivacyButton();
-                              if (consentInformation.canRequestAds()) initializeAdsOnce();
-                              else if (BuildConfig.DEBUG) initializeAdsOnce();
-                          });
-              }
-
-              private synchronized void initializeAdsOnce() {
-                  if (adsInitialized) return;
-                  adsInitialized = true;
-                  MobileAds.initialize(this, initializationStatus -> {
-                      loadBanner();
-                      loadInterstitial();
-                  });
-              }
-
-              private void loadBanner() {
-                  if (bannerAd != null) bannerAd.destroy();
-                  bannerAd = new AdView(this);
-                  bannerAd.setAdUnitId(BuildConfig.ADMOB_BANNER_ID);
-                  bannerAd.setAdSize(getAdaptiveBannerSize());
-                  bannerAd.setAdListener(new AdListener() {
-                      @Override public void onAdLoaded() { bannerLoaded = true; updateBannerVisibility(); }
-                      @Override public void onAdFailedToLoad(LoadAdError error) { bannerLoaded = false; updateBannerVisibility(); }
-                  });
-                  adContainer.removeAllViews();
-                  adContainer.addView(bannerAd);
-                  bannerAd.loadAd(new AdRequest.Builder().build());
-              }
-
-              private AdSize getAdaptiveBannerSize() {
-                  DisplayMetrics metrics = getResources().getDisplayMetrics();
-                  int widthPixels = adContainer.getWidth();
-                  if (widthPixels <= 0) widthPixels = metrics.widthPixels;
-                  int widthDp = Math.max(1, (int) (widthPixels / metrics.density));
-                  return AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, widthDp);
-              }
-
-              private void updateBannerVisibility() {
-                  runOnUiThread(() -> adContainer.setVisibility(bannerLoaded && adsEnabledByPlan ? View.VISIBLE : View.GONE));
-              }
-
-              private void loadInterstitial() {
-                  InterstitialAd.load(this, BuildConfig.ADMOB_INTERSTITIAL_ID, new AdRequest.Builder().build(), new InterstitialAdLoadCallback() {
-                      @Override public void onAdLoaded(InterstitialAd ad) { interstitialAd = ad; }
-                      @Override public void onAdFailedToLoad(LoadAdError error) { interstitialAd = null; }
-                  });
-              }
-
-              private void maybeShowInterstitialAfterQuiz() {
-                  if (!adsEnabledByPlan) return;
-                  completedQuizzesSinceInterstitial++;
-                  if (completedQuizzesSinceInterstitial < 2 || interstitialAd == null) return;
-                  completedQuizzesSinceInterstitial = 0;
-                  InterstitialAd ad = interstitialAd;
-                  interstitialAd = null;
-                  ad.setFullScreenContentCallback(new FullScreenContentCallback() {
-                      @Override public void onAdDismissedFullScreenContent() { loadInterstitial(); }
-                      @Override public void onAdFailedToShowFullScreenContent(AdError error) { loadInterstitial(); }
-                  });
-                  ad.show(this);
-              }
-
-              private boolean isPrivacyOptionsRequired() {
-                  return consentInformation != null && consentInformation.getPrivacyOptionsRequirementStatus() == ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED;
-              }
-
-              private void updatePrivacyButton() {
-                  runOnUiThread(() -> privacyButton.setVisibility(isPrivacyOptionsRequired() ? View.VISIBLE : View.GONE));
-              }
-
-              private void showPrivacyOptions() {
-                  if (!isPrivacyOptionsRequired()) return;
-                  UserMessagingPlatform.showPrivacyOptionsForm(this, formError -> {
-                      updatePrivacyButton();
-                      if (consentInformation.canRequestAds()) initializeAdsOnce();
-                  });
-              }
-
-              private class AdsBridge {
-                  @JavascriptInterface public void onQuizCompleted() {
-                      runOnUiThread(() -> {
-                          if (consentInformation == null || consentInformation.canRequestAds() || BuildConfig.DEBUG) maybeShowInterstitialAfterQuiz();
-                      });
-                  }
-                  @JavascriptInterface public void setAdsEnabled(boolean enabled) {
-                      adsEnabledByPlan = enabled;
-                      updateBannerVisibility();
-                  }
-              }
-
-              @Override public void onBackPressed() {
-                  if (webView != null && webView.canGoBack()) webView.goBack(); else super.onBackPressed();
-              }
-
-              @Override protected void onDestroy() {
-                  if (bannerAd != null) { bannerAd.destroy(); bannerAd = null; }
-                  if (webView != null) { webView.removeJavascriptInterface("AndroidAds"); webView.destroy(); webView = null; }
-                  super.onDestroy();
-              }
-          }
-          JAVA
-
-          cat > app/src/main/res/drawable/ic_launcher.xml <<'XML'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-              <path android:fillColor="#0F766E" android:pathData="M0,0h108v108h-108z" />
-              <path android:fillColor="#FFFFFF" android:pathData="M25,31h12l22,34v-34h14v52h-12l-22,-34v34h-14z" />
-              <path android:fillColor="#FFFFFF" android:pathData="M77,44h8v8h8v8h-8v8h-8v-8h-8v-8h8z" />
-          </vector>
-          XML
+          cat nursestudy-build/v04ads.part00 \
+              nursestudy-build/v04ads.part01 \
+              nursestudy-build/v04ads.part02 \
+              nursestudy-build/v04ads.part03 \
+              nursestudy-build/v04ads.part04 > /tmp/nursestudy_v04.b64
+          test "$(wc -c < /tmp/nursestudy_v04.b64)" -eq 66996
+          base64 -d /tmp/nursestudy_v04.b64 > /tmp/NurseStudy_v04_Android_source.zip
+          echo "65fcf2991ab03488bac9264bc1d2dfcd38bfc3f0cc50df87f8b6d7e101f5ac75  /tmp/NurseStudy_v04_Android_source.zip" | sha256sum -c -
+          unzip -t /tmp/NurseStudy_v04_Android_source.zip >/dev/null
+          rm -rf NurseStudy_v04_Android /tmp/nursestudy_v04
+          mkdir -p /tmp/nursestudy_v04
+          unzip -q /tmp/NurseStudy_v04_Android_source.zip -d /tmp/nursestudy_v04
+          cp -a /tmp/nursestudy_v04/NurseStudy_v04_Android ./NurseStudy_v04_Android
+          test -f NurseStudy_v04_Android/app/build.gradle
+          test -f NurseStudy_v04_Android/app/src/main/java/pl/nursestudy/app/MainActivity.java
 
       - name: Build debug APK
+        working-directory: NurseStudy_v04_Android
         shell: bash
         run: gradle :app:assembleDebug --no-daemon
 
@@ -388,7 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=app/build/outputs/apk/debug/app-debug.apk
+          APK=NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           apksigner verify --verbose "$APK"
@@ -398,6 +80,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NurseStudy-v0.4-AdMob-test-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
