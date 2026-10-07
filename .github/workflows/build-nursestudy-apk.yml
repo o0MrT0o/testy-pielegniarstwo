@@ -6,6 +6,9 @@ on:
       - nursestudy-farmakologia-audit-v010
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
+      - 'nursestudy-build/v09bridge.b64.part00'
+      - 'nursestudy-build/v09bridge.b64.part01'
+      - 'nursestudy-build/v09bridge.b64.part02'
       - 'nursestudy-build/v010patch.b64.part00'
       - 'nursestudy-build/v010patch.b64.part01'
       - 'nursestudy-build/v010patch.b64.part02'
@@ -83,10 +86,19 @@ jobs:
           sed -i 's/versionCode 7/versionCode 8/' app/build.gradle
           sed -i "s/versionName '0.7.0-test'/versionName '0.8.0-test'/" app/build.gradle
           sed -i 's/nursestudy-v7-content-arch/nursestudy-v8-interna/' app/src/main/assets/www/sw.js
+          cd ..
 
-          echo "4481d7304a4525a4fe48f941cf8574375173dab20db5e8e081b38e9134ba5568  ../nursestudy-build/v09_audit_patch.py" | sha256sum -c -
-          python3 ../nursestudy-build/v09_audit_patch.py
+          cat nursestudy-build/v09bridge.b64.part00 nursestudy-build/v09bridge.b64.part01 nursestudy-build/v09bridge.b64.part02 | tr -d '\r\n' > /tmp/v09_bridge.py.gz.b64
+          test "$(wc -c < /tmp/v09_bridge.py.gz.b64)" -eq 13364
+          echo "a493bbbf4f82ec5b4e190da29de922e99ddecce70a79c43158bb7872debd4031  /tmp/v09_bridge.py.gz.b64" | sha256sum -c -
+          base64 -d /tmp/v09_bridge.py.gz.b64 | gzip -d > /tmp/v09_bridge.py
+          test "$(wc -c < /tmp/v09_bridge.py)" -eq 13321
+          echo "bd7602ae45ed9b6cb22369fbeaf2c5bf0b8c2dd75fa71c37e5adf5cf0cf44e13  /tmp/v09_bridge.py" | sha256sum -c -
 
+          cd NurseStudy_v04_Android
+          python3 /tmp/v09_bridge.py
+          node --check app/src/main/assets/www/content-data.js
+          echo "64165cee710dba45d593124c8c62a4536bf53a7ca59692336162890783a2ae2e  app/src/main/assets/www/content-data.js" | sha256sum -c -
           python3 - <<'PY'
           from pathlib import Path
           import json,re,hashlib
@@ -98,9 +110,15 @@ jobs:
           digest=hashlib.sha256(canonical).hexdigest()
           if digest != '150d84d9c72be9c22afce257b0642c937d948b44071a0df7a3780eef01257f9c':
               raise SystemExit(f'v0.9 canonical mismatch: {digest}')
+          if db.get('AUDIT_META',{}).get('version') != 'v0.9-claim-audit':
+              raise SystemExit('Interna audit metadata missing after bridge')
+          print('v0.9 bridge canonical SHA256:', digest)
           PY
-
+          grep -q "versionCode 9" app/build.gradle
+          grep -q "versionName '0.9.0-test'" app/build.gradle
+          grep -q "nursestudy-v9-interna-audit" app/src/main/assets/www/sw.js
           cd ..
+
           cat nursestudy-build/v010patch.b64.part00 nursestudy-build/v010patch.b64.part01 nursestudy-build/v010patch.b64.part02 | tr -d '\r\n' > /tmp/v010_patch.py.gz.b64
           test "$(wc -c < /tmp/v010_patch.py.gz.b64)" -eq 13372
           echo "8c67387ae244e8643990a56ed01ceb22b720f5df01101636c6849867d5364912  /tmp/v010_patch.py.gz.b64" | sha256sum -c -
