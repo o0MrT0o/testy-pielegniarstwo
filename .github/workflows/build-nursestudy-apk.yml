@@ -47,11 +47,11 @@ jobs:
           set -euo pipefail
           rm -rf app settings.gradle build.gradle /tmp/nursestudy
           mkdir -p app/src/main/java/pl/nursestudy/app app/src/main/assets/www app/src/main/res/drawable /tmp/nursestudy
-          cat nursestudy-build/payload.b64.part00 nursestudy-build/payload.b64.part01 nursestudy-build/payload.b64.part02 nursestudy-build/payload.b64.part03 nursestudy-build/payload.b64.part04 nursestudy-build/payload.b64.part05 nursestudy-build/payload.b64.part06 nursestudy-build/payload.b64.part07 > /tmp/nursestudy_payload.b64
-          base64 -d /tmp/nursestudy_payload.b64 > /tmp/NurseStudy_v02_source.zip
-          echo "1ff97ccead0a2b0d5637b7377cac289060257672f5176015fc8a37d8d3f953f4  /tmp/NurseStudy_v02_source.zip" | sha256sum -c -
-          unzip -q /tmp/NurseStudy_v02_source.zip -d /tmp/nursestudy
-          cp -a /tmp/nursestudy/nursestudy_v02/. app/src/main/assets/www/
+          cat nursestudy-build/v03big.part00 nursestudy-build/v03big.part01 nursestudy-build/v03big.part02 nursestudy-build/v03big.part03 > /tmp/nursestudy_payload.b64
+          base64 -d /tmp/nursestudy_payload.b64 > /tmp/NurseStudy_v0.3_source.zip
+          echo "ccb04cf8d39b0ad5f5a30f091b8e0ceb8a7a9abd53ca56969b9c1169eff9c5b3  /tmp/NurseStudy_v0.3_source.zip" | sha256sum -c -
+          unzip -q /tmp/NurseStudy_v0.3_source.zip -d /tmp/nursestudy
+          cp -a /tmp/nursestudy/nursestudy_v03/. app/src/main/assets/www/
 
           cat > settings.gradle <<'EOF'
           pluginManagement {
@@ -81,17 +81,15 @@ jobs:
           plugins {
               id 'com.android.application'
           }
-
           android {
               namespace 'pl.nursestudy.app'
               compileSdk 36
-
               defaultConfig {
                   applicationId 'pl.nursestudy.app'
                   minSdk 26
                   targetSdk 36
-                  versionCode 2
-                  versionName '0.2.0-test'
+                  versionCode 3
+                  versionName '0.3.0-test'
               }
           }
           EOF
@@ -99,17 +97,8 @@ jobs:
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
-              <application
-                  android:allowBackup="true"
-                  android:label="NurseStudy"
-                  android:icon="@drawable/ic_launcher"
-                  android:usesCleartextTraffic="false"
-                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:screenOrientation="unspecified"
-                      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|uiMode">
+              <application android:allowBackup="true" android:label="NurseStudy" android:icon="@drawable/ic_launcher" android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="unspecified" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|uiMode">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -121,7 +110,6 @@ jobs:
 
           cat > app/src/main/java/pl/nursestudy/app/MainActivity.java <<'EOF'
           package pl.nursestudy.app;
-
           import android.app.Activity;
           import android.content.Intent;
           import android.net.Uri;
@@ -130,12 +118,9 @@ jobs:
           import android.webkit.WebSettings;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
-
           public class MainActivity extends Activity {
               private WebView webView;
-
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {
+              @Override protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
                   webView = new WebView(this);
                   WebSettings settings = webView.getSettings();
@@ -146,8 +131,7 @@ jobs:
                   settings.setBuiltInZoomControls(false);
                   settings.setDisplayZoomControls(false);
                   webView.setWebViewClient(new WebViewClient() {
-                      @Override
-                      public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                      @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                           Uri uri = request.getUrl();
                           String scheme = uri.getScheme();
                           if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
@@ -160,33 +144,18 @@ jobs:
                   setContentView(webView);
                   webView.loadUrl("file:///android_asset/www/index.html");
               }
-
-              @Override
-              public void onBackPressed() {
-                  if (webView != null && webView.canGoBack()) {
-                      webView.goBack();
-                  } else {
-                      super.onBackPressed();
-                  }
+              @Override public void onBackPressed() {
+                  if (webView != null && webView.canGoBack()) webView.goBack(); else super.onBackPressed();
               }
-
-              @Override
-              protected void onDestroy() {
-                  if (webView != null) {
-                      webView.destroy();
-                      webView = null;
-                  }
+              @Override protected void onDestroy() {
+                  if (webView != null) { webView.destroy(); webView = null; }
                   super.onDestroy();
               }
           }
           EOF
 
           cat > app/src/main/res/drawable/ic_launcher.xml <<'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="108dp"
-              android:height="108dp"
-              android:viewportWidth="108"
-              android:viewportHeight="108">
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
               <path android:fillColor="#0F766E" android:pathData="M0,0h108v108h-108z" />
               <path android:fillColor="#FFFFFF" android:pathData="M25,31h12l22,34v-34h14v52h-12l-22,-34v34h-14z" />
               <path android:fillColor="#FFFFFF" android:pathData="M77,44h8v8h8v8h-8v8h-8v-8h-8v-8h8z" />
@@ -209,7 +178,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.2-APK
+          name: NurseStudy-v0.3-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
