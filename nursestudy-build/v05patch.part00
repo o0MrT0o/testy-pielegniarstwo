@@ -1,0 +1,102 @@
+diff -ruN /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/README.md /mnt/data/nursestudy_v05/NurseStudy_v04_Android/README.md
+--- /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/README.md	2026-10-07 10:56:57.000000000 +0000
++++ /mnt/data/nursestudy_v05/NurseStudy_v04_Android/README.md	2026-10-07 11:32:19.194214263 +0000
+@@ -1,3 +1,7 @@
++# NurseStudy v0.5 – Quiz Engine
++
++Nowości: konfigurator quizów (10/20/pełny bank/powtórka błędów/dział), historia wyników, czas sesji i analiza błędów. Warstwa AdMob/UMP z v0.4 pozostaje aktywna na testowych ID Google.
++
+ # NurseStudy Android v0.4 – AdMob-ready
+ 
+ ## Co jest już podłączone
+diff -ruN /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/build.gradle /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/build.gradle
+--- /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/build.gradle	2026-10-07 10:56:50.000000000 +0000
++++ /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/build.gradle	2026-10-07 11:32:19.194039433 +0000
+@@ -10,8 +10,8 @@
+         applicationId 'pl.nursestudy.app'
+         minSdk 26
+         targetSdk 36
+-        versionCode 4
+-        versionName '0.4.0-test'
++        versionCode 5
++        versionName '0.5.0-test'
+ 
+         // Centralny punkt konfiguracji AdMob. Wersja testowa używa wyłącznie oficjalnych demo ID Google.
+         manifestPlaceholders = [ADMOB_APP_ID: 'ca-app-pub-3940256099942544~3347511713']
+diff -ruN /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/src/main/assets/www/README.md /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/src/main/assets/www/README.md
+--- /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/src/main/assets/www/README.md	2026-10-07 10:56:09.000000000 +0000
++++ /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/src/main/assets/www/README.md	2026-10-07 11:32:19.194257367 +0000
+@@ -1,3 +1,7 @@
++# NurseStudy v0.5
++
++Dodano rozbudowany system quizów: tryby długości, wybór działu, historię lokalną i analizę błędów po sesji.
++
+ # NurseStudy v0.4 – struktura AdMob
+ 
+ Wersja testowa z pełnym bankiem Farmakologii oraz przygotowaną natywną warstwą reklam Android.
+diff -ruN /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/src/main/assets/www/app.js /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/src/main/assets/www/app.js
+--- /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/src/main/assets/www/app.js	2026-10-07 10:56:10.000000000 +0000
++++ /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/src/main/assets/www/app.js	2026-10-07 11:31:39.829497622 +0000
+@@ -14,7 +14,7 @@
+ const defaults={
+  theme:'light',plan:'free',analytics:false,ads:true,streak:0,xp:0,minutes:0,questions:0,correct:0,flashKnown:0,
+  reviewQuestions:[],hardFlashcards:[],completedLessons:[],lastSubject:'podstawy',lastLesson:'bezpieczenstwo',
+- flashSchedule:{},questionStats:{},todayDate:'',todayMinutes:0
++ flashSchedule:{},questionStats:{},quizHistory:[],todayDate:'',todayMinutes:0
+ };
+ let state=Object.assign({},defaults,JSON.parse(localStorage.getItem('nursestudy-state')||'{}'));
+ state.flashSchedule=state.flashSchedule||{};
+@@ -22,6 +22,7 @@
+ state.reviewQuestions=Array.isArray(state.reviewQuestions)?state.reviewQuestions:[];
+ state.hardFlashcards=Array.isArray(state.hardFlashcards)?state.hardFlashcards:[];
+ state.completedLessons=Array.isArray(state.completedLessons)?state.completedLessons:[];
++state.quizHistory=Array.isArray(state.quizHistory)?state.quizHistory:[];
+ let route={name:'dashboard'};
+ let deferredInstall=null;
+ let quizSession=null;
+@@ -181,32 +182,81 @@
+  state.lastSubject=subjectId;state.lastLesson=lessonId;save();
+ }
+ 
+-function startQuiz(subject='mixed',ids=null){
+- let pool=ids?QUESTIONS.filter(q=>ids.includes(q.id)):(subject==='mixed'?QUESTIONS:QUESTIONS.filter(q=>q.subject===subject));
+- if(!pool.length){toast('Dla tego przedmiotu nie ma jeszcze zweryfikowanych pytań.');return go('quiz')}
+- pool=[...pool].sort(()=>Math.random()-.5).slice(0,Math.min(subject==='mixed'?7:8,pool.length));
+- quizSession={pool,index:0,score:0,answered:false,selected:null,reviewMode:Boolean(ids)};
++function shuffle(items){
++ const a=[...items];
++ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
++ return a;
++}
++function quizPool(subject='mixed',topic=null){
++ let pool=subject==='mixed'?QUESTIONS:QUESTIONS.filter(q=>q.subject===subject);
++ if(topic)pool=pool.filter(q=>q.topic===topic);
++ return pool;
++}
++function quizHistoryFor(subject){
++ return state.quizHistory.filter(h=>subject==='mixed'||h.subject===subject);
++}
++function quizBest(subject){
++ const h=quizHistoryFor(subject);
++ return h.length?Math.max(...h.map(x=>x.pct||0)):null;
++}
++function renderQuizSetup(subject='mixed'){
++ const s=SUBJECTS.find(x=>x.id===subject);
++ const pool=quizPool(subject);
++ if(!pool.length){toast('Dla tego zestawu nie ma jeszcze zweryfikowanych pytań.');return go('quiz')}
++ const topics=[...new Set(pool.map(q=>q.topic).filter(Boolean))];
++ const wrong=pool.filter(q=>state.reviewQuestions.includes(q.id)).length;
++ const history=quizHistoryFor(subject),best=quizBest(subject);
++ setHeader('Konfiguracja quizu',s?s.name:'Wszystkie przedmioty');
++ route={name:'quizSetup',subject};renderNav();
++ const quick=Math.min(10,pool.length),standard=Math.min(20,pool.length);
++ main.innerHTML=`<section class="quiz-setup">
++ <div class="page-head"><div><span class="badge">${s?s.name:'MIX PRZEDMIOTÓW'}</span><h2>Wybierz tryb quizu</h2><p>Ustaw długość i zakres. Pytania są losowane bez powtórzeń, a wynik zapisuje się w historii na tym urządzeniu.</p></div><button class="ghost" data-route="quiz">← Wróć</button></div>
++ <section class="grid grid-4 quiz-mode-grid">
++  <button class="card quiz-mode" data-quiz-config="${subject}|${quick}|"><strong>⚡ ${quick} pytań</strong><span>Szybka sesja</span><small>Dobry tryb na krótką powtórkę.</small></button>
++  ${pool.length>10?`<button class="card quiz-mode" data-quiz-config="${subject}|${standard}|"><strong>◎ ${standard} pytań</strong><span>Standard</span><small>Większa próba wiedzy.</small></button>`:''}
++  <button class="card quiz-mode" data-quiz-config="${subject}|all|"><strong>▤ ${pool.length} pytań</strong><span>Pełny bank</span><small>Wszystkie dostępne pytania z zestawu.</small></button>
++  <button class="card quiz-mode ${wrong?'':'is-disabled'}" ${wrong?`data-quiz-wrong="${subject}"`:''}><strong>↻ ${wrong} błędnych</strong><span>Tylko powtórka</span><small>${wrong?'Pytania, na które wcześniej odpowiedziałeś źle.':'Brak błędnych pytań w tym zestawie.'}</small></button>
++ </section>
++ ${topics.length>1?`<div class="section-title"><h3>Albo wybierz konkretny dział</h3><span class="badge">${topics.length} działów</span></div>
++ <section class="grid grid-2 topic-grid">${topics.map(topic=>{const n=pool.filter(q=>q.topic===topic).length;return `<button class="card topic-option" data-quiz-topic="${subject}|${encodeURIComponent(
