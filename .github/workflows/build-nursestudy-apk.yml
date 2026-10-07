@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
       - 'nursestudy-build/v06patchpy.part*'
+      - 'nursestudy-build/v06p05b64.*'
   workflow_dispatch:
 
 jobs:
@@ -59,24 +60,16 @@ jobs:
           test "$(wc -c < /tmp/nursestudy_v05.patch)" -eq 24882
           patch -p4 < /tmp/nursestudy_v05.patch
 
-          cat nursestudy-build/v06patchpy.part00 nursestudy-build/v06patchpy.part01 nursestudy-build/v06patchpy.part02 nursestudy-build/v06patchpy.part03 nursestudy-build/v06patchpy.part04 nursestudy-build/v06patchpy.part05 > /tmp/v06_patch.py
+          cat nursestudy-build/v06patchpy.part00 nursestudy-build/v06patchpy.part01 nursestudy-build/v06patchpy.part02 nursestudy-build/v06patchpy.part03 nursestudy-build/v06patchpy.part04 > /tmp/v06_patch.py
+          cat nursestudy-build/v06p05b64.00 nursestudy-build/v06p05b64.01 > /tmp/v06_part05.b64
+          test "$(wc -c < /tmp/v06_part05.b64)" -eq 4312
+          base64 -d /tmp/v06_part05.b64 >> /tmp/v06_patch.py
           test "$(wc -c < /tmp/v06_patch.py)" -eq 48233
           echo "ff47d3195b0892b13ff8ce993ff6ec40aebccbce6a2dc35dfa784aa3681915cb  /tmp/v06_patch.py" | sha256sum -c -
 
           cd NurseStudy_v04_Android
           python3 /tmp/v06_patch.py
           node --check app/src/main/assets/www/app.js
-
-          echo '--- build.gradle ---'
-          grep -nE 'versionCode|versionName|play-services-ads' app/build.gradle || true
-          echo '--- manifest ---'
-          grep -n 'allowBackup' app/src/main/AndroidManifest.xml || true
-          echo '--- routing/ads bridge ---'
-          grep -n 'window.NurseStudyNavigation' app/src/main/assets/www/app.js | head -1 || true
-          grep -nE 'setAdsEnabled|setBannerVisible' app/src/main/java/pl/nursestudy/app/MainActivity.java | head -6 || true
-          echo '--- cache ---'
-          head -5 app/src/main/assets/www/sw.js
-
           grep -q "versionCode 6" app/build.gradle
           grep -q "versionName '0.6.0-test'" app/build.gradle
           grep -q "play-services-ads:25.5.0" app/build.gradle
