@@ -1,86 +1,82 @@
 from pathlib import Path
-import re,json,csv,hashlib,shutil,datetime
+import re,json,copy,hashlib,csv
 root=Path('.')
-www=root/'app/src/main/assets/www'
-p=www/'content-data.js'
+p=root/'app/src/main/assets/www/content-data.js'
 s=p.read_text()
 m=re.search(r"window\.NS_CONTENT\s*=\s*(\{.*\});\s*\n\}\)\(\);?\s*$",s,re.S)
-if not m: raise SystemExit('parse failure')
+if not m: raise SystemExit('parse failed')
 db=json.loads(m.group(1))
-
-# Strengthen/repair existing source metadata.
-db['MEDICAL_SOURCES']['S23']={
- 'org':'NHS Specialist Pharmacy Service',
- 'title':'DOACs (Direct Oral Anticoagulants) monitoring',
- 'year':'2026',
- 'url':'https://www.sps.nhs.uk/monitorings/doacs-direct-oral-anticoagulants-monitoring/',
- 'note':'DOAC nie są rutynowo monitorowane INR; wymagają oceny klinicznej oraz okresowego monitorowania m.in. morfologii, funkcji nerek i wątroby zależnie od preparatu i sytuacji.'
+# source metadata corrections
+S=db['MEDICAL_SOURCES']
+S['S23']={'org':'NHS Specialist Pharmacy Service','title':'DOACs (Direct Oral Anticoagulants) monitoring','year':'2026','url':'https://sps.nhs.uk/monitorings/doacs-direct-oral-anticoagulants-monitoring/','note':'Aktualizacja 6.08.2026. DOAC nie wymagają rutynowego monitorowania INR; wymagają okresowej oceny klinicznej, FBC, funkcji nerek/wątroby i interakcji zależnie od preparatu.'}
+S['S24']={'org':'Centers for Disease Control and Prevention','title':"Healthy Habits: Antibiotic Do's and Don'ts",'year':'2025; sprawdzone 2026','url':'https://www.cdc.gov/antibiotic-use/about/','note':'Antybiotyki leczą tylko określone zakażenia bakteryjne, nie działają na wirusy; niepotrzebne użycie może powodować działania niepożądane i wspierać rozwój oporności.'}
+# new direct sources
+S.update({
+'S45':{'org':'Institute for Safe Medication Practices (ISMP)','title':'ISMP List of High-Alert Medications in Acute Care Settings','year':'2024','url':'https://www.ismp.org/system/files/resources/2024-01/ISMP_HighAlert_AcuteCare_List_010924_MS5760.pdf','note':'Insuliny, leki przeciwzakrzepowe i opioidy znajdują się na liście leków high-alert; błędy nie muszą być częstsze, ale ich następstwa mogą być cięższe.'},
+'S46':{'org':'World Health Organization','title':'Medication safety for look-alike, sound-alike medicines','year':'2023','url':'https://www.who.int/publications/i/item/9789240058897','note':'LASA są uznaną przyczyną błędów lekowych; podobieństwo nazw/opakowań wymaga systemowych zabezpieczeń i dokładnej weryfikacji.'},
+'S47':{'org':'U.S. Food and Drug Administration','title':'NARCAN (naloxone hydrochloride) Nasal Spray – Prescribing Information','year':'2023; sprawdzone 2026','url':'https://www.accessdata.fda.gov/drugsatfda_docs/label/2023/208411s007lbl.pdf','note':'Nalokson jest antagonistą opioidowym stosowanym w podejrzeniu przedawkowania; depresja oddechowa może nawrócić, dlatego wymagana jest dalsza obserwacja i możliwość kolejnych dawek.'},
+'S48':{'org':'NHS Specialist Pharmacy Service','title':'Warfarin monitoring','year':'2025','url':'https://sps.nhs.uk/monitorings/warfarin-monitoring/','note':'Warfaryna wymaga monitorowania INR; częstotliwość kontroli zależy od etapu leczenia, stabilności INR, interakcji i ryzyka krwawienia.'},
+'S49':{'org':'NHS Specialist Pharmacy Service','title':'DOACs (Direct Oral Anticoagulants) monitoring','year':'2026','url':'https://sps.nhs.uk/monitorings/doacs-direct-oral-anticoagulants-monitoring/','note':'DOAC nie wymagają rutynowego monitorowania INR; należy okresowo oceniać m.in. krwawienie/anemię, adherencję, funkcję nerek i wątroby oraz interakcje.'},
+'S50':{'org':'Rejestr Produktów Leczniczych / eZdrowie (Polska)','title':'Paracetamol DOZ 500 mg – Charakterystyka Produktu Leczniczego','year':'bieżąca ChPL; sprawdzona 07.10.2026','url':'https://rejestry.ezdrowie.gov.pl/api/rpl/medicinal-products/24677/characteristic','note':'Dla tego produktu ChPL podaje maksymalną dawkę dobową 4000 mg u dorosłych i młodzieży >12 lat; dawkowanie zawsze zależy od konkretnego produktu i pacjenta.'},
+'S51':{'org':'Rejestr Produktów Leczniczych / eZdrowie (Polska)','title':'Ibuprofen Dermogen 400 mg – Charakterystyka Produktu Leczniczego','year':'bieżąca ChPL; sprawdzona 07.10.2026','url':'https://rejestry.ezdrowie.gov.pl/api/rpl/medicinal-products/32851/characteristic','note':'NLPZ mogą powodować krwawienie/owrzodzenie/perforację przewodu pokarmowego; istnieje także ryzyko sercowo-naczyniowe i interakcje zwiększające krwawienie.'},
+'S52':{'org':'Rejestr Produktów Leczniczych / eZdrowie (Polska)','title':'Enalapril – Charakterystyka Produktu Leczniczego','year':'bieżąca baza RPL; sprawdzona 07.10.2026','url':'https://rejestry.ezdrowie.gov.pl/api/rpl/medicinal-products/2198/characteristic','note':'ACE-I mogą powodować suchy kaszel, hiperkaliemię i obrzęk naczynioruchowy; obrzęk języka/głośni/krtani może zagrażać drożności dróg oddechowych.'},
+'S53':{'org':'Rejestr Produktów Leczniczych / eZdrowie (Polska)','title':'Metoprolol – Charakterystyka Produktu Leczniczego','year':'bieżąca baza RPL; sprawdzona 07.10.2026','url':'https://rejestry.ezdrowie.gov.pl/api/rpl/medicinal-products/10594/characteristic','note':'Metoprolol może powodować bradykardię i niedociśnienie; przeciwwskazania i decyzja o podaniu zależą od parametrów pacjenta, wskazania i zlecenia.'},
+'S54':{'org':'Rejestr Produktów Leczniczych / eZdrowie (Polska)','title':'Hydrochlorothiazide Orion – Charakterystyka Produktu Leczniczego','year':'bieżąca baza RPL; sprawdzona 07.10.2026','url':'https://rejestry.ezdrowie.gov.pl/api/rpl/medicinal-products/37114/characteristic','note':'Tiazydy, w tym hydrochlorotiazyd, mogą powodować zaburzenia elektrolitowe, w tym hipokaliemię.'},
+'S55':{'org':'World Health Organization','title':'The selection and use of essential medicines, 2025: WHO AWaRe classification of antibiotics','year':'2025','url':'https://www.who.int/publications/i/item/B09489','note':'Aktualna klasyfikacja WHO Access, Watch, Reserve służy monitorowaniu i stewardship antybiotyków oraz ograniczaniu presji selekcyjnej i oporności.'},
+'S56':{'org':'Centers for Disease Control and Prevention','title':"Healthy Habits: Antibiotic Do's and Don'ts",'year':'2025; sprawdzone 2026','url':'https://www.cdc.gov/antibiotic-use/about/','note':'Antybiotyki nie działają na wirusy; niepotrzebne użycie nie pomaga, może szkodzić i przyczynia się do oporności.'},
+'S57':{'org':'Centers for Disease Control and Prevention','title':'Side Effects of Antibiotics','year':'2026','url':'https://www.cdc.gov/antibiotic-use/communication-resources/side-effects.html','note':'Antybiotyki mogą powodować działania niepożądane; biegunka może wymagać oceny, w tym pod kątem C. difficile w odpowiednim kontekście klinicznym.'},
+'S58':{'org':'U.S. Food and Drug Administration','title':'FDA updates prescribing information for all opioid pain medicines to provide additional guidance for safe use','year':'2023; bieżące ostrzeżenia sprawdzone 2026','url':'https://www.fda.gov/drugs/drug-safety-communications/fda-updates-prescribing-information-all-opioid-pain-medicines-provide-additional-guidance-safe-use','note':'Łączenie opioidów z alkoholem, benzodiazepinami i innymi depresantami OUN może zwiększać ryzyko sedacji, przedawkowania i depresji oddechowej.'},
+'S59':{'org':'World Health Organization','title':'Medication safety in transitions of care','year':'2019; nadal referencyjne w programie Medication Without Harm','url':'https://www.who.int/docs/default-source/patient-safety/who-uhc-sds-2019-9-eng.pdf','note':'Formalna rekoncyliacja lekowa w punktach przejścia opieki ogranicza pominięcia, dublowanie i niezamierzone rozbieżności w listach leków.'}
+})
+# helpers
+q_by={x['id']:x for x in db['QUESTIONS']}
+f_by={x['id']:x for x in db['FLASHCARDS']}
+l_by={x['id']:x for x in db['LESSONS']['farmakologia']}
+# lesson sources
+l_by['bezpieczne-leki']['sources']=['S1','S3','S45','S46']
+l_by['high-alert']['sources']=['S45','S5']
+l_by['antykoagulanty']['sources']=['S48','S49','S20']
+l_by['opioidy']['sources']=['S15','S47','S58']
+l_by['antybiotyki']['sources']=['S55','S16','S56','S57']
+# question source upgrades
+source_map={
+'q12':'S45','q13':'S20','q14':'S20','q17':'S56','ph14':'S45','ph19':'S46','ph23':'S50','ph24':'S51','ph26':'S47','ph28':'S58','ph29':'S56','ph30':'S56','ph33':'S55','ph34':'S57','ph36':'S48','ph37':'S49','ph39':'S49','ph40':'S49','ph42':'S52','ph43':'S52','ph44':'S52','ph45':'S53','ph46':'S53','ph47':'S54','ph48':'S45','ph50':'S6','ph53':'S6'
 }
-db['MEDICAL_SOURCES']['S24']={
- 'org':'Centers for Disease Control and Prevention',
- 'title':"Healthy Habits: Antibiotic Do's and Don'ts",
- 'year':'2025',
- 'url':'https://www.cdc.gov/antibiotic-use/about/',
- 'note':'Antybiotyki leczą tylko określone zakażenia bakteryjne, nie działają na wirusy; niepotrzebne stosowanie zwiększa ryzyko działań niepożądanych i oporności.'
+for i,sid in source_map.items(): q_by[i]['source']=sid
+# content corrections/precision
+x=q_by['ph23']
+x['q']='Zgodnie z ChPL Paracetamol DOZ 500 mg maksymalna dawka dobowa paracetamolu u dorosłego wynosi:'
+x['answers']=['10 000 mg','400 mg','1000 mg','4000 mg; inne preparaty lub sytuacja kliniczna mogą wymagać niższego limitu']
+x['correct']=3
+x['explain']='ChPL Paracetamol DOZ 500 mg podaje 4000 mg/dobę jako maksymalną dawkę dla dorosłych. Nie wolno jednak traktować 4 g jako uniwersalnego limitu dla każdego preparatu i każdego pacjenta — obowiązuje konkretna ChPL, zlecenie i czynniki ryzyka.'
+x=q_by['ph49']
+x['answers']=['Prawidłowej glikemii bez potrzeby reakcji','Ciężkiej hiperglikemii','Kwasicy ketonowej na podstawie samego wyniku','Hipoglikemii poziomu 1 (54–69 mg/dl)']
+x['correct']=3
+x['explain']='ADA 2026 definiuje hipoglikemię poziomu 1 jako glukozę <70 mg/dl i jednocześnie ≥54 mg/dl (czyli 54–69 mg/dl). Poziom 2 to <54 mg/dl.'
+x=q_by['ph50']
+x['explain']='Reguła 15/15 (15 g szybko działających węglowodanów i kontrola po 15 minutach) jest standardowym podejściem u większości przytomnych osób; u części osób korzystających z automatycznego podawania insuliny (AID) może być potrzebna mniejsza ilość węglowodanów zgodnie z indywidualnym planem.'
+# flashcard source/precision
+f_by['f12']['source']='S45'
+f_by['f15']['source']='S20'
+f_by['f16'].update({'front':'Czy DOAC monitoruje się rutynowo INR tak jak warfarynę?','back':'Nie. Warfaryna wymaga monitorowania INR, natomiast DOAC nie są rutynowo dawkowane na podstawie INR; wymagają innych kontroli klinicznych i laboratoryjnych.','source':'S49'})
+f_by['f17']['source']='S55'
+f_by['f35']['source']='S56'
+# update metadata
+old_meta=db.get('AUDIT_META',{})
+db['AUDIT_META']={
+ 'version':'v1.0-pharmacology-claim-audit','audited_at':'07.10.2026',
+ 'scopes':{
+  'interna':{'status':'audited in v0.9','items':106,'previous_meta':old_meta},
+  'farmakologia':{'status':'audited and corrected in v1.0','items':73,'lessons':5,'questions':60,'flashcards':8}
+ },
+ 'method':'Claim-by-claim review against current official guidance, product information/SmPC, safety standards, scientific/academic sources; pharmacology textbook used mainly for foundational PK/PD and class mechanisms.'
 }
-# Add precise sources used by audited items.
-new_sources={
-'S45':{'org':'Institute for Safe Medication Practices (ISMP)','title':'ISMP List of High-Alert Medications in Acute Care Settings','year':'2024','url':'https://www.ismp.org/system/files/resources/2024-01/ISMP_HighAlert_AcuteCare_List_010924_MS5760.pdf','note':'Insulina, leki przeciwkrzepliwe i opioidy należą do leków wysokiego ryzyka; błędy mogą powodować szczególnie ciężką szkodę.'},
-'S46':{'org':'NHS Specialist Pharmacy Service','title':'Warfarin monitoring','year':'2025','url':'https://www.sps.nhs.uk/monitorings/warfarin-monitoring/','note':'Warfaryna wymaga monitorowania INR; częstotliwość zależy od etapu terapii, stabilności wyniku, ryzyka i leków współistniejących.'},
-'S47':{'org':'U.S. National Library of Medicine / DailyMed','title':'Ramipril – current prescribing information','year':'2025–2026','url':'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=e8d9a115-71a7-4580-abbd-865e98b5d3f6','note':'Aktualna informacja o produkcie: kaszel, hiperkaliemia i obrzęk naczynioruchowy są znanymi działaniami/ostrzeżeniami inhibitorów ACE.'},
-'S48':{'org':'U.S. National Library of Medicine / DailyMed','title':'Metoprolol succinate ER – current prescribing information','year':'2025','url':'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=38429f45-5dc7-4455-840c-dee48f60d95b','note':'Metoprolol może powodować bradykardię; zalecane jest monitorowanie częstości rytmu serca i odpowiednia reakcja przy ciężkiej bradykardii.'},
-'S49':{'org':'U.S. National Library of Medicine / DailyMed','title':'Hydrochlorothiazide – current prescribing information','year':'2026','url':'https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=1d6ea4b4-1e3c-4f3f-989c-1a3a3c0da6bd','note':'Tiazydy mogą powodować zaburzenia elektrolitowe, w tym hipokaliemię; u pacjentów z ryzykiem wskazane jest monitorowanie elektrolitów.'},
-'S50':{'org':'Centers for Disease Control and Prevention','title':'C. diff: Facts for Clinicians','year':'2026','url':'https://www.cdc.gov/c-diff/hcp/clinical-overview/','note':'C. difficile jest częstą przyczyną biegunki związanej z antybiotykami; biegunka w trakcie lub po antybiotykoterapii może wymagać oceny.'},
-'S51':{'org':'World Health Organization','title':'Medication safety for look-alike, sound-alike medicines','year':'2023','url':'https://www.who.int/publications/i/item/9789240058897','note':'Leki look-alike/sound-alike (LASA) są uznanym źródłem błędów lekowych i wymagają strategii zapobiegających pomyłkom.'},
-'S52':{'org':'World Health Organization','title':'The selection and use of essential medicines, 2025: WHO AWaRe classification of antibiotics','year':'2025','url':'https://www.who.int/publications/i/item/B09489','note':'Aktualna klasyfikacja AWaRe dzieli antybiotyki na Access, Watch i Reserve i wspiera monitorowanie oraz stewardship.'},
-'S53':{'org':'World Health Organization','title':'Medication safety in transitions of care','year':'2019','url':'https://www.who.int/docs/default-source/patient-safety/who-uhc-sds-2019-9-eng.pdf','note':'Rekoncyliacja lekowa to formalny proces zapewniający dokładny i kompletny transfer informacji o lekach na styku miejsc opieki.'},
-}
-db['MEDICAL_SOURCES'].update(new_sources)
-
-# Lessons
-L={x['id']:x for x in db['LESSONS']['farmakologia']}
-L['high-alert']['sources']=sorted(set(L['high-alert'].get('sources',[])+['S45']))
-L['antykoagulanty']['sources']=sorted(set(['S3','S19','S23','S46']))
-L['antybiotyki']['body']=L['antybiotyki']['body'].replace('Antybiotyki leczą zakażenia bakteryjne, a ich niepotrzebne lub niewłaściwe stosowanie zwiększa ryzyko działań niepożądanych i narastania oporności.', 'Antybiotyki są stosowane do leczenia określonych zakażeń bakteryjnych; nie działają na wirusy. Ich niepotrzebne lub niewłaściwe stosowanie zwiększa ryzyko działań niepożądanych i narastania oporności.')
-L['antybiotyki']['sources']=sorted(set(['S16','S24','S50','S52']))
-
-Q={x['id']:x for x in db['QUESTIONS'] if x['subject']=='farmakologia'}
-Q['q12']['source']='S45'
-Q['q13']['source']='S19'
-Q['q14']['source']='S19'
-Q['q16']['answers'][2]='Lekiem przeciwpłytkowym'
-Q['ph15']['source']='S53'
-Q['ph19']['source']='S51'
-Q['ph33']['q']='Jeżeli wynik mikrobiologiczny pozwala zawęzić terapię i węższy antybiotyk jest klinicznie odpowiedni, dlaczego deeskalacja może być korzystna?'
-Q['ph33']['answers']=['Ponieważ każdy węższy antybiotyk zawsze działa szybciej','Ponieważ eliminuje potrzebę oceny klinicznej','Ponieważ zawsze skraca leczenie do jednej dawki','Może ograniczyć niepotrzebnie szeroką ekspozycję na antybiotyki i presję selekcyjną']
-Q['ph33']['correct']=3
-Q['ph33']['explain']='Stewardship dąży do skutecznego leczenia możliwie ukierunkowanym antybiotykiem, jeśli wynik mikrobiologiczny, miejsce zakażenia i stan kliniczny na to pozwalają.'
-Q['ph33']['source']='S24'
-Q['ph34']['source']='S50'
-Q['ph36']['source']='S46'
-for qid in ['ph42','ph43','ph44']: Q[qid]['source']='S47'
-for qid in ['ph45','ph46']: Q[qid]['source']='S48'
-Q['ph47']['source']='S49'
-Q['ph48']['source']='S45'
-Q['ph49']['explain']='ADA 2026 definiuje hipoglikemię poziomu 1 jako glikemię <70 mg/dl (3,9 mmol/l) i ≥54 mg/dl (3,0 mmol/l). Próg 70 mg/dl lub mniej jest jednocześnie wartością, przy której zaleca się rozpoczęcie leczenia hipoglikemii; wynik 68 mg/dl spełnia kryterium poziomu 1.'
-
-F={x['id']:x for x in db['FLASHCARDS'] if x['subject']=='farmakologia'}
-F['f17']['source']='S52'
-
-# Audit metadata
-meta=db.setdefault('AUDIT_META',{})
-meta['farmakologia']={
- 'version':'v1.0-pharmacology-claim-audit',
- 'audited_at':'07.10.2026',
- 'scope':'Farmakologia: 5 lekcji, 60 pytań, 8 fiszek',
- 'method':'Item-by-item review against Katzung 16e, WHO, ISMP, FDA/DailyMed, CDC, ADA 2026 and NHS SPS; source-to-claim matching checked separately from factual correctness.',
- 'status':'Corrections and source upgrades applied; see Pharmacology_Audit_v1.0.md.'
-}
-
-p.write_text("/* NurseStudy content database — medically audited v1.0 (Interna + Pharmacology). */\n(function(){\n  'use strict';\n  window.NS_CONTENT = "+json.dumps(db,ensure_ascii=False,indent=2)+";\n})();\n")
-# bump version
-bg=root/'app/build.gradle'; t=bg.read_text(); t=t.replace('versionCode 9','versionCode 10').replace("versionName '0.9.0-test'","versionName '1.0.0-test'"); bg.write_text(t)
-sw=www/'sw.js'; sw.write_text(sw.read_text().replace('nursestudy-v9-interna-audit','nursestudy-v10-pharm-audit'))
-rd=root/'README.md'; rt=rd.read_text(); add='\n\n## v1.0 – audyt Farmakologii 1:1\nFarmakologia (5 lekcji, 60 pytań, 8 fiszek) została sprawdzona element po elemencie względem aktualnych źródeł. Skorygowano precyzję definicji hipoglikemii ADA, przypisanie źródeł dla warfaryny/DOAC, AWaRe 2025, LASA, high-alert oraz źródła dla ACEI, beta-adrenolityków, tiazydów i biegunki związanej z antybiotykami.\n';
-if '## v1.0 – audyt Farmakologii 1:1' not in rt: rd.write_text(rt+add)
-
+# write audited data
+p.write_text("/* NurseStudy content database — medically audited v1.0 (Interna + Farmakologia). */\n(function(){\n  'use strict';\n  window.NS_CONTENT = "+json.dumps(db,ensure_ascii=False,indent=2)+";\n})();\n")
+# bump Android/app version
+bg=root/'app/build.gradle'; txt=bg.read_text(); txt=txt.replace('versionCode 9','versionCode 10').replace("versionName '0.9.0-test'","versionName '1.0.0-test'"); bg.write_text(txt)
+sw=root/'app/src/main/assets/www/sw.js'; sw.write_text(sw.read_text().replace('nursestudy-v9-interna-audit','nursestudy-v10-pharma-audit'))
+# README note
+rd=root/'README.md'; r=rd.read_text(); add='''\n\n## v1.0 – audyt Farmakologii 1:1\nFarmakologia (5 lekcji, 60 pytań, 8 fiszek) została poddana audytowi twierdzenie-po-twierdzeniu. Źródła wzmocniono o aktualne dokumenty WHO/ISMP/ADA/CDC, NHS SPS, FDA oraz polskie Charakterystyki Produktów Leczniczych z Rejestru Produktów Leczniczych. Skorygowano m.in. definicję hipoglikemii poziomu 1 i doprecyzowano maksymalną dawkę paracetamolu jako zależną od konkretnej ChPL i pacjenta.\n'''; rd.write_text(r if '## v1.0 – audyt Farmakologii 1:1' in r else r+add)
+print('content sha256',hashlib.sha256(p.read_bytes()).hexdigest())
+print('sources',len(S),'q',sum(x['subject']=='farmakologia' for x in db['QUESTIONS']),'f',sum(x['subject']=='farmakologia' for x in db['FLASHCARDS']))
