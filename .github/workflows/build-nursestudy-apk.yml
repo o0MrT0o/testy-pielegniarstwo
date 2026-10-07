@@ -54,6 +54,7 @@ jobs:
           mkdir -p /tmp/nursestudy_v04
           unzip -q /tmp/NurseStudy_v04_Android_source.zip -d /tmp/nursestudy_v04
           cp -a /tmp/nursestudy_v04/NurseStudy_v04_Android ./NurseStudy_v04_Android
+          printf 'android.useAndroidX=true\nandroid.enableJetifier=true\n' > NurseStudy_v04_Android/gradle.properties
           test -f NurseStudy_v04_Android/app/build.gradle
           test -f NurseStudy_v04_Android/app/src/main/java/pl/nursestudy/app/MainActivity.java
 
