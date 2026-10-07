@@ -1,0 +1,127 @@
+name: Build NurseStudy v0.10 Final Audited Pharmacology APK
+
+on:
+  push:
+    branches: [nursestudy-farmakologia-audit-v010]
+    paths:
+      - '.github/workflows/build-v010-final.yml'
+      - 'nursestudy-build/v010finalpatch.b64.part00'
+      - 'nursestudy-build/v010finalpatch.b64.part01'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/build-tools/36.0.0" >> "$GITHUB_PATH"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.2'
+      - name: Restore v0.9 and apply final audited Pharmacology
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat nursestudy-build/v04ads.part0{0,1,2,3,4} > /tmp/v04.b64
+          test "$(wc -c < /tmp/v04.b64)" -eq 66996
+          base64 -d /tmp/v04.b64 > /tmp/v04.zip
+          echo "65fcf2991ab03488bac9264bc1d2dfcd38bfc3f0cc50df87f8b6d7e101f5ac75  /tmp/v04.zip" | sha256sum -c -
+          rm -rf NurseStudy_v04_Android /tmp/v04 && mkdir /tmp/v04
+          unzip -q /tmp/v04.zip -d /tmp/v04
+          cp -a /tmp/v04/NurseStudy_v04_Android ./NurseStudy_v04_Android
+
+          cat nursestudy-build/v05patch.part0{0,1,2,3} > /tmp/v05.patch
+          test "$(wc -c < /tmp/v05.patch)" -eq 24882
+          patch -p4 < /tmp/v05.patch
+
+          cat nursestudy-build/v06patchpy.part0{0,1,2,3,4} > /tmp/v06.py
+          cat nursestudy-build/v06p05b64.0{0,1} | base64 -d >> /tmp/v06.py
+          test "$(wc -c < /tmp/v06.py)" -eq 48233
+          echo "ff47d3195b0892b13ff8ce993ff6ec40aebccbce6a2dc35dfa784aa3681915cb  /tmp/v06.py" | sha256sum -c -
+          cd NurseStudy_v04_Android
+          python3 /tmp/v06.py
+          echo "9e61bf1baba1bad051634d268b4d75165f98e294371ec67ac28e662edbfe1012  ../nursestudy-build/v07_patch.py" | sha256sum -c -
+          python3 ../nursestudy-build/v07_patch.py
+          cd ..
+
+          head -c 8000 nursestudy-build/v08content.part00 > /tmp/v08.b64
+          cat nursestudy-build/v08content.part0{1,2,3,4,5} >> /tmp/v08.b64
+          test "$(wc -c < /tmp/v08.b64)" -eq 46004
+          echo "54f801cc58a8266c0f9c096df114391ec66c850b0408d066a8f7f7bb7270ec31  /tmp/v08.b64" | sha256sum -c -
+          base64 -d /tmp/v08.b64 | gzip -d > NurseStudy_v04_Android/app/src/main/assets/www/content-data.js
+
+          cd NurseStudy_v04_Android
+          sed -i 's/versionCode 7/versionCode 8/' app/build.gradle
+          sed -i "s/versionName '0.7.0-test'/versionName '0.8.0-test'/" app/build.gradle
+          sed -i 's/nursestudy-v7-content-arch/nursestudy-v8-interna/' app/src/main/assets/www/sw.js
+          echo "4481d7304a4525a4fe48f941cf8574375173dab20db5e8e081b38e9134ba5568  ../nursestudy-build/v09_audit_patch.py" | sha256sum -c -
+          python3 ../nursestudy-build/v09_audit_patch.py
+          cd ..
+
+          cat nursestudy-build/v010finalpatch.b64.part00 nursestudy-build/v010finalpatch.b64.part01 | tr -d '\r\n' > /tmp/v010.b64
+          test "$(wc -c < /tmp/v010.b64)" -eq 8292
+          echo "acccfd4b8a82ee882ee063e4c603a9d6754dc31726451711b66ae654d7d825ea  /tmp/v010.b64" | sha256sum -c -
+          base64 -d /tmp/v010.b64 > /tmp/v010.py.gz
+          echo "a77c74e8c52c4d80772e25a3381ea49dfac3155d27efbbecee1f623734518d22  /tmp/v010.py.gz" | sha256sum -c -
+          gzip -d -c /tmp/v010.py.gz > /tmp/v010.py
+          echo "26f213716faf15c1ceab009b37fd4f232f4b104366e417e58f4cc1ef19e31e7c  /tmp/v010.py" | sha256sum -c -
+
+          cd NurseStudy_v04_Android
+          python3 /tmp/v010.py
+          node --check app/src/main/assets/www/content-data.js
+          node --check app/src/main/assets/www/app.js
+          node tools/validate-content.mjs
+          echo "4444e111e0b13c7b792cb95cc680ec5d5b7baabe294473c30dd926946fa4c141  app/src/main/assets/www/content-data.js" | sha256sum -c -
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,hashlib,collections
+          s=Path('app/src/main/assets/www/content-data.js').read_text()
+          m=re.search(r"window\.NS_CONTENT\s*=\s*(\{.*\});\s*\n\}\)\(\);?\s*$",s,re.S)
+          if not m: raise SystemExit('NS_CONTENT parse failure')
+          db=json.loads(m.group(1))
+          digest=hashlib.sha256(json.dumps(db,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+          assert digest == '3612cde2a442178b4f18a06048c25e24f19e9557a4c9afa66a8d45f714d80269', digest
+          q=[x for x in db['QUESTIONS'] if x['subject']=='farmakologia']
+          f=[x for x in db['FLASHCARDS'] if x['subject']=='farmakologia']
+          l=db['LESSONS']['farmakologia']
+          assert (len(l),len(q),len(f),len(db['MEDICAL_SOURCES'])) == (5,60,8,61)
+          assert db['AUDIT_META']['version'] == 'v0.10-pharmacology-claim-audit'
+          assert collections.Counter(x['correct'] for x in q) == collections.Counter({2:17,1:16,0:14,3:13})
+          print('Final audited Pharmacology canonical SHA256:', digest)
+          PY
+          grep -q 'versionCode 10' app/build.gradle
+          grep -q "versionName '0.10.0-test'" app/build.gradle
+          grep -q 'nursestudy-v10-farm-audit' app/src/main/assets/www/sw.js
+      - name: Build APK
+        working-directory: NurseStudy_v04_Android
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          APK=NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          apksigner verify --verbose "$APK"
+          sha256sum "$APK"
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NurseStudy-v0.10-Farmakologia-Audited-Final-APK
+          path: NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
