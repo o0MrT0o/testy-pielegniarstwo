@@ -1,0 +1,65 @@
+<button class="primary" data-start-quiz="mixed">Nowy quiz</button><button class="secondary" data-route="reviews">Powtórz błędy</button></div></article>${adSlot()}</section>`;
+- // Naturalny punkt przejścia: dopiero po wyrenderowaniu wyniku quizu Android może rozważyć interstitial.
++ const mistakes=quizSession.mistakes;
++ main.innerHTML=`<section class="quiz-shell result-shell"><article class="card quiz-result"><span class="badge">${quizSession.mode.toUpperCase()}</span><div class="score">${pct}%</div><h2>${pct>=90?'Świetny wynik':pct>=80?'Bardzo dobrze':pct>=60?'Dobry kierunek':'Warto zrobić powtórkę'}</h2>
++ <p style="color:var(--muted)">${quizSession.score} / ${total} poprawnych odpowiedzi.</p>
++ <div class="result-stats"><div><strong>${timeLabel}</strong><span>czas</span></div><div><strong>${mistakes.length}</strong><span>błędów</span></div><div><strong>${quizSession.score*10}</strong><span>XP</span></div></div>
++ <div class="hero-actions" style="justify-content:center"><button class="primary" data-quiz-setup="${quizSession.subject}">Nowy quiz</button>${mistakes.length?'<button class="secondary" data-result-errors="1">Przejrzyj błędy</button>':''}<button class="ghost" data-route="reviews">Powtórki</button></div></article>
++ ${mistakes.length?`<div class="card result-errors hidden" id="result-errors"><div class="section-title"><h3>Błędy z tej sesji</h3><span class="badge">${mistakes.length}</span></div>${mistakes.map((m,i)=>{const src=MEDICAL_SOURCES[m.source];return `<article class="mistake-row"><div class="mistake-number">${i+1}</div><div><strong>${m.q}</strong><p><span class="bad-text">Twoja odpowiedź:</span> ${m.answers[m.selected]}</p><p><span class="good-text">Poprawna:</span> ${m.answers[m.correct]}</p><small>${m.topic||''}${src?` · ${src.org}`:''}</small></div></article>`}).join('')}</div>`:''}
++ ${adSlot()}</section>`;
+  setTimeout(notifyNativeQuizCompleted,250);
+ }
+-
+ function renderFlashHub(){
+  setHeader('Aktywne przypominanie','Fiszki');
+  const bySubject=SUBJECTS.filter(s=>FLASHCARDS.some(f=>f.subject===s.id)),due=getDueFlashcards().length;
+@@ -351,6 +408,7 @@
+  if(name==='dashboard')renderDashboard();
+  else if(name==='subjects')renderSubjects();
+  else if(name==='quiz')renderQuizHub();
++ else if(name==='quizSetup')renderQuizSetup(params.subject||'mixed');
+  else if(name==='flashcards')renderFlashHub();
+  else if(name==='reviews')renderReviews();
+  else if(name==='sources')renderSources();
+@@ -363,9 +421,16 @@
+  const r=e.target.closest('[data-route]');if(r)return go(r.dataset.route);
+  const s=e.target.closest('[data-subject]');if(s)return renderSubject(s.dataset.subject);
+  const l=e.target.closest('[data-lesson]');if(l){const [sid,lid]=l.dataset.lesson.split(':');return renderLesson(sid,lid)}
+- const q=e.target.closest('[data-start-quiz]');if(q)return startQuiz(q.dataset.startQuiz);
++ const setup=e.target.closest('[data-quiz-setup]');if(setup)return renderQuizSetup(setup.dataset.quizSetup);
++ const qc=e.target.closest('[data-quiz-config]');if(qc){const [subject,count]=qc.dataset.quizConfig.split('|');return startQuiz(subject,null,{count:count==='all'?'all':Number(count),mode:count==='all'?'Pełny bank':`${count} pytań`})}
++ const qt=e.target.closest('[data-quiz-topic]');if(qt){const [subject,encoded]=qt.dataset.quizTopic.split('|');const topic=decodeURIComponent(encoded);return startQuiz(subject,null,{topic,count:'all',mode:topic})}
++ const qw=e.target.closest('[data-quiz-wrong]');if(qw){const subject=qw.dataset.quizWrong;const ids=state.reviewQuestions.filter(id=>QUESTIONS.some(q=>q.id===id&&(subject==='mixed'||q.subject===subject)));return startQuiz(subject,ids,{mode:'Powtórka błędów'})}
++ const q=e.target.closest('[data-start-quiz]');if(q)return renderQuizSetup(q.dataset.startQuiz);
+  const a=e.target.closest('[data-answer]');if(a)return answerQuiz(Number(a.dataset.answer));
+  if(e.target.closest('#next-q'))return nextQuiz();
++ if(e.target.closest('[data-exit-quiz]'))return modal('Zakończyć quiz?',`<p>Ta niedokończona sesja nie zostanie zapisana w historii wyników.</p><button class="danger-button full" data-confirm-exit-quiz="1">Tak, zakończ quiz</button>`);
++ if(e.target.closest('[data-confirm-exit-quiz]')){document.querySelector('#modal-root').innerHTML='';quizSession=null;return go('quiz')}
++ if(e.target.closest('[data-result-errors]')){const box=document.querySelector('#result-errors');if(box)box.classList.toggle('hidden');return}
+  const sf=e.target.closest('[data-start-flash]');if(sf)return startFlash(sf.dataset.startFlash);
+  const fr=e.target.closest('[data-flash-rate]');if(fr)return rateFlash(fr.dataset.flashRate);
+  if(e.target.closest('#flashcard'))document.querySelector('#flashcard').classList.toggle('flipped');
+@@ -375,7 +440,7 @@
+   if(!state.completedLessons.includes(id)){state.completedLessons.push(id);state.xp+=15;addStudyMinutes(3);save();complete.textContent='✓ Ukończono';toast('+15 punktów · lekcja ukończona')}
+   return;
+  }
+- if(e.target.closest('[data-review-quiz]'))return startQuiz('mixed',state.reviewQuestions);
++ if(e.target.closest('[data-review-quiz]'))return startQuiz('mixed',state.reviewQuestions,{mode:'Powtórka błędów'});
+  if(e.target.closest('[data-review-flash]')){
+   const ids=[...new Set([...getDueFlashcards().map(f=>f.id),...state.hardFlashcards])];
+   return startFlash('mixed',ids);
+diff -ruN /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/src/main/assets/www/styles.css /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/src/main/assets/www/styles.css
+--- /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/src/main/assets/www/styles.css	2026-10-07 10:55:33.000000000 +0000
++++ /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/src/main/assets/www/styles.css	2026-10-07 11:31:57.552062153 +0000
+@@ -44,3 +44,17 @@
+ .danger-button{border:1px solid color-mix(in srgb,var(--bad) 35%,var(--line));background:color-mix(in srgb,var(--bad) 10%,var(--surface));color:var(--bad);padding:11px 16px;border-radius:12px;font-weight:800;min-height:48px}
+ @media (max-width:900px){.source-grid{grid-template-columns:1fr}.flash-actions.four{grid-template-columns:1fr 1fr}.content-status{align-items:stretch;flex-direction:column}}
+ @media (max-width:520px){.flash-actions.four{grid-template-columns:1fr}.sources-box{padding:14px}}
++
++/* NurseStudy v0.5 – configurable quiz engine */
++.quiz-setup{max-width:1050px;margin:auto}
++.quiz-mode-grid{align-items:stretch}
++.quiz-mode{appearance:none;text-align:left;color:var(--text);cursor:pointer;display:flex;flex-direction:column;gap:5px;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;min-height:150px}
++.quiz-mode:hover:not(.is-disabled){transform:translateY(-2px);border-color:var(--brand);box-shadow:0 12px 34px color-mix(in srgb,var(--brand) 12%,transparent)}
++.quiz-mode strong{font-size:20px}.quiz-mode span{font-weight:800;color:var(--brand)}.quiz-mode small{color:var(--muted);margin-top:auto}
++.quiz-mode.is-di
