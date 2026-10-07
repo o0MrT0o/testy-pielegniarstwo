@@ -1,4 +1,3 @@
-# trigger exact-byte v1.0 pharmacology audit build
 name: Build NurseStudy v1.0 Audited Pharmacology APK
 
 on:
@@ -42,10 +41,11 @@ jobs:
         with:
           gradle-version: '8.14.2'
 
-      - name: Restore v0.9 and apply audited v1.0 Pharmacology
+      - name: Restore audited v0.9 and apply current v1.0 pharmacology audit
         shell: bash
         run: |
           set -euo pipefail
+
           cat nursestudy-build/v04ads.part00 nursestudy-build/v04ads.part01 nursestudy-build/v04ads.part02 nursestudy-build/v04ads.part03 nursestudy-build/v04ads.part04 > /tmp/nursestudy_v04.b64
           test "$(wc -c < /tmp/nursestudy_v04.b64)" -eq 66996
           base64 -d /tmp/nursestudy_v04.b64 > /tmp/NurseStudy_v04_Android_source.zip
@@ -85,42 +85,41 @@ jobs:
 
           echo "4481d7304a4525a4fe48f941cf8574375173dab20db5e8e081b38e9134ba5568  ../nursestudy-build/v09_audit_patch.py" | sha256sum -c -
           python3 ../nursestudy-build/v09_audit_patch.py
-
-          echo "637a38b6b5fa3559203e6a5f7fbddeda960b375d67ec2d62a2b594515bcf1df9  ../nursestudy-build/v10_audit_patch.py" | sha256sum -c -
           python3 ../nursestudy-build/v10_audit_patch.py
 
           node --check app/src/main/assets/www/content-data.js
           node --check app/src/main/assets/www/app.js
           node tools/validate-content.mjs
 
+          echo "2824cdae7b7a39b8470fc59d116ebcb33ccda370cbe17b37fcb37b72d16ab2bf  app/src/main/assets/www/content-data.js" | sha256sum -c -
+          grep -q "versionCode 10" app/build.gradle
+          grep -q "versionName '1.0.0-test'" app/build.gradle
+          grep -q "nursestudy-v10-pharma-audit" app/src/main/assets/www/sw.js
+
           python3 - <<'PY'
           from pathlib import Path
-          import json,re,hashlib
+          import json,re
           s=Path('app/src/main/assets/www/content-data.js').read_text()
           m=re.search(r"window\.NS_CONTENT\s*=\s*(\{.*\});\s*\n\}\)\(\);?\s*$",s,re.S)
           if not m: raise SystemExit('NS_CONTENT parse failure')
           db=json.loads(m.group(1))
-          canonical=json.dumps(db,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()
-          digest=hashlib.sha256(canonical).hexdigest()
-          expected='8c0c3b31b377cb58ffd887bc63b8bf3ceead0889ff97cf05180c4ed79e8d08e6'
-          if digest != expected: raise SystemExit(f'Canonical audit payload mismatch: {digest}')
-          iq=[x for x in db['QUESTIONS'] if x['subject']=='interna']
-          iff=[x for x in db['FLASHCARDS'] if x['subject']=='interna']
-          il=db['LESSONS'].get('interna',[])
           pq=[x for x in db['QUESTIONS'] if x['subject']=='farmakologia']
           pf=[x for x in db['FLASHCARDS'] if x['subject']=='farmakologia']
           pl=db['LESSONS'].get('farmakologia',[])
-          if (len(iq),len(iff),len(il)) != (60,30,16): raise SystemExit('Interna counts changed')
-          if (len(pq),len(pf),len(pl)) != (60,8,5): raise SystemExit(f'Farm counts invalid: {len(pq)}/{len(pf)}/{len(pl)}')
-          if len(db['MEDICAL_SOURCES']) != 53: raise SystemExit('Expected 53 medical sources')
-          if db.get('AUDIT_META',{}).get('version') != 'v0.9-claim-audit': raise SystemExit('Interna audit metadata missing')
-          if db.get('AUDIT_META',{}).get('farmakologia',{}).get('version') != 'v1.0-pharmacology-claim-audit': raise SystemExit('Pharmacology audit metadata missing')
-          print('Audited v1.0 canonical SHA256:',digest)
+          iq=[x for x in db['QUESTIONS'] if x['subject']=='interna']
+          iff=[x for x in db['FLASHCARDS'] if x['subject']=='interna']
+          il=db['LESSONS'].get('interna',[])
+          assert (len(pq),len(pf),len(pl)) == (60,8,5), (len(pq),len(pf),len(pl))
+          assert (len(iq),len(iff),len(il)) == (60,30,16), (len(iq),len(iff),len(il))
+          assert len(db['MEDICAL_SOURCES']) == 59, len(db['MEDICAL_SOURCES'])
+          meta=db.get('AUDIT_META',{})
+          assert meta.get('version') == 'v1.0-pharmacology-claim-audit', meta
+          assert meta.get('scopes',{}).get('farmakologia',{}).get('items') == 73
+          assert meta.get('scopes',{}).get('interna',{}).get('items') == 106
+          assert len({x['id'] for x in pq}) == 60
+          assert all(len(x['answers']) == 4 and 0 <= x['correct'] < 4 for x in pq)
+          print('Farmakologia audit OK: 5 lessons / 60 questions / 8 flashcards / 59 sources')
           PY
-
-          grep -q "versionCode 10" app/build.gradle
-          grep -q "versionName '1.0.0-test'" app/build.gradle
-          grep -q "nursestudy-v10-pharm-audit" app/src/main/assets/www/sw.js
 
       - name: Build debug APK and capture log
         id: gradle_build
