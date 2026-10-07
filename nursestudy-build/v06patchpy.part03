@@ -1,0 +1,53 @@
+t=replace_between(txt,"function renderSettings(){","\nfunction renderLegal(type){",NEW_SETTINGS)
+
+txt=txt.replace("APK v0.4 zawiera techniczną integrację", "APK v0.6 zawiera techniczną integrację")
+txt=txt.replace("Treści dostępne w v0.4 zostały", "Treści dostępne w v0.6 zostały")
+
+NEW_ROUTING='function resetState(){\n const theme=state.theme;\n state=JSON.parse(JSON.stringify(defaults));\n state.theme=theme;state.todayDate=localDay();\n navStack=[];dailyPlanSession=null;quizSession=null;flashSession=null;\n save();setTheme(theme);go(\'dashboard\',{},false);toast(\'Wyczyszczono lokalny postęp\');\n}\nfunction renderRoute(){\n renderNav();syncNativeAds();window.scrollTo({top:0,behavior:\'smooth\'});\n if(route.name===\'dashboard\')renderDashboard();\n else if(route.name===\'subjects\')renderSubjects();\n else if(route.name===\'subject\')renderSubject(route.subject);\n else if(route.name===\'lesson\')renderLesson(route.subject,route.lesson);\n else if(route.name===\'quiz\')renderQuizHub();\n else if(route.name===\'quizSetup\')renderQuizSetup(route.subject||\'mixed\');\n else if(route.name===\'quizSession\'&&quizSession)renderQuizQuestion();\n else if(route.name===\'quizResult\'&&quizSession)renderQuizResult();\n else if(route.name===\'flashcards\')renderFlashHub();\n else if(route.name===\'flashSession\'&&flashSession)renderFlashCard();\n else if(route.name===\'flashResult\'&&flashSession){route={name:\'flashcards\'};renderFlashHub()}\n else if(route.name===\'reviews\')renderReviews();\n else if(route.name===\'sources\')renderSources();\n else if(route.name===\'premium\')renderPremium();\n else if(route.name===\'settings\')renderSettings();\n else if(route.name===\'legal\')renderLegal(route.type);\n else {route={name:\'dashboard\'};renderDashboard()}\n}\nfunction pushRoute(next){\n if(route?.name)navStack.push({...route});\n route={...next};renderNav();syncNativeAds();window.scrollTo({top:0,behavior:\'smooth\'});\n}\nfunction go(name,params={},push=true){\n if(push&&route?.name&&(route.name!==name||JSON.stringify({...route,name:undefined})!==JSON.stringify(params)))navStack.push({...route});\n route={name,...params};renderRoute();\n}\nfunction backInApp(){\n const modalRoot=document.querySelector(\'#modal-root\');\n if(modalRoot?.innerHTML){modalRoot.innerHTML=\'\';return true}\n if(route.name===\'quizSession\'&&quizSession&&!quizSession.resultSaved){\n  modal(\'Zakończyć quiz?\',`<p>Ta niedokończona sesja nie zostanie zapisana w historii wyników.</p><button class="danger-button full" data-confirm-exit-quiz="1">Tak, zakończ quiz</button>`);\n  return true;\n }\n if(navStack.length){\n  route=navStack.pop();renderRoute();return true;\n }\n return false;\n}\nwindow.NurseStudyNavigation={back:backInApp};\n\nfunction startDailyPlan(){\n const steps=buildDailyPlan();\n if(!steps.length){toast(\'Nie masz teraz zaległego planu.\');return go(\'quiz\')}\n dailyPlanSession={steps,index:0,startedAt:Date.now()};\n runDailyPlanStep();\n}\nfunction runDailyPlanStep(){\n if(!dailyPlanSession)return go(\'dashboard\');\n const step=dailyPlanSession.steps[dailyPlanSession.index];\n if(!step)return finishDailyPlan();\n if(step.type===\'flash\')return startFlash(\'mixed\',step.ids,{dailyPlan:true});\n if(step.type===\'quiz\')return startQuiz(step.subject||\'mixed\',step.ids,{mode:step.mode||\'Plan dnia\',dailyPlan:true,count:\'all\'});\n}\nfunction continueDailyPlan(){\n if(!dailyPlanSession)return go(\'dashboard\');\n dailyPlanSession.index++;\n if(dailyPlanSession.index>=dailyPlanSession.steps.length)return finishDailyPlan();\n runDailyPlanStep();\n}\nfunction finishDailyPlan(){\n const count=dailyPlanSession?.steps.length||0;\n state.dailyPlansCompleted=(state.dailyPlansCompleted||0)+1;state.xp+=20;save();\n dailyPlanSession=null;quizSession=null;flashSession=null;\n go(\'dashboard\',{},false);\n toast(`Plan dnia ukończony · ${count} etapy · +20 XP`);\n notifyNativeQuizCompleted();\n}\n'
+txt=replace_between(txt,"function resetState(){","\ndocument.addEventListener('click'",NEW_ROUTING)
+
+# click handler changes
+txt=txt.replace("const s=e.target.closest('[data-subject]');if(s)return renderSubject(s.dataset.subject);",
+                "const s=e.target.closest('[data-subject]');if(s)return go('subject',{subject:s.dataset.subject});")
+txt=txt.replace("const l=e.target.closest('[data-lesson]');if(l){const [sid,lid]=l.dataset.lesson.split(':');return renderLesson(sid,lid)}",
+                "const l=e.target.closest('[data-lesson]');if(l){const [sid,lid]=l.dataset.lesson.split(':');return go('lesson',{subject:sid,lesson:lid})}")
+txt=txt.replace("const setup=e.target.closest('[data-quiz-setup]');if(setup)return renderQuizSetup(setup.dataset.quizSetup);",
+                "const setup=e.target.closest('[data-quiz-setup]');if(setup)return go('quizSetup',{subject:setup.dataset.quizSetup});")
+txt=txt.replace("const q=e.target.closest('[data-start-quiz]');if(q)return renderQuizSetup(q.dataset.startQuiz);",
+                "const q=e.target.closest('[data-start-quiz]');if(q)return go('quizSetup',{subject:q.dataset.startQuiz});")
+txt=txt.replace("if(e.target.closest('[data-confirm-exit-quiz]')){document.querySelector('#modal-root').innerHTML='';quizSession=null;return go('quiz')}",
+                "if(e.target.closest('[data-confirm-exit-quiz]')){document.querySelector('#modal-root').innerHTML='';quizSession=null;dailyPlanSession=null;if(navStack.length){route=navStack.pop();return renderRoute()}return go('quiz',{},false)}")
+txt=txt.replace("if(e.target.closest('#flashcard'))document.querySelector('#flashcard').classList.toggle('flipped');",
+                "if(e.target.closest('#flashcard'))return revealFlash();")
+txt=txt.replace("""if(e.target.closest('[data-review-flash]')){
+  const ids=[...new Set([...getDueFlashcards().map(f=>f.id),...state.hardFlashcards])];
+  return startFlash('mixed',ids);
+ }""",
+                "if(e.target.closest('[data-review-flash]'))return startFlash('mixed',getDueFlashcards().map(f=>f.id));")
+
+needle="document.addEventListener('click',e=>{\n"
+insert="""document.addEventListener('click',e=>{
+ if(e.target.closest('[data-start-daily]'))return startDailyPlan();
+ if(e.target.closest('[data-daily-continue]'))return continueDailyPlan();
+ const cont=e.target.closest('[data-continue-lesson]');if(cont){const [sid,lid]=cont.dataset.continueLesson.split(':');return go('lesson',{subject:sid,lesson:lid})}
+"""
+txt=txt.replace(needle,insert,1)
+
+txt=txt.replace("document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&document.activeElement?.id==='flashcard'){e.preventDefault();document.querySelector('#flashcard').classList.toggle('flipped')}});",
+                "document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&document.activeElement?.id==='flashcard'){e.preventDefault();revealFlash()}});")
+txt=txt.replace("renderNav();renderDashboard();","route={name:'dashboard'};renderNav();renderDashboard();setTimeout(syncNativeAds,150);")
+
+# final minor corrections
+txt=txt.replace(
+"dailyPlanSession=null;quizSession=null;flashSession=null;\n go('dashboard',{},false);",
+"dailyPlanSession=null;quizSession=null;flashSession=null;navStack=[];\n go('dashboard',{},false);"
+)
+txt=txt.replace(
+"<h2>Fiszki z powtórkami rozłożonymi w czasie</h2><p>Oceń odpowiedź jako „Nie pamiętam”, „Trudne”, „Dobrze” lub „Łatwe”. Kolejny termin zostanie zapisany lokalnie na urządzeniu.</p>",
+"<h2>Fiszki z powtórkami rozłożonymi w czasie</h2><p>Najpierw odpowiedz w głowie i odkryj tył fiszki. Dopiero potem oceń ją jako „Nie pamiętam”, „Trudne”, „Dobrze” lub „Łatwe”.</p>"
+)
+
+app.write_text(txt)
+
+# native Android wrapper
+JAVA='package pl.nursestudy.app;\n\nimport android.app.Activity;\nimport android.content.Intent;\nimport android.net.Uri;\nimport android.os.Bundle;\nimport android.util.DisplayMetrics;\nimport android.view.View;\nimport android.webkit.JavascriptInterface;\nimport android.webkit.WebResourceRequest;\nimport android.webkit.WebSettings;\nimport android.webkit.WebView;\nimport android.webkit.WebViewClient;\nimport android.widget.FrameLayout;\nimport android.widget.LinearLayout;\nimport android.widget.Toast;\n\nimport com.google.android.gms.ads.AdError;\nimport com.google.android.gms.ads.AdListener;\nimport com.google.android.gms.ads.AdRequest;\nimport com.google.android.gms.ads.AdSize;\nimport com.google.android.gms.ads.AdView;\nimport com.google.android.gms.ads.FullScreenContentCallback;\nimport com.google.android.gms.ads.LoadAdError;\nimport com.google.android.gms.ads.MobileAds;\nimport com.google.android.gms.ads.interstitial.InterstitialAd;\nimport com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;\nimport com.google.android.ump.ConsentInformation;\nimport com.google.android.ump.ConsentRequestParameters;\nimport com.google.android.ump.UserMessagingPlatform;\n\npublic class MainActivity extends Activity {\n    private WebView webView;\n    priva
