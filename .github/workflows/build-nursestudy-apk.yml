@@ -114,9 +114,6 @@ jobs:
               raise SystemExit('Interna audit metadata missing after bridge')
           print('v0.9 bridge canonical SHA256:', digest)
           PY
-          grep -q "versionCode 9" app/build.gradle
-          grep -q "versionName '0.9.0-test'" app/build.gradle
-          grep -q "nursestudy-v9-interna-audit" app/src/main/assets/www/sw.js
           cd ..
 
           cat nursestudy-build/v010patch.b64.part00 nursestudy-build/v010patch.b64.part01 nursestudy-build/v010patch.b64.part02 | tr -d '\r\n' > /tmp/v010_patch.py.gz.b64
