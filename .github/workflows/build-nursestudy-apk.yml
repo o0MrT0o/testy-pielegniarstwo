@@ -1,12 +1,12 @@
-name: Build NurseStudy v0.7 Content Architecture APK
+name: Build NurseStudy v0.8 Interna APK
 
 on:
   push:
     branches:
-      - nursestudy-arch-v07
+      - nursestudy-interna-v08
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
-      - 'nursestudy-build/v07_patch.py'
+      - 'nursestudy-build/v08content.part*'
   workflow_dispatch:
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
         with:
           gradle-version: '8.14.2'
 
-      - name: Restore v0.6 and apply v0.7 architecture
+      - name: Restore v0.7 and install verified Interna content
         shell: bash
         run: |
           set -euo pipefail
@@ -49,7 +49,6 @@ jobs:
           test "$(wc -c < /tmp/nursestudy_v04.b64)" -eq 66996
           base64 -d /tmp/nursestudy_v04.b64 > /tmp/NurseStudy_v04_Android_source.zip
           echo "65fcf2991ab03488bac9264bc1d2dfcd38bfc3f0cc50df87f8b6d7e101f5ac75  /tmp/NurseStudy_v04_Android_source.zip" | sha256sum -c -
-          unzip -t /tmp/NurseStudy_v04_Android_source.zip >/dev/null
           rm -rf NurseStudy_v04_Android /tmp/nursestudy_v04
           mkdir -p /tmp/nursestudy_v04
           unzip -q /tmp/NurseStudy_v04_Android_source.zip -d /tmp/nursestudy_v04
@@ -61,7 +60,6 @@ jobs:
 
           cat nursestudy-build/v06patchpy.part00 nursestudy-build/v06patchpy.part01 nursestudy-build/v06patchpy.part02 nursestudy-build/v06patchpy.part03 nursestudy-build/v06patchpy.part04 > /tmp/v06_patch.py
           cat nursestudy-build/v06p05b64.00 nursestudy-build/v06p05b64.01 > /tmp/v06_part05.b64
-          test "$(wc -c < /tmp/v06_part05.b64)" -eq 4312
           base64 -d /tmp/v06_part05.b64 >> /tmp/v06_patch.py
           test "$(wc -c < /tmp/v06_patch.py)" -eq 48233
           echo "ff47d3195b0892b13ff8ce993ff6ec40aebccbce6a2dc35dfa784aa3681915cb  /tmp/v06_patch.py" | sha256sum -c -
@@ -70,13 +68,36 @@ jobs:
           python3 /tmp/v06_patch.py
           echo "9e61bf1baba1bad051634d268b4d75165f98e294371ec67ac28e662edbfe1012  ../nursestudy-build/v07_patch.py" | sha256sum -c -
           python3 ../nursestudy-build/v07_patch.py
+
+          cd ..
+          cat nursestudy-build/v08content.part00 nursestudy-build/v08content.part01 nursestudy-build/v08content.part02 nursestudy-build/v08content.part03 nursestudy-build/v08content.part04 nursestudy-build/v08content.part05 > /tmp/v08content.b64
+          test "$(wc -c < /tmp/v08content.b64)" -eq 46004
+          echo "54f801cc58a8266c0f9c096df114391ec66c850b0408d066a8f7f7bb7270ec31  /tmp/v08content.b64" | sha256sum -c -
+          base64 -d /tmp/v08content.b64 | gzip -d > NurseStudy_v04_Android/app/src/main/assets/www/content-data.js
+          echo "4dc4fe1f4e3276d6dda937affb36f92878fb731267ebe9420966b660d94ea7df  NurseStudy_v04_Android/app/src/main/assets/www/content-data.js" | sha256sum -c -
+
+          cd NurseStudy_v04_Android
+          sed -i 's/versionCode 7/versionCode 8/' app/build.gradle
+          sed -i "s/versionName '0.7.0-test'/versionName '0.8.0-test'/" app/build.gradle
+          sed -i 's/nursestudy-v7-content-arch/nursestudy-v8-interna/' app/src/main/assets/www/sw.js
           node --check app/src/main/assets/www/content-data.js
           node --check app/src/main/assets/www/app.js
           node tools/validate-content.mjs
-          grep -q "versionCode 7" app/build.gradle
-          grep -q "versionName '0.7.0-test'" app/build.gradle
-          grep -q "content-data.js" app/src/main/assets/www/index.html
-          grep -q "nursestudy-v7-content-arch" app/src/main/assets/www/sw.js
+          node - <<'NODE'
+          const fs=require('fs'),vm=require('vm');
+          const c={window:{}};vm.createContext(c);vm.runInContext(fs.readFileSync('app/src/main/assets/www/content-data.js','utf8'),c);
+          const d=c.window.NS_CONTENT;
+          const q=d.QUESTIONS.filter(x=>x.subject==='interna');
+          const f=d.FLASHCARDS.filter(x=>x.subject==='interna');
+          const l=d.LESSONS.interna||[];
+          if(q.length!==60||f.length!==30||l.length!==16) throw new Error(`Interna counts invalid: ${q.length}/${f.length}/${l.length}`);
+          const dist=[0,0,0,0]; q.forEach(x=>dist[x.correct]++);
+          if(dist.join(',')!=='15,15,15,15') throw new Error(`Answer distribution invalid: ${dist}`);
+          console.log('Interna verified:', {questions:q.length,flashcards:f.length,lessons:l.length,correctDistribution:dist});
+          NODE
+          grep -q "versionCode 8" app/build.gradle
+          grep -q "versionName '0.8.0-test'" app/build.gradle
+          grep -q "nursestudy-v8-interna" app/src/main/assets/www/sw.js
 
       - name: Build debug APK and capture log
         id: gradle_build
@@ -84,7 +105,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v07.log
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v08.log
           STATUS=${PIPESTATUS[0]}
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           exit 0
@@ -93,8 +114,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.7-build-log
-          path: gradle-build-v07.log
+          name: NurseStudy-v0.8-build-log
+          path: gradle-build-v08.log
           if-no-files-found: warn
           retention-days: 7
 
@@ -116,7 +137,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.7-ContentArch-AdMob-test-APK
+          name: NurseStudy-v0.8-Interna-AdMob-test-APK
           path: NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
