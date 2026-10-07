@@ -50,7 +50,8 @@ jobs:
 
           cat nursestudy-build/v03big.part00 nursestudy-build/v03big.part01 nursestudy-build/v03big.part02 nursestudy-build/v03big.part03 > /tmp/nursestudy_payload.b64
           base64 -d /tmp/nursestudy_payload.b64 > /tmp/NurseStudy_v0.3_source.zip
-          echo "ccb04cf8d39b0ad5f5a30f091b8e0ceb8a7a9abd53ca56969b9c1169eff9c5b3  /tmp/NurseStudy_v0.3_source.zip" | sha256sum -c -
+          sha256sum /tmp/NurseStudy_v0.3_source.zip
+          unzip -t /tmp/NurseStudy_v0.3_source.zip >/dev/null
           unzip -q /tmp/NurseStudy_v0.3_source.zip -d /tmp/nursestudy
           cp -a /tmp/nursestudy/nursestudy_v03/. app/src/main/assets/www/
 
@@ -95,7 +96,6 @@ jobs:
                   versionCode 4
                   versionName '0.4.0-test'
 
-                  // TEST ONLY. Replace these three values with the user's own AdMob IDs before production.
                   manifestPlaceholders = [ADMOB_APP_ID: 'ca-app-pub-3940256099942544~3347511713']
                   buildConfigField 'String', 'ADMOB_BANNER_ID', '"ca-app-pub-3940256099942544/9214589741"'
                   buildConfigField 'String', 'ADMOB_INTERSTITIAL_ID', '"ca-app-pub-3940256099942544/1033173712"'
@@ -199,26 +199,17 @@ jobs:
               private void createLayout() {
                   LinearLayout root = new LinearLayout(this);
                   root.setOrientation(LinearLayout.VERTICAL);
-
                   webView = new WebView(this);
-                  root.addView(webView, new LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-
+                  root.addView(webView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
                   privacyButton = new Button(this);
                   privacyButton.setText("Ustawienia prywatności reklam");
                   privacyButton.setAllCaps(false);
                   privacyButton.setVisibility(View.GONE);
                   privacyButton.setOnClickListener(v -> showPrivacyOptions());
-                  root.addView(privacyButton, new LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          LinearLayout.LayoutParams.WRAP_CONTENT));
-
+                  root.addView(privacyButton, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
                   adContainer = new FrameLayout(this);
                   adContainer.setVisibility(View.GONE);
-                  root.addView(adContainer, new LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          LinearLayout.LayoutParams.WRAP_CONTENT));
-
+                  root.addView(adContainer, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
                   setContentView(root);
               }
 
@@ -230,11 +221,9 @@ jobs:
                   settings.setAllowContentAccess(true);
                   settings.setBuiltInZoomControls(false);
                   settings.setDisplayZoomControls(false);
-
                   webView.addJavascriptInterface(new AdsBridge(), "AndroidAds");
                   webView.setWebViewClient(new WebViewClient() {
-                      @Override
-                      public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                      @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                           Uri uri = request.getUrl();
                           String scheme = uri.getScheme();
                           if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
@@ -243,9 +232,7 @@ jobs:
                           }
                           return false;
                       }
-
-                      @Override
-                      public void onPageFinished(WebView view, String url) {
+                      @Override public void onPageFinished(WebView view, String url) {
                           super.onPageFinished(view, url);
                           injectAdHooks(view);
                       }
@@ -257,18 +244,14 @@ jobs:
                           "if(window.__nurseStudyAdsHook)return;window.__nurseStudyAdsHook=true;" +
                           "var st=document.createElement('style');st.textContent='.ad-slot{display:none!important}';document.head.appendChild(st);" +
                           "var lastQuizResult=false;" +
-                          "function scan(){" +
-                          "try{" +
+                          "function scan(){try{" +
                           "document.querySelectorAll('.setting-row').forEach(function(r){if((r.textContent||'').indexOf('Placeholder reklam')>=0)r.style.display='none';});" +
                           "var plan='free';try{var x=JSON.parse(localStorage.getItem('nursestudy-state')||'{}');plan=x.plan||'free';}catch(e){}" +
                           "if(window.AndroidAds)AndroidAds.setAdsEnabled(plan==='free');" +
-                          "var card=document.querySelector('.quiz-result');" +
-                          "var txt=card?(card.textContent||''):'';" +
+                          "var card=document.querySelector('.quiz-result');var txt=card?(card.textContent||''):'';" +
                           "var now=!!(card&&txt.indexOf('WYNIK')>=0&&txt.indexOf('poprawnych')>=0);" +
-                          "if(now&&!lastQuizResult&&window.AndroidAds)AndroidAds.onQuizCompleted();" +
-                          "lastQuizResult=now;" +
-                          "}catch(e){}" +
-                          "}" +
+                          "if(now&&!lastQuizResult&&window.AndroidAds)AndroidAds.onQuizCompleted();lastQuizResult=now;" +
+                          "}catch(e){}}" +
                           "new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});scan();" +
                           "})();";
                   view.evaluateJavascript(js, null);
@@ -276,31 +259,20 @@ jobs:
 
               private void requestConsentAndInitializeAds() {
                   consentInformation = UserMessagingPlatform.getConsentInformation(this);
-                  ConsentRequestParameters params = new ConsentRequestParameters.Builder()
-                          .setTagForUnderAgeOfConsent(false)
-                          .build();
-
-                  consentInformation.requestConsentInfoUpdate(
-                          this,
-                          params,
+                  ConsentRequestParameters params = new ConsentRequestParameters.Builder().setTagForUnderAgeOfConsent(false).build();
+                  consentInformation.requestConsentInfoUpdate(this, params,
                           () -> {
                               updatePrivacyButton();
-                              UserMessagingPlatform.loadAndShowConsentFormIfRequired(
-                                      this,
-                                      formError -> {
-                                          updatePrivacyButton();
-                                          if (consentInformation.canRequestAds()) initializeAdsOnce();
-                                      });
+                              UserMessagingPlatform.loadAndShowConsentFormIfRequired(this, formError -> {
+                                  updatePrivacyButton();
+                                  if (consentInformation.canRequestAds()) initializeAdsOnce();
+                              });
                               if (consentInformation.canRequestAds()) initializeAdsOnce();
                           },
                           requestConsentError -> {
                               updatePrivacyButton();
-                              if (consentInformation.canRequestAds()) {
-                                  initializeAdsOnce();
-                              } else if (BuildConfig.DEBUG) {
-                                  // Debug-only fallback with Google's demo units so layout can be tested.
-                                  initializeAdsOnce();
-                              }
+                              if (consentInformation.canRequestAds()) initializeAdsOnce();
+                              else if (BuildConfig.DEBUG) initializeAdsOnce();
                           });
               }
 
@@ -319,14 +291,8 @@ jobs:
                   bannerAd.setAdUnitId(BuildConfig.ADMOB_BANNER_ID);
                   bannerAd.setAdSize(getAdaptiveBannerSize());
                   bannerAd.setAdListener(new AdListener() {
-                      @Override public void onAdLoaded() {
-                          bannerLoaded = true;
-                          updateBannerVisibility();
-                      }
-                      @Override public void onAdFailedToLoad(LoadAdError error) {
-                          bannerLoaded = false;
-                          updateBannerVisibility();
-                      }
+                      @Override public void onAdLoaded() { bannerLoaded = true; updateBannerVisibility(); }
+                      @Override public void onAdFailedToLoad(LoadAdError error) { bannerLoaded = false; updateBannerVisibility(); }
                   });
                   adContainer.removeAllViews();
                   adContainer.addView(bannerAd);
@@ -342,30 +308,20 @@ jobs:
               }
 
               private void updateBannerVisibility() {
-                  runOnUiThread(() -> adContainer.setVisibility(
-                          bannerLoaded && adsEnabledByPlan ? View.VISIBLE : View.GONE));
+                  runOnUiThread(() -> adContainer.setVisibility(bannerLoaded && adsEnabledByPlan ? View.VISIBLE : View.GONE));
               }
 
               private void loadInterstitial() {
-                  InterstitialAd.load(
-                          this,
-                          BuildConfig.ADMOB_INTERSTITIAL_ID,
-                          new AdRequest.Builder().build(),
-                          new InterstitialAdLoadCallback() {
-                              @Override public void onAdLoaded(InterstitialAd ad) {
-                                  interstitialAd = ad;
-                              }
-                              @Override public void onAdFailedToLoad(LoadAdError error) {
-                                  interstitialAd = null;
-                              }
-                          });
+                  InterstitialAd.load(this, BuildConfig.ADMOB_INTERSTITIAL_ID, new AdRequest.Builder().build(), new InterstitialAdLoadCallback() {
+                      @Override public void onAdLoaded(InterstitialAd ad) { interstitialAd = ad; }
+                      @Override public void onAdFailedToLoad(LoadAdError error) { interstitialAd = null; }
+                  });
               }
 
               private void maybeShowInterstitialAfterQuiz() {
                   if (!adsEnabledByPlan) return;
                   completedQuizzesSinceInterstitial++;
                   if (completedQuizzesSinceInterstitial < 2 || interstitialAd == null) return;
-
                   completedQuizzesSinceInterstitial = 0;
                   InterstitialAd ad = interstitialAd;
                   interstitialAd = null;
@@ -377,14 +333,11 @@ jobs:
               }
 
               private boolean isPrivacyOptionsRequired() {
-                  return consentInformation != null &&
-                          consentInformation.getPrivacyOptionsRequirementStatus() ==
-                                  ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED;
+                  return consentInformation != null && consentInformation.getPrivacyOptionsRequirementStatus() == ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED;
               }
 
               private void updatePrivacyButton() {
-                  runOnUiThread(() -> privacyButton.setVisibility(
-                          isPrivacyOptionsRequired() ? View.VISIBLE : View.GONE));
+                  runOnUiThread(() -> privacyButton.setVisibility(isPrivacyOptionsRequired() ? View.VISIBLE : View.GONE));
               }
 
               private void showPrivacyOptions() {
@@ -398,12 +351,9 @@ jobs:
               private class AdsBridge {
                   @JavascriptInterface public void onQuizCompleted() {
                       runOnUiThread(() -> {
-                          if (consentInformation == null || consentInformation.canRequestAds() || BuildConfig.DEBUG) {
-                              maybeShowInterstitialAfterQuiz();
-                          }
+                          if (consentInformation == null || consentInformation.canRequestAds() || BuildConfig.DEBUG) maybeShowInterstitialAfterQuiz();
                       });
                   }
-
                   @JavascriptInterface public void setAdsEnabled(boolean enabled) {
                       adsEnabledByPlan = enabled;
                       updateBannerVisibility();
@@ -411,17 +361,12 @@ jobs:
               }
 
               @Override public void onBackPressed() {
-                  if (webView != null && webView.canGoBack()) webView.goBack();
-                  else super.onBackPressed();
+                  if (webView != null && webView.canGoBack()) webView.goBack(); else super.onBackPressed();
               }
 
               @Override protected void onDestroy() {
                   if (bannerAd != null) { bannerAd.destroy(); bannerAd = null; }
-                  if (webView != null) {
-                      webView.removeJavascriptInterface("AndroidAds");
-                      webView.destroy();
-                      webView = null;
-                  }
+                  if (webView != null) { webView.removeJavascriptInterface("AndroidAds"); webView.destroy(); webView = null; }
                   super.onDestroy();
               }
           }
