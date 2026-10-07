@@ -1,12 +1,12 @@
-name: Build NurseStudy v0.8 Interna APK
+name: Build NurseStudy v0.9 Audited Interna APK
 
 on:
   push:
     branches:
-      - nursestudy-interna-v08
+      - nursestudy-interna-audit-v09
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
-      - 'nursestudy-build/v08content.part*'
+      - 'nursestudy-build/v09_audit_patch.py'
   workflow_dispatch:
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
         with:
           gradle-version: '8.14.2'
 
-      - name: Restore v0.7 and install verified Interna content
+      - name: Restore v0.8 and apply audited v0.9 Interna
         shell: bash
         run: |
           set -euo pipefail
@@ -70,7 +70,6 @@ jobs:
           python3 ../nursestudy-build/v07_patch.py
 
           cd ..
-          # part00 acquired one transport byte on upload; retain only the exact 8000-byte payload chunk.
           head -c 8000 nursestudy-build/v08content.part00 > /tmp/v08content.b64
           cat nursestudy-build/v08content.part01 nursestudy-build/v08content.part02 nursestudy-build/v08content.part03 nursestudy-build/v08content.part04 nursestudy-build/v08content.part05 >> /tmp/v08content.b64
           test "$(wc -c < /tmp/v08content.b64)" -eq 46004
@@ -82,24 +81,37 @@ jobs:
           sed -i 's/versionCode 7/versionCode 8/' app/build.gradle
           sed -i "s/versionName '0.7.0-test'/versionName '0.8.0-test'/" app/build.gradle
           sed -i 's/nursestudy-v7-content-arch/nursestudy-v8-interna/' app/src/main/assets/www/sw.js
+
+          echo "4481d7304a4525a4fe48f941cf8574375173dab20db5e8e081b38e9134ba5568  ../nursestudy-build/v09_audit_patch.py" | sha256sum -c -
+          python3 ../nursestudy-build/v09_audit_patch.py
+
           node --check app/src/main/assets/www/content-data.js
           node --check app/src/main/assets/www/app.js
           node tools/validate-content.mjs
-          node - <<'NODE'
-          const fs=require('fs'),vm=require('vm');
-          const c={window:{}};vm.createContext(c);vm.runInContext(fs.readFileSync('app/src/main/assets/www/content-data.js','utf8'),c);
-          const d=c.window.NS_CONTENT;
-          const q=d.QUESTIONS.filter(x=>x.subject==='interna');
-          const f=d.FLASHCARDS.filter(x=>x.subject==='interna');
-          const l=d.LESSONS.interna||[];
-          if(q.length!==60||f.length!==30||l.length!==16) throw new Error(`Interna counts invalid: ${q.length}/${f.length}/${l.length}`);
-          const dist=[0,0,0,0]; q.forEach(x=>dist[x.correct]++);
-          if(dist.join(',')!=='15,15,15,15') throw new Error(`Answer distribution invalid: ${dist}`);
-          console.log('Interna verified:', {questions:q.length,flashcards:f.length,lessons:l.length,correctDistribution:dist});
-          NODE
-          grep -q "versionCode 8" app/build.gradle
-          grep -q "versionName '0.8.0-test'" app/build.gradle
-          grep -q "nursestudy-v8-interna" app/src/main/assets/www/sw.js
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,hashlib
+          s=Path('app/src/main/assets/www/content-data.js').read_text()
+          m=re.search(r"window\.NS_CONTENT\s*=\s*(\{.*\});\s*\n\}\)\(\);?\s*$",s,re.S)
+          if not m: raise SystemExit('NS_CONTENT parse failure')
+          db=json.loads(m.group(1))
+          canonical=json.dumps(db,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()
+          digest=hashlib.sha256(canonical).hexdigest()
+          expected='150d84d9c72be9c22afce257b0642c937d948b44071a0df7a3780eef01257f9c'
+          if digest != expected: raise SystemExit(f'Canonical audit payload mismatch: {digest}')
+          q=[x for x in db['QUESTIONS'] if x['subject']=='interna']
+          f=[x for x in db['FLASHCARDS'] if x['subject']=='interna']
+          l=db['LESSONS'].get('interna',[])
+          if (len(q),len(f),len(l)) != (60,30,16): raise SystemExit(f'Interna counts invalid: {len(q)}/{len(f)}/{len(l)}')
+          if len(db['MEDICAL_SOURCES']) != 44: raise SystemExit('Expected 44 medical sources')
+          if db.get('AUDIT_META',{}).get('version') != 'v0.9-claim-audit': raise SystemExit('AUDIT_META missing')
+          print('Audited Interna canonical SHA256:',digest)
+          PY
+
+          grep -q "versionCode 9" app/build.gradle
+          grep -q "versionName '0.9.0-test'" app/build.gradle
+          grep -q "nursestudy-v9-interna-audit" app/src/main/assets/www/sw.js
 
       - name: Build debug APK and capture log
         id: gradle_build
@@ -107,7 +119,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v08.log
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v09.log
           STATUS=${PIPESTATUS[0]}
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           exit 0
@@ -116,8 +128,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.8-build-log
-          path: gradle-build-v08.log
+          name: NurseStudy-v0.9-build-log
+          path: gradle-build-v09.log
           if-no-files-found: warn
           retention-days: 7
 
@@ -139,7 +151,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.8-Interna-AdMob-test-APK
+          name: NurseStudy-v0.9-Interna-Audited-AdMob-test-APK
           path: NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
