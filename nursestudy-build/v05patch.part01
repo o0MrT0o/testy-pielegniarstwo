@@ -1,0 +1,61 @@
+topic)}"><div><strong>${topic}</strong><small>${n} ${n===1?'pytanie':'pytań'}</small></div><span>Start →</span></button>`}).join('')}</section>`:''}
++ <div class="section-title"><h3>Twoje wyniki</h3></div>
++ <section class="grid grid-3">${statCard('▣',history.length,'ukończonych quizów')}${statCard('★',best===null?'—':best+'%','najlepszy wynik')}${statCard('↻',wrong,'pytań do powtórki')}</section>
++ </section>`;
++}
++function startQuiz(subject='mixed',ids=null,options={}){
++ let pool=ids?QUESTIONS.filter(q=>ids.includes(q.id)):quizPool(subject,options.topic||null);
++ if(!pool.length){toast('Dla tego zestawu nie ma pytań.');return go('quiz')}
++ const requested=options.count==='all'||options.count==null?pool.length:Number(options.count);
++ pool=shuffle(pool).slice(0,Math.min(requested,pool.length));
++ quizSession={
++  pool,index:0,score:0,answered:false,selected:null,reviewMode:Boolean(ids),
++  subject,topic:options.topic||null,mode:options.mode||(ids?'Powtórka':requested===pool.length?'Pełny bank':`${pool.length} pytań`),
++  startedAt:Date.now(),mistakes:[],responses:[]
++ };
+  route={name:'quizSession',subject};renderNav();renderQuizQuestion();
+ }
+ function renderQuizHub(){
+  setHeader('Sprawdź wiedzę','Quizy');
+  const qs=SUBJECTS.filter(s=>QUESTIONS.some(q=>q.subject===s.id));
+- main.innerHTML=`<div class="page-head"><div><h2>Quizy ze źródłami</h2><p>Każde pytanie ma wyjaśnienie i przypisane źródło. Błędne odpowiedzi wracają do powtórek, a pytanie znika z listy dopiero po dwóch kolejnych poprawnych odpowiedziach.</p></div><button class="primary" data-start-quiz="mixed">Losowy quiz</button></div>
+- <section class="grid grid-3">${qs.map(s=>{const sq=QUESTIONS.filter(q=>q.subject===s.id),topics=new Set(sq.map(q=>q.topic).filter(Boolean)).size;return `<article class="card subject-card"><div class="subject-icon">${s.icon}</div><h4>${s.name}</h4><p>${sq.length} zweryfikowanych pytań${topics?` · ${topics} działów tematycznych`:''}.</p><button class="secondary" data-start-quiz="${s.id}">Start quizu</button></article>`}).join('')}</section>${adSlot()}`;
++ main.innerHTML=`<div class="page-head"><div><h2>Quizy ze źródłami</h2><p>Wybierz długość quizu, konkretny dział albo powtórkę błędów. Każde pytanie ma wyjaśnienie i przypisane źródło.</p></div><button class="primary" data-quiz-setup="mixed">Quiz mieszany</button></div>
++ <section class="grid grid-3">${qs.map(s=>{const sq=QUESTIONS.filter(q=>q.subject===s.id),topics=new Set(sq.map(q=>q.topic).filter(Boolean)).size,best=quizBest(s.id),sessions=quizHistoryFor(s.id).length;return `<article class="card subject-card"><div class="subject-icon">${s.icon}</div><h4>${s.name}</h4><p>${sq.length} zweryfikowanych pytań${topics?` · ${topics} działów`:''}.</p><div class="meta-row"><span>${sessions} sesji</span><span>•</span><span>rekord: ${best===null?'—':best+'%'}</span></div><button class="secondary" data-quiz-setup="${s.id}">Ustaw quiz</button></article>`}).join('')}</section>${adSlot()}`;
+ }
+ function renderQuizQuestion(){
+  const q=quizSession.pool[quizSession.index],subject=SUBJECTS.find(s=>s.id===q.subject);
+  setHeader('Quiz',`Pytanie ${quizSession.index+1} z ${quizSession.pool.length}`);
+- main.innerHTML=`<section class="quiz-shell"><div class="quiz-top"><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge">${subject?.name||'Mix'}</span>${q.topic?`<span class="badge">${q.topic}</span>`:''}</div><span style="color:var(--muted)">${quizSession.score} pkt</span></div>
++ const elapsed=Math.max(0,Math.floor((Date.now()-quizSession.startedAt)/60000));
++ main.innerHTML=`<section class="quiz-shell"><div class="quiz-top"><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge">${subject?.name||'Mix'}</span>${q.topic?`<span class="badge">${q.topic}</span>`:''}</div><span style="color:var(--muted)">${quizSession.score} pkt · ${elapsed} min</span></div>
+  <div class="progress"><span style="width:${quizSession.index/quizSession.pool.length*100}%"></span></div>
+  <article class="card question-card" style="margin-top:14px"><small style="color:var(--muted)">Wybierz jedną odpowiedź</small><h2>${q.q}</h2>
+  <div class="answer-list">${q.answers.map((a,i)=>`<button class="answer" data-answer="${i}">${String.fromCharCode(65+i)}. ${a}</button>`).join('')}</div>
+- <div id="feedback"></div><div class="quiz-footer"><button class="ghost" data-route="quiz">Zakończ</button><button class="primary hidden" id="next-q">${quizSession.index===quizSession.pool.length-1?'Zobacz wynik':'Następne pytanie'}</button></div></article></section>`;
++ <div id="feedback"></div><div class="quiz-footer"><button class="ghost" data-exit-quiz="1">Zakończ</button><button class="primary hidden" id="next-q">${quizSession.index===quizSession.pool.length-1?'Zobacz wynik':'Następne pytanie'}</button></div></article></section>`;
+ }
+ function answerQuiz(i){
+  if(quizSession.answered)return;
+  const q=quizSession.pool[quizSession.index];quizSession.answered=true;quizSession.selected=i;
+  const ok=i===q.correct;if(ok)quizSession.score++;
++ quizSession.responses.push({id:q.id,selected:i,correct:q.correct,ok});
++ if(!ok)quizSession.mistakes.push({id:q.id,q:q.q,selected:i,correct:q.correct,answers:q.answers,source:q.source,topic:q.topic,subject:q.subject});
+  state.questions++;if(ok)state.correct++;
+  const st=state.questionStats[q.id]||{streak:0,wrong:0};
+  if(ok){
+@@ -224,15 +274,22 @@
+ }
+ function nextQuiz(){if(quizSession.index<quizSession.pool.length-1){quizSession.index++;quizSession.answered=false;quizSession.selected=null;renderQuizQuestion()}else renderQuizResult()}
+ function renderQuizResult(){
+- const pct=Math.round(quizSession.score/quizSession.pool.length*100);state.xp+=quizSession.score*10;addStudyMinutes(Math.max(2,Math.ceil(quizSession.pool.length*.8)));save();
++ const total=quizSession.pool.length,pct=Math.round(quizSession.score/total*100);
++ const seconds=Math.max(1,Math.round((Date.now()-quizSession.startedAt)/1000));
++ const minutes=Math.floor(seconds/60),rest=seconds%60,timeLabel=minutes?`${minutes} min ${rest} s`:`${rest} s`;
++ const historyEntry={subject:quizSession.subject,topic:quizSession.topic,mode:quizSession.mode,pct,score:quizSession.score,total,seconds,date:Date.now()};
++ state.quizHistory.unshift(historyEntry);state.quizHistory=state.quizHistory.slice(0,60);
++ state.xp+=quizSession.score*10;addStudyMinutes(Math.max(2,Math.ceil(total*.8)));save();
+  setHeader('Quiz zakończony','Twój wynik');
+- main.innerHTML=`<section class="quiz-shell"><article class="card quiz-result"><span class="badge">WYNIK</span><div class="score">${pct}%</div><h2>${pct>=80?'Bardzo dobrze':pct>=60?'Dobry kierunek':'Warto zrobić powtórkę'}</h2>
+- <p style="color:var(--muted)">${quizSession.score} / ${quizSession.pool.length} poprawnych. Błędne pytania pozostają w powtórkach do uzyskania dwóch kolejnych poprawnych odpowiedzi.</p>
+- <div class="hero-actions" style="justify-content:center">
