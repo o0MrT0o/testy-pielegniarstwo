@@ -1,12 +1,12 @@
-name: Build NurseStudy v0.9 Audited Interna APK
+name: Build NurseStudy v1.0 Audited Pharmacology APK
 
 on:
   push:
     branches:
-      - nursestudy-interna-audit-v09
+      - nursestudy-pharmacology-audit-v10
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
-      - 'nursestudy-build/v09_audit_patch.py'
+      - 'nursestudy-build/v10_audit_patch.py'
   workflow_dispatch:
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
         with:
           gradle-version: '8.14.2'
 
-      - name: Restore v0.8 and apply audited v0.9 Interna
+      - name: Restore v0.9 and apply audited v1.0 Pharmacology
         shell: bash
         run: |
           set -euo pipefail
@@ -85,6 +85,9 @@ jobs:
           echo "4481d7304a4525a4fe48f941cf8574375173dab20db5e8e081b38e9134ba5568  ../nursestudy-build/v09_audit_patch.py" | sha256sum -c -
           python3 ../nursestudy-build/v09_audit_patch.py
 
+          echo "637a38b6b5fa3559203e6a5f7fbddeda960b375d67ec2d62a2b594515bcf1df9  ../nursestudy-build/v10_audit_patch.py" | sha256sum -c -
+          python3 ../nursestudy-build/v10_audit_patch.py
+
           node --check app/src/main/assets/www/content-data.js
           node --check app/src/main/assets/www/app.js
           node tools/validate-content.mjs
@@ -98,20 +101,25 @@ jobs:
           db=json.loads(m.group(1))
           canonical=json.dumps(db,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()
           digest=hashlib.sha256(canonical).hexdigest()
-          expected='150d84d9c72be9c22afce257b0642c937d948b44071a0df7a3780eef01257f9c'
+          expected='8c0c3b31b377cb58ffd887bc63b8bf3ceead0889ff97cf05180c4ed79e8d08e6'
           if digest != expected: raise SystemExit(f'Canonical audit payload mismatch: {digest}')
-          q=[x for x in db['QUESTIONS'] if x['subject']=='interna']
-          f=[x for x in db['FLASHCARDS'] if x['subject']=='interna']
-          l=db['LESSONS'].get('interna',[])
-          if (len(q),len(f),len(l)) != (60,30,16): raise SystemExit(f'Interna counts invalid: {len(q)}/{len(f)}/{len(l)}')
-          if len(db['MEDICAL_SOURCES']) != 44: raise SystemExit('Expected 44 medical sources')
-          if db.get('AUDIT_META',{}).get('version') != 'v0.9-claim-audit': raise SystemExit('AUDIT_META missing')
-          print('Audited Interna canonical SHA256:',digest)
+          iq=[x for x in db['QUESTIONS'] if x['subject']=='interna']
+          iff=[x for x in db['FLASHCARDS'] if x['subject']=='interna']
+          il=db['LESSONS'].get('interna',[])
+          pq=[x for x in db['QUESTIONS'] if x['subject']=='farmakologia']
+          pf=[x for x in db['FLASHCARDS'] if x['subject']=='farmakologia']
+          pl=db['LESSONS'].get('farmakologia',[])
+          if (len(iq),len(iff),len(il)) != (60,30,16): raise SystemExit('Interna counts changed')
+          if (len(pq),len(pf),len(pl)) != (60,8,5): raise SystemExit(f'Farm counts invalid: {len(pq)}/{len(pf)}/{len(pl)}')
+          if len(db['MEDICAL_SOURCES']) != 53: raise SystemExit('Expected 53 medical sources')
+          if db.get('AUDIT_META',{}).get('version') != 'v0.9-claim-audit': raise SystemExit('Interna audit metadata missing')
+          if db.get('AUDIT_META',{}).get('farmakologia',{}).get('version') != 'v1.0-pharmacology-claim-audit': raise SystemExit('Pharmacology audit metadata missing')
+          print('Audited v1.0 canonical SHA256:',digest)
           PY
 
-          grep -q "versionCode 9" app/build.gradle
-          grep -q "versionName '0.9.0-test'" app/build.gradle
-          grep -q "nursestudy-v9-interna-audit" app/src/main/assets/www/sw.js
+          grep -q "versionCode 10" app/build.gradle
+          grep -q "versionName '1.0.0-test'" app/build.gradle
+          grep -q "nursestudy-v10-pharm-audit" app/src/main/assets/www/sw.js
 
       - name: Build debug APK and capture log
         id: gradle_build
@@ -119,7 +127,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v09.log
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v10.log
           STATUS=${PIPESTATUS[0]}
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           exit 0
@@ -128,8 +136,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.9-build-log
-          path: gradle-build-v09.log
+          name: NurseStudy-v1.0-build-log
+          path: gradle-build-v10.log
           if-no-files-found: warn
           retention-days: 7
 
@@ -151,7 +159,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.9-Interna-Audited-AdMob-test-APK
+          name: NurseStudy-v1.0-Pharmacology-Audited-AdMob-test-APK
           path: NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
