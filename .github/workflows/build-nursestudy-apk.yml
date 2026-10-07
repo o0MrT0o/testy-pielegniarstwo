@@ -1,12 +1,12 @@
-name: Build NurseStudy v0.5 Quiz APK
+name: Build NurseStudy v0.6 Core UX APK
 
 on:
   push:
     branches:
-      - nursestudy-quiz-v05
+      - nursestudy-core-v06
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
-      - 'nursestudy-build/v05patch.part*'
+      - 'nursestudy-build/v06patchpy.part*'
   workflow_dispatch:
 
 jobs:
@@ -41,10 +41,11 @@ jobs:
         with:
           gradle-version: '8.14.2'
 
-      - name: Restore v0.4 and apply v0.5 quiz patch
+      - name: Restore v0.5 and apply v0.6 fixes
         shell: bash
         run: |
           set -euo pipefail
+
           cat nursestudy-build/v04ads.part00 nursestudy-build/v04ads.part01 nursestudy-build/v04ads.part02 nursestudy-build/v04ads.part03 nursestudy-build/v04ads.part04 > /tmp/nursestudy_v04.b64
           test "$(wc -c < /tmp/nursestudy_v04.b64)" -eq 66996
           base64 -d /tmp/nursestudy_v04.b64 > /tmp/NurseStudy_v04_Android_source.zip
@@ -59,11 +60,21 @@ jobs:
           test "$(wc -c < /tmp/nursestudy_v05.patch)" -eq 24882
           patch -p4 < /tmp/nursestudy_v05.patch
 
-          node --check NurseStudy_v04_Android/app/src/main/assets/www/app.js
-          grep -q "versionCode 5" NurseStudy_v04_Android/app/build.gradle
-          grep -q "versionName '0.5.0-test'" NurseStudy_v04_Android/app/build.gradle
-          grep -q "nursestudy-v5-quiz" NurseStudy_v04_Android/app/src/main/assets/www/sw.js
-          grep -q "android.useAndroidX=true" NurseStudy_v04_Android/gradle.properties
+          cat nursestudy-build/v06patchpy.part00 nursestudy-build/v06patchpy.part01 nursestudy-build/v06patchpy.part02 nursestudy-build/v06patchpy.part03 nursestudy-build/v06patchpy.part04 nursestudy-build/v06patchpy.part05 > /tmp/v06_patch.py
+          test "$(wc -c < /tmp/v06_patch.py)" -eq 48233
+          echo "ff47d3195b0892b13ff8ce993ff6ec40aebccbce6a2dc35dfa784aa3681915cb  /tmp/v06_patch.py" | sha256sum -c -
+
+          cd NurseStudy_v04_Android
+          python3 /tmp/v06_patch.py
+          node --check app/src/main/assets/www/app.js
+          grep -q "versionCode 6" app/build.gradle
+          grep -q "versionName '0.6.0-test'" app/build.gradle
+          grep -q "play-services-ads:25.5.0" app/build.gradle
+          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+          grep -q "window.NurseStudyNavigation" app/src/main/assets/www/app.js
+          grep -q "setAdsEnabled" app/src/main/java/pl/nursestudy/app/MainActivity.java
+          grep -q "setBannerVisible" app/src/main/java/pl/nursestudy/app/MainActivity.java
+          grep -q "nursestudy-v6-core" app/src/main/assets/www/sw.js
 
       - name: Build debug APK and capture log
         id: gradle_build
@@ -71,7 +82,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v05.log
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v06.log
           STATUS=${PIPESTATUS[0]}
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           exit 0
@@ -80,8 +91,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.5-build-log
-          path: gradle-build-v05.log
+          name: NurseStudy-v0.6-build-log
+          path: gradle-build-v06.log
           if-no-files-found: warn
           retention-days: 7
 
@@ -103,7 +114,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.5-Quiz-AdMob-test-APK
+          name: NurseStudy-v0.6-CoreUX-AdMob-test-APK
           path: NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
