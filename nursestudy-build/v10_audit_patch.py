@@ -83,3 +83,4 @@ bg=root/'app/build.gradle'; t=bg.read_text(); t=t.replace('versionCode 9','versi
 sw=www/'sw.js'; sw.write_text(sw.read_text().replace('nursestudy-v9-interna-audit','nursestudy-v10-pharm-audit'))
 rd=root/'README.md'; rt=rd.read_text(); add='\n\n## v1.0 – audyt Farmakologii 1:1\nFarmakologia (5 lekcji, 60 pytań, 8 fiszek) została sprawdzona element po elemencie względem aktualnych źródeł. Skorygowano precyzję definicji hipoglikemii ADA, przypisanie źródeł dla warfaryny/DOAC, AWaRe 2025, LASA, high-alert oraz źródła dla ACEI, beta-adrenolityków, tiazydów i biegunki związanej z antybiotykami.\n';
 if '## v1.0 – audyt Farmakologii 1:1' not in rt: rd.write_text(rt+add)
+
