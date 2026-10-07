@@ -1,0 +1,21 @@
+sabled{opacity:.5;cursor:not-allowed}
++.topic-grid{align-items:stretch}.topic-option{appearance:none;color:var(--text);text-align:left;display:flex;justify-content:space-between;align-items:center;gap:14px;cursor:pointer;transition:border-color .16s ease,transform .16s ease}
++.topic-option:hover{border-color:var(--brand);transform:translateY(-1px)}.topic-option strong{display:block}.topic-option small{display:block;color:var(--muted);margin-top:3px}.topic-option>span{color:var(--brand);font-weight:850;white-space:nowrap}
++.result-shell{max-width:850px}.result-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}.result-stats>div{background:var(--surface-2);border-radius:14px;padding:13px}.result-stats strong{display:block;font-size:20px}.result-stats span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
++.result-errors{margin-top:16px;text-align:left}.mistake-row{display:grid;grid-template-columns:38px 1fr;gap:12px;padding:16px 0;border-top:1px solid var(--line)}.mistake-row:first-of-type{border-top:0}.mistake-number{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:color-mix(in srgb,var(--bad) 10%,var(--surface));color:var(--bad);font-weight:900}.mistake-row p{margin:7px 0;color:var(--muted)}.mistake-row small{color:var(--muted)}.bad-text{color:var(--bad);font-weight:800}.good-text{color:var(--good);font-weight:800}
++@media (max-width:700px){.quiz-mode-grid{grid-template-columns:1fr 1fr}.result-stats{grid-template-columns:1fr 1fr 1fr}}
++@media (max-width:520px){.quiz-mode-grid{grid-template-columns:1fr}.result-stats{grid-template-columns:1fr}.topic-option{align-items:flex-start}}
+diff -ruN /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/src/main/assets/www/sw.js /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/src/main/assets/www/sw.js
+--- /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/app/src/main/assets/www/sw.js	2026-10-07 10:41:48.000000000 +0000
++++ /mnt/data/nursestudy_v05/NurseStudy_v04_Android/app/src/main/assets/www/sw.js	2026-10-07 11:32:19.194162316 +0000
+@@ -1 +1 @@
+-const CACHE='nursestudy-v3-farm';const ASSETS=['./','index.html','styles.css','app.js','manifest.webmanifest','icon.svg'];self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).then(res=>{const copy=res.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return res}).catch(()=>caches.match('index.html'))))});
+\ No newline at end of file
++const CACHE='nursestudy-v5-quiz';const ASSETS=['./','index.html','styles.css','app.js','manifest.webmanifest','icon.svg'];self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).then(res=>{const copy=res.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return res}).catch(()=>caches.match('index.html'))))});
+\ No newline at end of file
+diff -ruN /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/gradle.properties /mnt/data/nursestudy_v05/NurseStudy_v04_Android/gradle.properties
+--- /mnt/data/nursestudy_v04_orig/NurseStudy_v04_Android/gradle.properties	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/nursestudy_v05/NurseStudy_v04_Android/gradle.properties	2026-10-07 11:23:13.000000000 +0000
+@@ -0,0 +1,2 @@
++android.useAndroidX=true
++android.enableJetifier=true
