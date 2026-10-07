@@ -1,12 +1,14 @@
-name: Build NurseStudy v0.9 Audited Interna APK
+name: Build NurseStudy v0.10 Audited Pharmacology APK
 
 on:
   push:
     branches:
-      - nursestudy-interna-audit-v09
+      - nursestudy-farmakologia-audit-v010
     paths:
       - '.github/workflows/build-nursestudy-apk.yml'
-      - 'nursestudy-build/v09_audit_patch.py'
+      - 'nursestudy-build/v010patch.b64.part00'
+      - 'nursestudy-build/v010patch.b64.part01'
+      - 'nursestudy-build/v010patch.b64.part02'
   workflow_dispatch:
 
 jobs:
@@ -41,7 +43,7 @@ jobs:
         with:
           gradle-version: '8.14.2'
 
-      - name: Restore v0.8 and apply audited v0.9 Interna
+      - name: Restore v0.9 and apply audited v0.10 Pharmacology
         shell: bash
         run: |
           set -euo pipefail
@@ -85,33 +87,62 @@ jobs:
           echo "4481d7304a4525a4fe48f941cf8574375173dab20db5e8e081b38e9134ba5568  ../nursestudy-build/v09_audit_patch.py" | sha256sum -c -
           python3 ../nursestudy-build/v09_audit_patch.py
 
-          node --check app/src/main/assets/www/content-data.js
-          node --check app/src/main/assets/www/app.js
-          node tools/validate-content.mjs
-
           python3 - <<'PY'
           from pathlib import Path
           import json,re,hashlib
           s=Path('app/src/main/assets/www/content-data.js').read_text()
           m=re.search(r"window\.NS_CONTENT\s*=\s*(\{.*\});\s*\n\}\)\(\);?\s*$",s,re.S)
-          if not m: raise SystemExit('NS_CONTENT parse failure')
+          if not m: raise SystemExit('v0.9 NS_CONTENT parse failure')
           db=json.loads(m.group(1))
           canonical=json.dumps(db,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()
           digest=hashlib.sha256(canonical).hexdigest()
-          expected='150d84d9c72be9c22afce257b0642c937d948b44071a0df7a3780eef01257f9c'
-          if digest != expected: raise SystemExit(f'Canonical audit payload mismatch: {digest}')
-          q=[x for x in db['QUESTIONS'] if x['subject']=='interna']
-          f=[x for x in db['FLASHCARDS'] if x['subject']=='interna']
-          l=db['LESSONS'].get('interna',[])
-          if (len(q),len(f),len(l)) != (60,30,16): raise SystemExit(f'Interna counts invalid: {len(q)}/{len(f)}/{len(l)}')
-          if len(db['MEDICAL_SOURCES']) != 44: raise SystemExit('Expected 44 medical sources')
-          if db.get('AUDIT_META',{}).get('version') != 'v0.9-claim-audit': raise SystemExit('AUDIT_META missing')
-          print('Audited Interna canonical SHA256:',digest)
+          if digest != '150d84d9c72be9c22afce257b0642c937d948b44071a0df7a3780eef01257f9c':
+              raise SystemExit(f'v0.9 canonical mismatch: {digest}')
           PY
 
-          grep -q "versionCode 9" app/build.gradle
-          grep -q "versionName '0.9.0-test'" app/build.gradle
-          grep -q "nursestudy-v9-interna-audit" app/src/main/assets/www/sw.js
+          cd ..
+          cat nursestudy-build/v010patch.b64.part00 nursestudy-build/v010patch.b64.part01 nursestudy-build/v010patch.b64.part02 | tr -d '\r\n' > /tmp/v010_patch.py.gz.b64
+          test "$(wc -c < /tmp/v010_patch.py.gz.b64)" -eq 13372
+          echo "8c67387ae244e8643990a56ed01ceb22b720f5df01101636c6849867d5364912  /tmp/v010_patch.py.gz.b64" | sha256sum -c -
+          base64 -d /tmp/v010_patch.py.gz.b64 | gzip -d > /tmp/v010_pharm_audit_patch.py
+          test "$(wc -c < /tmp/v010_pharm_audit_patch.py)" -eq 13333
+          echo "a81a9ebe92a8bf40a7cdf6b938b0df3aff4cc61c073960f0fef3941707e25500  /tmp/v010_pharm_audit_patch.py" | sha256sum -c -
+
+          cd NurseStudy_v04_Android
+          python3 /tmp/v010_pharm_audit_patch.py
+          node --check app/src/main/assets/www/content-data.js
+          node --check app/src/main/assets/www/app.js
+          node tools/validate-content.mjs
+          echo "6642505a3bef15a6dd96a7de0dcdc83e375d1e87dc75b052c560d627a61c598e  app/src/main/assets/www/content-data.js" | sha256sum -c -
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,hashlib,collections
+          s=Path('app/src/main/assets/www/content-data.js').read_text()
+          m=re.search(r"window\.NS_CONTENT\s*=\s*(\{.*\});\s*\n\}\)\(\);?\s*$",s,re.S)
+          if not m: raise SystemExit('v0.10 NS_CONTENT parse failure')
+          db=json.loads(m.group(1))
+          canonical=json.dumps(db,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()
+          digest=hashlib.sha256(canonical).hexdigest()
+          expected='92afd4f48b628a8ab0011caf81021dce3cd69d5338ddc8142852133c64f757f0'
+          if digest != expected: raise SystemExit(f'Canonical pharmacology audit mismatch: {digest}')
+          q=[x for x in db['QUESTIONS'] if x['subject']=='farmakologia']
+          f=[x for x in db['FLASHCARDS'] if x['subject']=='farmakologia']
+          l=db['LESSONS'].get('farmakologia',[])
+          if (len(q),len(f),len(l)) != (60,8,5): raise SystemExit(f'Farmakologia counts invalid: {len(q)}/{len(f)}/{len(l)}')
+          if len(db['MEDICAL_SOURCES']) != 59: raise SystemExit(f"Expected 59 medical sources, got {len(db['MEDICAL_SOURCES'])}")
+          if db.get('PHARM_AUDIT_META',{}).get('version') != 'v0.10-pharmacology-claim-audit': raise SystemExit('PHARM_AUDIT_META missing')
+          if db.get('AUDIT_META',{}).get('version') != 'v0.9-claim-audit': raise SystemExit('Interna AUDIT_META regression')
+          dist=collections.Counter(x['correct'] for x in q)
+          if dist != collections.Counter({2:17,1:16,0:14,3:13}): raise SystemExit(f'Answer distribution changed: {dist}')
+          print('Audited Pharmacology canonical SHA256:',digest)
+          print('Farmakologia:',len(l),'lessons',len(q),'questions',len(f),'flashcards')
+          print('Sources:',len(db['MEDICAL_SOURCES']))
+          PY
+
+          grep -q "versionCode 10" app/build.gradle
+          grep -q "versionName '0.10.0-test'" app/build.gradle
+          grep -q "nursestudy-v10-pharm-audit" app/src/main/assets/www/sw.js
 
       - name: Build debug APK and capture log
         id: gradle_build
@@ -119,7 +150,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v09.log
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build-v010.log
           STATUS=${PIPESTATUS[0]}
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           exit 0
@@ -128,8 +159,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.9-build-log
-          path: gradle-build-v09.log
+          name: NurseStudy-v0.10-build-log
+          path: gradle-build-v010.log
           if-no-files-found: warn
           retention-days: 7
 
@@ -151,7 +182,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NurseStudy-v0.9-Interna-Audited-AdMob-test-APK
+          name: NurseStudy-v0.10-Farmakologia-Audited-AdMob-test-APK
           path: NurseStudy_v04_Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
