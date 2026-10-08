@@ -1,0 +1,12 @@
+name: NurseStudy public runner smoke
+
+on:
+  push:
+    branches:
+      - nursestudy-v013-public-ci-smoke
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo RUNNER_OK
