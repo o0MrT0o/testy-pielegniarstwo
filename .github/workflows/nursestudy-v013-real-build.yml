@@ -1,0 +1,89 @@
+name: NurseStudy v0.13 real Android build
+
+on:
+  push:
+    branches:
+      - nursestudy-v013-real-build-public
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact build branch
+        uses: actions/checkout@v4
+
+      - name: Reconstruct and verify v0.13 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat ci/ns-v013/part.* > /tmp/ns.b64
+          base64 -d /tmp/ns.b64 > /tmp/NurseStudy_v0.13_build_minimal.zip
+          echo "ad3563e2dca92b60e25a235b77f4e8bdcfb57ea6270c7c123f210ef5ae583f3b  /tmp/NurseStudy_v0.13_build_minimal.zip" | sha256sum -c -
+          mkdir -p nursestudy-build
+          unzip -q /tmp/NurseStudy_v0.13_build_minimal.zip -d nursestudy-build
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Validate web content
+        working-directory: nursestudy-build
+        shell: bash
+        run: |
+          node --check app/src/main/assets/www/app.js
+          node --check app/src/main/assets/www/content-data.js
+          node --check app/src/main/assets/www/sw.js
+          node tools/validate-content.mjs
+
+      - name: Build real native debug APK
+        working-directory: nursestudy-build
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="nursestudy-build/app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          cp "$APK" NurseStudy-v0.13-real-debug.apk
+          sha256sum NurseStudy-v0.13-real-debug.apk | tee NurseStudy-v0.13-real-debug.sha256
+          {
+            echo "SOURCE_SHA256=ad3563e2dca92b60e25a235b77f4e8bdcfb57ea6270c7c123f210ef5ae583f3b"
+            echo "APK_SHA256=$(sha256sum NurseStudy-v0.13-real-debug.apk | awk '{print $1}')"
+            echo "--- BADGING ---"
+            "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging NurseStudy-v0.13-real-debug.apk | head -n 30
+            echo "--- SIGNATURE ---"
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs NurseStudy-v0.13-real-debug.apk
+            echo "--- CURRENT ASSETS ---"
+            unzip -l NurseStudy-v0.13-real-debug.apk | grep -E 'assets/www/(app.js|content-data.js|index.html|sw.js)'
+          } | tee NurseStudy-v0.13-build-proof.txt
+
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NurseStudy-v0.13-real-debug
+          path: |
+            NurseStudy-v0.13-real-debug.apk
+            NurseStudy-v0.13-real-debug.sha256
+            NurseStudy-v0.13-build-proof.txt
+          if-no-files-found: error
+          retention-days: 7
