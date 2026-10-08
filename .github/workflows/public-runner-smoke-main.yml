@@ -1,0 +1,12 @@
+name: Public runner smoke main
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo PUBLIC_RUNNER_OK
