@@ -21,10 +21,8 @@ def srtts(t):
 ed=json.load(open('edit_plan_premium.json')); vd=dur(VOICE)
 shots=ed['shots']; caps=ed['captions']
 source_map={'usgs_lab.mp4':USGS,'noaa_hydrate.mp4':NOAA_H,'noaa_formation.mp4':NOAA_F,'noaa_bubbles.mp4':NOAA_B}
-# The 300s source point briefly shows magazine covers. 305s is the intended close handling shot of the hydrate sample.
 shots[1]['ss']=305.0
 
-# Remove small word-alignment padding overlaps. Preserve real ASR timing, but never show two semantic chunks at once.
 clean=[]
 for si in range(11):
     group=[dict(c) for c in caps if int(c['sentence'])==si]
@@ -32,15 +30,14 @@ for si in range(11):
         if i+1<len(group):
             c['end']=min(float(c['end']), max(float(c['start'])+0.06,float(group[i+1]['start'])-0.025))
         clean.append(c)
-# Final spoken channel tag is one readable unit; ASR gave “Strange” only ~140 ms on its own.
 g11=[c for c in caps if int(c['sentence'])==11]
 clean.append({'start':min(float(c['start']) for c in g11),'end':max(float(c['end']) for c in g11),'text':'STRANGE, BUT VERIFIED.','styled':'STRANGE, BUT {\\c&H0000D7FF&}VERIFIED{\\c&H00FFFFFF&}.','sentence':11})
 caps=sorted(clean,key=lambda c:(float(c['start']),int(c['sentence'])))
 
 Path('clips_polish').mkdir(exist_ok=True); clips=[]
 for i,s in enumerate(shots):
-    src=source_map[Path(s['src']).name]; d=max(.25,float(s['end'])-float(s['start'])); out=Path('clips_polish')/f'{i:02d}.mp4'
-    off0=float(s.get('off0',0)); off1=float(s.get('off1',off0)); pan=(off1-off0)/max(d,.1)
+    src=source_map[Path(s['src']).name]; d=max(0.25,float(s['end'])-float(s['start'])); out=Path('clips_polish')/f'{i:02d}.mp4'
+    off0=float(s.get('off0',0)); off1=float(s.get('off1',off0)); pan=(off1-off0)/max(d,0.1)
     xexpr=f"max(0,min(iw-ow,(iw-ow)/2+({off0})+({pan:.6f})*t))"
     vf=("split=2[bg][fg];[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=30,eq=brightness=-0.20:saturation=0.80[bg2];"
         f"[fg]crop=w='trunc(ih*3/4/2)*2':h=ih:x='{xexpr}':y=0,scale=1080:1440:flags=lanczos,eq=contrast=1.025:saturation=1.025[fg2];"
@@ -63,10 +60,9 @@ with open('SBV_Fire_Ice_Premium_English.srt','w',encoding='utf-8') as f:
 run(['ffmpeg','-y','-v','error','-i','base_polish.mp4','-vf','ass=overlay_polish.ass','-an','-c:v','libx264','-preset','fast','-crf','16','-profile:v','high','-level','4.1','-pix_fmt','yuv420p','captioned_polish.mp4'])
 
 first_fx_d=min(2.15,float(shots[0]['end'])-float(shots[0]['start'])); final_fx_start=float(shots[-1]['start']); final_fx_d=min(2.2,vd-final_fx_start)
-run(['ffmpeg','-y','-v','error','-ss','255','-i',USGS,'-t',f'{first_fx_d:.3f}','-vn','-af',f'highpass=f=1800,lowpass=f=9500,volume=0.11,afade=t=in:st=0:d=.06,afade=t=out:st={max(.1,first_fx_d-.35):.3f}:d=.35','-ar','48000','-ac','1','fx1.wav'])
-run(['ffmpeg','-y','-v','error','-ss','374','-i',USGS,'-t',f'{final_fx_d:.3f}','-vn','-af',f'highpass=f=1800,lowpass=f=9500,volume=0.09,afade=t=in:st=0:d=.06,afade=t=out:st={max(.1,final_fx_d-.35):.3f}:d=.35','-ar','48000','-ac','1','fx2.wav'])
+run(['ffmpeg','-y','-v','error','-ss','255','-i',USGS,'-t',f'{first_fx_d:.3f}','-vn','-af',f'highpass=f=1800,lowpass=f=9500,volume=0.11,afade=t=in:st=0:d=0.06,afade=t=out:st={max(0.1,first_fx_d-0.35):.3f}:d=0.35','-ar','48000','-ac','1','fx1.wav'])
+run(['ffmpeg','-y','-v','error','-ss','374','-i',USGS,'-t',f'{final_fx_d:.3f}','-vn','-af',f'highpass=f=1800,lowpass=f=9500,volume=0.09,afade=t=in:st=0:d=0.06,afade=t=out:st={max(0.1,final_fx_d-0.35):.3f}:d=0.35','-ar','48000','-ac','1','fx2.wav'])
 ms=int(round(final_fx_start*1000))
-# Stereo duplication happens BEFORE loudness normalization so the requested -15.8 LUFS target remains the final stereo target.
 fc=f"[0:a]aresample=48000[v];[1:a]aresample=48000[f1];[2:a]aresample=48000,adelay={ms}|{ms}[f2];[v][f1][f2]amix=inputs=3:duration=first:dropout_transition=0,pan=stereo|c0=c0|c1=c0,loudnorm=I=-15.8:TP=-2.0:LRA=7[a]"
 run(['ffmpeg','-y','-v','error','-i',VOICE,'-i','fx1.wav','-i','fx2.wav','-filter_complex',fc,'-map','[a]','-c:a','pcm_s16le','mix_polish.wav'])
 run(['ffmpeg','-y','-v','error','-i','captioned_polish.mp4','-i','mix_polish.wav','-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac','-b:a','192k','-ar','48000','-ac','2','-movflags','+faststart','-shortest',OUT])
