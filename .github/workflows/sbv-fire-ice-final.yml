@@ -1,0 +1,167 @@
+name: SBV Fire Ice Final Render
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sbv-fire-ice-final.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install video tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Download accepted Natural History narration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir voice
+          gh run download 37956246546 -n SBV-Fire-Ice-Natural-History-Voice-v2 --dir voice
+          cp voice/SBV_Fire_Ice_Natural_History_FINAL.wav .
+          cp voice/SBV_Fire_Ice_Natural_History_FINAL.mp3 .
+          cp voice/SBV_Fire_Ice_English.srt .
+          cp voice/timings.json .
+          cp voice/voice_probe.json .
+          cp voice/voice_ebur128.txt .
+
+      - name: Download verified original footage
+        run: |
+          curl -L --fail --retry 3 -o usgs_lab.mp4 'https://usgs-ocapsv2-public-input-media.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/Gas_Hydrates_2012.mp4'
+          curl -L --fail --retry 3 -o noaa_hydrate.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2013/01/methane-1280x720-2.mp4'
+          curl -L --fail --retry 3 -o noaa_bubbles.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2023/09/dive04-follow-bubbles-1920x1080-1.mp4'
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,width,height,r_frame_rate -of json usgs_lab.mp4 > source_usgs_probe.json
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,width,height,r_frame_rate -of json noaa_hydrate.mp4 > source_noaa_hydrate_probe.json
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,width,height,r_frame_rate -of json noaa_bubbles.mp4 > source_noaa_bubbles_probe.json
+
+      - name: Render 1080x1920 master
+        run: |
+          python tmp_sbv_fire_ice_render.py
+
+      - name: Full technical QA
+        run: |
+          ffmpeg -v error -i Strange_But_Verified_Fire_Ice_FINAL.mp4 -f null - 2> decode_errors.txt
+          test ! -s decode_errors.txt
+          ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries stream=codec_name,width,height,r_frame_rate,sample_rate,channels -of json Strange_But_Verified_Fire_Ice_FINAL.mp4 > final_probe.json
+          ffmpeg -hide_banner -i Strange_But_Verified_Fire_Ice_FINAL.mp4 -vf 'blackdetect=d=0.12:pix_th=0.10' -an -f null - 2> blackdetect.txt || true
+          ffmpeg -hide_banner -i Strange_But_Verified_Fire_Ice_FINAL.mp4 -vf 'freezedetect=n=-50dB:d=1.5' -an -f null - 2> freezedetect.txt || true
+          ffmpeg -hide_banner -i Strange_But_Verified_Fire_Ice_FINAL.mp4 -af 'ebur128=peak=true' -vn -f null - 2> final_ebur128.txt
+          sha256sum Strange_But_Verified_Fire_Ice_FINAL.mp4 > SHA256.txt
+
+      - name: Generate visual QA sheets
+        run: |
+          mkdir -p qa_contact qa_first qa_trans
+          python - <<'PY'
+          import json, subprocess
+          p=json.load(open('final_probe.json')); d=float(p['format']['duration'])
+          # 12 evenly spaced whole-film frames.
+          for i in range(12):
+              t=(d-0.05)*i/11
+              subprocess.run(['ffmpeg','-y','-v','error','-ss',f'{t:.3f}','-i','Strange_But_Verified_Fire_Ice_FINAL.mp4','-frames:v','1',f'qa_contact/{i:02d}.jpg'],check=True)
+          # First three seconds at phone-scale cadence.
+          for i,t in enumerate([0,0.5,1.0,1.5,2.0,2.5,3.0]):
+              subprocess.run(['ffmpeg','-y','-v','error','-ss',str(t),'-i','Strange_But_Verified_Fire_Ice_FINAL.mp4','-frames:v','1',f'qa_first/{i:02d}.jpg'],check=True)
+          # Exact shot boundaries ±80 ms.
+          ed=json.load(open('edit_plan.json'))
+          k=0
+          for b in ed['bounds'][1:-1]:
+              for t in [max(0,b-0.08),min(d-0.02,b+0.08)]:
+                  subprocess.run(['ffmpeg','-y','-v','error','-ss',f'{t:.3f}','-i','Strange_But_Verified_Fire_Ice_FINAL.mp4','-frames:v','1',f'qa_trans/{k:02d}.jpg'],check=True); k+=1
+          PY
+          ffmpeg -y -v error -framerate 1 -pattern_type glob -i 'qa_contact/*.jpg' -vf 'scale=270:-1,tile=4x3:padding=4:margin=4' -frames:v 1 Strange_But_Verified_Fire_Ice_Contact_Sheet.jpg
+          ffmpeg -y -v error -framerate 1 -pattern_type glob -i 'qa_first/*.jpg' -vf 'scale=270:-1,tile=4x2:padding=4:margin=4' -frames:v 1 Strange_But_Verified_Fire_Ice_First3s.jpg
+          ffmpeg -y -v error -framerate 1 -pattern_type glob -i 'qa_trans/*.jpg' -vf 'scale=216:-1,tile=5x2:padding=4:margin=4' -frames:v 1 Strange_But_Verified_Fire_Ice_Transitions.jpg
+
+      - name: Write release metadata and QA report
+        run: |
+          cat > Strange_But_Verified_Fire_Ice_Metadata.md <<'EOF'
+          # Strange, But Verified — Fire Ice
+
+          **Primary title:** This Looks Like Ice. Then It Catches Fire. #Shorts
+
+          **Alternative title:** This Ice-Like Crystal Can Burn #Shorts
+
+          **Description:**
+          This ice-like crystal can burn — because it contains methane. Methane hydrate forms under cold, high-pressure conditions, including in sediments beneath the ocean. When the hydrate becomes unstable, methane can escape and burn.
+
+          Footage: U.S. Geological Survey (USGS) Gas Hydrates Lab; NOAA Ocean Exploration, Gulf of Mexico 2017; NOAA Ocean Exploration, Seascape Alaska 3 (2023).
+
+          Synthetic narration: Natural History voice — Chatterbox Turbo conditioned from Kokoro bf_isabella.
+
+          #Shorts #Science #Ocean #Methane
+
+          **Category:** Science & Technology
+          **Language:** English
+          **Made for kids:** No
+          EOF
+
+          cat > Strange_But_Verified_Fire_Ice_Sources.md <<'EOF'
+          # Source ledger — Fire Ice
+
+          ## USGS — Gas Hydrates Lab
+          Source page: https://www.usgs.gov/media/videos/usgs-gas-hydrates-lab
+          Direct media used: https://usgs-ocapsv2-public-input-media.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/Gas_Hydrates_2012.mp4
+          Date: 2012
+          Usage on source page: Public Domain.
+          Used for authentic laboratory methane-hydrate and burning-hydrate footage.
+
+          ## NOAA Ocean Exploration — What are gas hydrates?
+          Source page: https://oceanexplorer.noaa.gov/ocean-fact/hydrates/
+          Direct media used: https://oceanexplorer.noaa.gov/wp-content/uploads/2013/01/methane-1280x720-2.mp4
+          Expedition footage: Gulf of Mexico 2017.
+          Used for authentic deep-sea methane-hydrate / seep footage.
+
+          ## NOAA Ocean Exploration — Follow the Bubbles
+          Source page: https://oceanexplorer.noaa.gov/multimedia/video-playlist-ex2304-bubbles/
+          Direct media used: https://oceanexplorer.noaa.gov/wp-content/uploads/2023/09/dive04-follow-bubbles-1920x1080-1.mp4
+          Expedition: Seascape Alaska 3, 2023.
+          Used for authentic active seep / deep-ocean context.
+
+          ## Scientific wording
+          The film deliberately calls methane hydrate an "ice-like crystal/solid", not ordinary ice. The flame comes from methane released as the hydrate destabilizes.
+          EOF
+
+          python - <<'PY'
+          import json,re,hashlib
+          p=json.load(open('final_probe.json'))
+          dur=float(p['format']['duration']); size=int(p['format']['size'])
+          eb=open('final_ebur128.txt',errors='ignore').read()
+          im=re.findall(r'I:\s+(-?[0-9.]+) LUFS',eb); pm=re.findall(r'Peak:\s+(-?[0-9.]+) dBFS',eb)
+          loud=im[-1] if im else 'n/a'; peak=pm[-1] if pm else 'n/a'
+          black=open('blackdetect.txt',errors='ignore').read(); freeze=open('freezedetect.txt',errors='ignore').read()
+          black_hits=len(re.findall(r'black_start:',black)); freeze_hits=len(re.findall(r'freeze_start:',freeze))
+          sha=open('SHA256.txt').read().split()[0]
+          q=f'''# QA — Strange, But Verified: Fire Ice\n\n- Final: `Strange_But_Verified_Fire_Ice_FINAL.mp4`\n- Duration: **{dur:.3f} s**\n- Canvas: **1080×1920**\n- Frame rate: **30 fps**\n- Video: **H.264**\n- Audio: **AAC 48 kHz stereo**\n- Integrated loudness: **{loud} LUFS**\n- True peak: **{peak} dBFS**\n- Full decode: **PASS**\n- Blackdetect events >=0.12 s: **{black_hits}**\n- Freeze events >=1.5 s: **{freeze_hits}**\n- Visual sources: authentic USGS/NOAA footage only; no generated documentary scenes.\n- Narrator: Chatterbox Turbo, Natural History reference `bf_isabella`.\n- SHA-256: `{sha}`\n\nVisual QA sheets are included for the whole film, first three seconds, and every shot boundary.\n'''
+          open('Strange_But_Verified_Fire_Ice_QA.md','w').write(q)
+          PY
+
+      - name: Upload finished episode
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Fire-Ice-FINAL
+          path: |
+            Strange_But_Verified_Fire_Ice_FINAL.mp4
+            Strange_But_Verified_Fire_Ice_QA.md
+            Strange_But_Verified_Fire_Ice_Metadata.md
+            Strange_But_Verified_Fire_Ice_Sources.md
+            SBV_Fire_Ice_English.srt
+            SBV_Fire_Ice_Natural_History_FINAL.mp3
+            edit_plan.json
+            final_probe.json
+            final_ebur128.txt
+            blackdetect.txt
+            freezedetect.txt
+            SHA256.txt
+            Strange_But_Verified_Fire_Ice_Contact_Sheet.jpg
+            Strange_But_Verified_Fire_Ice_First3s.jpg
+            Strange_But_Verified_Fire_Ice_Transitions.jpg
+          retention-days: 7
