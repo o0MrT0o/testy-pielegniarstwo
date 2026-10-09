@@ -56,21 +56,31 @@ jobs:
       - name: Generate real B with Chatterbox Turbo
         env:
           HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
         run: |
           cat > synth_b.py <<'PY'
           import random
           import numpy as np
           import torch
           import torchaudio as ta
-          from chatterbox.tts_turbo import ChatterboxTurboTTS
+          import chatterbox.tts_turbo as turbo
+          from huggingface_hub import snapshot_download as hf_snapshot_download
 
           TEST_TEXT = "As the mass turns, it rubs against surrounding ice and shoreline, grinding the edge smoother and smoother. And the spinning may get help from the ice itself. Lab experiments found that melting can create a vortex underneath an ice disk and keep it rotating."
+
+          # chatterbox-tts 0.1.6 hard-codes token=True for a public model.
+          # Override only the downloader so the exact official model is fetched anonymously.
+          def public_snapshot_download(*args, **kwargs):
+              kwargs.pop('token', None)
+              return hf_snapshot_download(*args, token=False, **kwargs)
+          turbo.snapshot_download = public_snapshot_download
+
           random.seed(42)
           np.random.seed(42)
           torch.manual_seed(42)
 
           print('Loading official ResembleAI Chatterbox Turbo on CPU...')
-          model = ChatterboxTurboTTS.from_pretrained(device='cpu')
+          model = turbo.ChatterboxTurboTTS.from_pretrained(device='cpu')
           print('Generating B conditioned on Kokoro af_heart reference...')
           wav = model.generate(
               TEST_TEXT,
