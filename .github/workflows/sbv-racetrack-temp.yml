@@ -1,4 +1,4 @@
-name: SBV Racetrack Temp Build
+name: SBV Racetrack Final Build
 
 on:
   push:
@@ -10,71 +10,213 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+
       - name: Install tools
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
           python -m pip install yt-dlp kokoro-onnx soundfile numpy
-      - name: Download Kokoro v1.0 and render af_heart
+
+      - name: Render exact channel narrator
         run: |
-          mkdir -p build
+          mkdir -p build/assets build/segments
           curl -L --fail --retry 3 -o build/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx'
           curl -L --fail --retry 3 -o build/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin'
           cat > build/voice.py <<'PY'
           import numpy as np
           import soundfile as sf
           from kokoro_onnx import Kokoro
-          k=Kokoro('build/kokoro-v1.0.onnx','build/voices-v1.0.bin')
-          parts=[
-          ('This rock can weigh hundreds of pounds.',.18),
-          ('Yet it leaves a trail across a flat desert, with nobody touching it.',.18),
-          ('For decades, no one saw the rocks move.',.18),
-          ('Then scientists finally caught them in action.',.18),
-          ("The culprit wasn't hurricane wind.",.18),
-          ('It was ice.',.18),
-          ('A shallow pond froze into a sheet just millimeters thick.',.18),
-          ('Morning sun cracked it into floating panels.',.18),
-          ('Light wind pushed the ice against the rocks,',.09),
-          ('sliding them across wet mud.',.18),
-          ('In one event, more than sixty moved.',.18),
-          ('Strange, but verified.',0)]
-          audio=[]; timing=[]; t=0; sr=24000
+
+          k = Kokoro('build/kokoro-v1.0.onnx','build/voices-v1.0.bin')
+          parts = [
+              ('This rock can weigh hundreds of pounds.', .18),
+              ('Yet it leaves a trail across a flat desert, with nobody touching it.', .18),
+              ('For decades, no one saw the rocks move.', .18),
+              ('Then scientists finally caught them in action.', .18),
+              ("The culprit wasn't hurricane wind.", .18),
+              ('It was ice.', .18),
+              ('A shallow pond froze into a sheet just millimeters thick.', .18),
+              ('Morning sun cracked it into floating panels.', .18),
+              ('Light wind pushed the ice against the rocks,', .09),
+              ('sliding them across wet mud.', .18),
+              ('In one event, more than sixty moved.', .18),
+              ('Strange, but verified.', 0.0),
+          ]
+          out=[]; timing=[]; t=0.0; sr=24000
           for i,(text,pause) in enumerate(parts):
-              y,sr=k.create(text,voice='af_heart',speed=.88,lang='en-us')
-              y=np.asarray(y,dtype=np.float32); d=len(y)/sr
-              timing.append((i,t,t+d,text)); audio.append(y); t+=d
+              y,sr = k.create(text, voice='af_heart', speed=.88, lang='en-us')
+              y=np.asarray(y,dtype=np.float32); dur=len(y)/sr
+              timing.append((i,t,t+dur,text)); out.append(y); t += dur
               if pause:
-                  audio.append(np.zeros(int(sr*pause),dtype=np.float32)); t+=pause
-          y=np.concatenate(audio); y*=.92/max(1e-6,float(np.max(np.abs(y))))
+                  out.append(np.zeros(int(sr*pause),dtype=np.float32)); t += pause
+          y=np.concatenate(out)
+          y *= .92 / max(1e-6,float(np.max(np.abs(y))))
           sf.write('build/racetrack_af_heart.wav',y,sr,subtype='PCM_16')
-          with open('build/voice_timing.tsv','w') as f:
-              for i,a,b,text in timing:f.write(f'{i}\t{a:.3f}\t{b:.3f}\t{text}\n')
-          print('duration',len(y)/sr)
+          with open('build/voice_timing.tsv','w',encoding='utf-8') as f:
+              for i,a,b,text in timing: f.write(f'{i}\t{a:.3f}\t{b:.3f}\t{text}\n')
+          print('raw_voice_duration',len(y)/sr)
           PY
           python build/voice.py
-          ffmpeg -hide_banner -loglevel error -y -i build/racetrack_af_heart.wav -filter:a loudnorm=I=-15.2:TP=-1.5:LRA=5 build/racetrack_af_heart_master.wav
+          ffmpeg -hide_banner -loglevel error -y -i build/racetrack_af_heart.wav \
+            -af loudnorm=I=-15.2:TP=-1.5:LRA=5 build/racetrack_af_heart_master.wav
           ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build/racetrack_af_heart_master.wav > build/voice_duration.txt
-      - name: Download NPS Racetrack B-roll
+
+      - name: Download authentic Racetrack footage
         run: |
-          mkdir -p build/assets
-          yt-dlp --no-playlist --merge-output-format mp4 -f 'best[ext=mp4]/best' -o 'build/assets/nps_racetrack.%(ext)s' 'https://www.nps.gov/media/video/view.htm?id=582F570D-B9C7-8138-0C0BDC270BD0D080'
+          yt-dlp --no-playlist --merge-output-format mp4 -f 'best[ext=mp4]/best' \
+            -o 'build/assets/nps_racetrack.%(ext)s' \
+            'https://www.nps.gov/media/video/view.htm?id=582F570D-B9C7-8138-0C0BDC270BD0D080'
           SRC=$(find build/assets -maxdepth 1 -type f -name 'nps_racetrack.*' | head -1)
-          if [ "$SRC" != 'build/assets/nps_racetrack.mp4' ]; then ffmpeg -hide_banner -loglevel error -y -i "$SRC" -c:v libx264 -pix_fmt yuv420p -an build/assets/nps_racetrack.mp4; fi
-          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 build/assets/nps_racetrack.mp4 > build/nps_duration.txt
-          ffmpeg -hide_banner -loglevel error -y -i build/assets/nps_racetrack.mp4 -vf "fps=1/8,scale=360:-2,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='%{pts\\:hms}':x=10:y=10:fontsize=22:fontcolor=white:borderw=3:bordercolor=black,tile=5x5:padding=5:margin=5" -frames:v 1 build/nps_contact.jpg
-      - name: Upload artifact
+          if [ "$SRC" != 'build/assets/nps_racetrack.mp4' ]; then
+            ffmpeg -hide_banner -loglevel error -y -i "$SRC" -c:v libx264 -crf 18 -pix_fmt yuv420p -an build/assets/nps_racetrack.mp4
+          fi
+
+      - name: Download public-domain illustrative ice footage
+        run: |
+          set +e
+          yt-dlp --no-playlist --merge-output-format mp4 -f 'best[height<=1080]/best' \
+            -o 'build/assets/usgs_ice.%(ext)s' \
+            'https://www.usgs.gov/media/videos/ice-breaking-penobscot-river'
+          CODE=$?
+          set -e
+          if [ $CODE -eq 0 ]; then
+            SRC=$(find build/assets -maxdepth 1 -type f -name 'usgs_ice.*' | head -1)
+            ffmpeg -hide_banner -loglevel error -y -i "$SRC" -c:v libx264 -crf 18 -pix_fmt yuv420p -an build/assets/usgs_ice_normalized.mp4
+            touch build/use_ice
+          else
+            echo 'USGS download unavailable; authentic NPS footage will remain on screen during ice explanation.'
+          fi
+
+      - name: Build documentary video sequence
+        run: |
+          cat > build/make_segments.sh <<'SH'
+          set -euo pipefail
+          make_seg() {
+            IN="$1"; SS="$2"; DUR="$3"; OUT="$4"
+            ffmpeg -hide_banner -loglevel error -y -ss "$SS" -t "$DUR" -i "$IN" -an \
+              -filter_complex "[0:v]split=2[bg][fg];[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=28,eq=brightness=-0.38:saturation=0.62[bg2];[fg]scale=1080:608:force_original_aspect_ratio=decrease,pad=1080:608:(ow-iw)/2:(oh-ih)/2:color=black[fg2];[bg2][fg2]overlay=0:215,format=yuv420p" \
+              -r 30 -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p "$OUT"
+          }
+          NPS='build/assets/nps_racetrack.mp4'
+          ICE="$NPS"
+          if [ -f build/use_ice ]; then ICE='build/assets/usgs_ice_normalized.mp4'; fi
+          make_seg "$NPS" 142 3.100 build/segments/01.mp4
+          make_seg "$NPS" 120 3.553 build/segments/02.mp4
+          make_seg "$NPS" 16  2.787 build/segments/03.mp4
+          make_seg "$NPS" 144 2.651 build/segments/04.mp4
+          make_seg "$NPS" 56  3.453 build/segments/05.mp4
+          make_seg "$ICE" 0   3.743 build/segments/06.mp4
+          make_seg "$ICE" 8   2.910 build/segments/07.mp4
+          make_seg "$ICE" 16  4.601 build/segments/08.mp4
+          make_seg "$NPS" 152 2.484 build/segments/09.mp4
+          make_seg "$NPS" 160 1.643 build/segments/10.mp4
+          : > build/concat.txt
+          for f in build/segments/*.mp4; do echo "file '$PWD/$f'" >> build/concat.txt; done
+          ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i build/concat.txt -c copy build/picture_lock.mp4
+          SH
+          bash build/make_segments.sh
+
+      - name: Add established SBV graphics and captions
+        run: |
+          cat > build/make_ass.py <<'PY'
+          from pathlib import Path
+          use_ice = Path('build/use_ice').exists()
+          yellow='&H0000D4FF&'
+          white='&H00FFFFFF&'
+          def ts(t):
+              h=int(t//3600); t-=h*3600; m=int(t//60); s=t-m*60
+              return f'{h}:{m:02d}:{s:05.2f}'
+          lines=[]
+          lines += ['[Script Info]','ScriptType: v4.00+','PlayResX: 1080','PlayResY: 1920','WrapStyle: 2','ScaledBorderAndShadow: yes','',
+                    '[V4+ Styles]',
+                    'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
+                    'Style: Brand,DejaVu Sans,39,&H00FFFFFF,&H00FFFFFF,&HCC000000,&H90000000,-1,0,0,0,100,100,0,0,3,2,0,7,48,180,42,1',
+                    'Style: Subject,DejaVu Sans,27,&H00FFFFFF,&H00FFFFFF,&HCC000000,&H90000000,-1,0,0,0,100,100,0,0,3,2,0,7,48,180,92,1',
+                    'Style: Source,DejaVu Sans,21,&H00FFFFFF,&H00FFFFFF,&HCC000000,&H90000000,0,0,0,0,100,100,0,0,3,1.5,0,7,48,170,130,1',
+                    'Style: Caption,DejaVu Sans,58,&H00FFFFFF,&H00FFFFFF,&HDD000000,&H99000000,-1,0,0,0,100,100,0,0,3,4,0,5,90,180,0,1','',
+                    '[Events]','Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text']
+          end=30.925
+          lines.append(f'Dialogue: 1,{ts(0)},{ts(end)},Brand,,0,0,0,,STRANGE, BUT VERIFIED')
+          lines.append(f'Dialogue: 1,{ts(0)},{ts(end)},Subject,,0,0,0,,RACETRACK PLAYA · DEATH VALLEY')
+          if use_ice:
+              lines.append(f'Dialogue: 1,{ts(0)},{ts(15.544)},Source,,0,0,0,,NPS | RACETRACK PLAYA | PUBLIC DOMAIN')
+              lines.append(f'Dialogue: 1,{ts(15.544)},{ts(26.798)},Source,,0,0,0,,USGS | ILLUSTRATIVE ICE FOOTAGE | PUBLIC DOMAIN')
+              lines.append(f'Dialogue: 1,{ts(26.798)},{ts(end)},Source,,0,0,0,,NPS | RACETRACK PLAYA | PUBLIC DOMAIN')
+          else:
+              lines.append(f'Dialogue: 1,{ts(0)},{ts(end)},Source,,0,0,0,,NPS | RACETRACK PLAYA | PUBLIC DOMAIN')
+          cues=[
+          (0.00,1.05,'THIS ROCK CAN WEIGH'),
+          (1.05,2.155,f'{{\\c{yellow}}}HUNDREDS OF POUNDS{{\\c{white}}}'),
+          (2.335,4.20,'YET IT LEAVES A TRAIL'),
+          (4.20,6.473,f'WITH {{\\c{yellow}}}NOBODY{{\\c{white}}} TOUCHING IT'),
+          (6.653,7.65,'FOR DECADES'),
+          (7.65,9.256,f'NO ONE SAW THEM {{\\c{yellow}}}MOVE{{\\c{white}}}'),
+          (9.436,10.70,'THEN SCIENTISTS FINALLY'),
+          (10.70,11.911,f'{{\\c{yellow}}}CAUGHT THEM{{\\c{white}}} IN ACTION'),
+          (12.091,14.075,'NOT HURRICANE WIND'),
+          (14.255,15.364,f'IT WAS {{\\c{yellow}}}ICE{{\\c{white}}}'),
+          (15.544,17.35,'A SHALLOW POND FROZE'),
+          (17.35,19.107,f'{{\\c{yellow}}}MILLIMETERS{{\\c{white}}} THICK'),
+          (19.287,20.55,'MORNING SUN CRACKED IT'),
+          (20.55,22.017,'INTO FLOATING PANELS'),
+          (22.197,23.55,'LIGHT WIND PUSHED THE ICE'),
+          (23.55,24.672,'AGAINST THE ROCKS'),
+          (24.762,25.55,'SLIDING THEM'),
+          (25.55,26.618,'ACROSS WET MUD'),
+          (26.798,27.85,f'MORE THAN {{\\c{yellow}}}SIXTY{{\\c{white}}}'),
+          (27.85,29.102,'ROCKS MOVED'),
+          (29.282,30.15,'STRANGE, BUT'),
+          (30.15,30.925,f'{{\\c{yellow}}}VERIFIED.{{\\c{white}}}'),
+          ]
+          for a,b,text in cues:
+              lines.append(f'Dialogue: 2,{ts(a)},{ts(b)},Caption,,0,0,0,,{{\\pos(490,1430)}}{text}')
+          Path('build/captions.ass').write_text('\n'.join(lines),encoding='utf-8')
+          PY
+          python build/make_ass.py
+          ffmpeg -hide_banner -loglevel error -y -i build/picture_lock.mp4 -i build/racetrack_af_heart_master.wav \
+            -vf "ass=build/captions.ass" -map 0:v:0 -map 1:a:0 \
+            -c:v libx264 -preset slow -crf 17 -pix_fmt yuv420p -r 30 \
+            -c:a aac -b:a 192k -ar 48000 -ac 2 -shortest -movflags +faststart \
+            build/SBV_Racetrack_Moving_Rocks_FINAL.mp4
+
+      - name: Final QA
+        run: |
+          ffmpeg -hide_banner -v error -i build/SBV_Racetrack_Moving_Rocks_FINAL.mp4 -f null - 2> build/decode_check.txt
+          ffmpeg -hide_banner -i build/SBV_Racetrack_Moving_Rocks_FINAL.mp4 -af ebur128=peak=true -f null - 2> build/loudness_check.txt || true
+          ffprobe -v error -show_entries stream=index,codec_name,width,height,r_frame_rate,pix_fmt,sample_rate,channels -show_entries format=duration,size -of json build/SBV_Racetrack_Moving_Rocks_FINAL.mp4 > build/probe.json
+          ffmpeg -hide_banner -loglevel error -y -i build/SBV_Racetrack_Moving_Rocks_FINAL.mp4 \
+            -vf "fps=1/3,scale=270:480,tile=4x3:padding=5:margin=5" -frames:v 1 build/final_contact.jpg
+          sha256sum build/SBV_Racetrack_Moving_Rocks_FINAL.mp4 > build/sha256.txt
+          cat > build/SBV_Racetrack_QA.md <<'EOF'
+          # Strange, But Verified — Racetrack Playa — Final QA
+          - Exact established narrator: Kokoro af_heart v1.0, speed 0.88, en-us.
+          - Vertical master: 1080x1920, 30 fps, H.264/AAC 48 kHz stereo.
+          - Hook begins at frame 0; no logo intro.
+          - Persistent upper-left channel/subject/source hierarchy.
+          - Burned synchronized English captions in lower safe area; white with restrained yellow emphasis.
+          - Authentic moving NPS Racetrack Playa footage prioritized.
+          - Ice footage, when used, is explicitly labelled illustrative USGS public-domain footage.
+          - No AI-generated or procedural documentary imagery.
+          - No fake field ambience, repetitive whooshes, or splash effects.
+          - Narration leads; final payoff is the fixed channel tag.
+          EOF
+
+      - name: Upload final master
         uses: actions/upload-artifact@v4
         with:
-          name: sbv-racetrack-temp-inspection
+          name: sbv-racetrack-final
           path: |
-            build/racetrack_af_heart.wav
-            build/racetrack_af_heart_master.wav
+            build/SBV_Racetrack_Moving_Rocks_FINAL.mp4
+            build/SBV_Racetrack_QA.md
+            build/final_contact.jpg
+            build/probe.json
+            build/decode_check.txt
+            build/loudness_check.txt
+            build/sha256.txt
+            build/captions.ass
             build/voice_timing.tsv
-            build/voice_duration.txt
-            build/nps_duration.txt
-            build/nps_contact.jpg
           retention-days: 2
