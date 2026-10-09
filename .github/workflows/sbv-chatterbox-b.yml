@@ -52,6 +52,12 @@ jobs:
           .venv-chatter/bin/python -m pip install --upgrade pip setuptools wheel
           .venv-chatter/bin/python -m pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
           .venv-chatter/bin/python -m pip install chatterbox-tts==0.1.6 soundfile
+          .venv-chatter/bin/python -m pip install --upgrade --no-deps resemble-perth==1.1.0
+          .venv-chatter/bin/python - <<'PY'
+          import perth
+          print('perth_version=', getattr(perth, '__version__', 'unknown'))
+          print('watermarker_available=', perth.PerthImplicitWatermarker is not None)
+          PY
 
       - name: Generate real B with Chatterbox Turbo
         env:
@@ -68,8 +74,6 @@ jobs:
 
           TEST_TEXT = "As the mass turns, it rubs against surrounding ice and shoreline, grinding the edge smoother and smoother. And the spinning may get help from the ice itself. Lab experiments found that melting can create a vortex underneath an ice disk and keep it rotating."
 
-          # chatterbox-tts 0.1.6 hard-codes token=True for a public model.
-          # Override only the downloader so the exact official model is fetched anonymously.
           def public_snapshot_download(*args, **kwargs):
               kwargs.pop('token', None)
               return hf_snapshot_download(*args, token=False, **kwargs)
