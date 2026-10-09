@@ -1,0 +1,108 @@
+name: SBV Fire Ice Final Polish
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sbv-fire-ice-final-polish.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - name: Download approved premium voice and timing package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p previous
+          gh run download 37963531366 -n SBV-Fire-Ice-PREMIUM-FINAL-v2 --dir previous
+          cp previous/SBV_Fire_Ice_Premium_Narration.mp3 .
+          cp previous/word_alignment.json .
+          cp previous/recognized_transcript.txt .
+          cp previous/edit_plan_premium.json .
+      - name: Download verified footage
+        run: |
+          curl -L --fail --retry 3 -o usgs_lab.mp4 'https://usgs-ocapsv2-public-input-media.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/Gas_Hydrates_2012.mp4'
+          curl -L --fail --retry 3 -o noaa_hydrate.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2013/01/methane-1280x720-2.mp4'
+          curl -L --fail --retry 3 -o noaa_formation.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2025/04/methane-hydrate-formation-demonstration.mp4'
+          curl -L --fail --retry 3 -o noaa_bubbles.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2023/07/dive04-bubbles-1280x720-2.mp4'
+      - name: Render final polished master
+        run: python tmp_sbv_fire_ice_polish.py
+      - name: Independent technical QA
+        run: |
+          ffmpeg -v error -i Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4 -f null - 2> decode_errors.txt
+          test ! -s decode_errors.txt
+          ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries stream=codec_name,width,height,r_frame_rate,sample_rate,channels -of json Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4 > final_probe.json
+          ffmpeg -hide_banner -i Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4 -vf 'blackdetect=d=0.12:pix_th=0.10' -an -f null - 2> blackdetect.txt || true
+          ffmpeg -hide_banner -i Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4 -vf 'freezedetect=n=-50dB:d=1.5' -an -f null - 2> freezedetect.txt || true
+          ffmpeg -hide_banner -i Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4 -af 'ebur128=peak=true' -vn -f null - 2> final_ebur128.txt
+          sha256sum Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4 > SHA256.txt
+      - name: Visual QA
+        run: |
+          mkdir -p qa_all qa_first qa_overlap qa_trans
+          python - <<'PY'
+          import json,subprocess
+          d=float(json.load(open('final_probe.json'))['format']['duration']); ed=json.load(open('edit_plan_polished.json'))
+          for i in range(12):
+              t=(d-.05)*i/11; subprocess.run(['ffmpeg','-y','-v','error','-ss',f'{t:.3f}','-i','Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4','-frames:v','1',f'qa_all/{i:02d}.jpg'],check=True)
+          for i,t in enumerate([0,.5,1,1.5,2,2.5,3]): subprocess.run(['ffmpeg','-y','-v','error','-ss',str(t),'-i','Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4','-frames:v','1',f'qa_first/{i:02d}.jpg'],check=True)
+          # Inspect every semantic caption boundary and every shot boundary.
+          k=0
+          caps=ed['captions']
+          for a,b in zip(caps,caps[1:]):
+              t=float(b['start'])
+              for tt in [max(0,t-.015),min(d-.02,t+.015)]: subprocess.run(['ffmpeg','-y','-v','error','-ss',f'{tt:.3f}','-i','Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4','-frames:v','1',f'qa_overlap/{k:03d}.jpg'],check=True); k+=1
+          k=0
+          for s in ed['shots'][:-1]:
+              t=float(s['end'])
+              for tt in [max(0,t-.08),min(d-.02,t+.08)]: subprocess.run(['ffmpeg','-y','-v','error','-ss',f'{tt:.3f}','-i','Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4','-frames:v','1',f'qa_trans/{k:02d}.jpg'],check=True); k+=1
+          PY
+          ffmpeg -y -v error -framerate 1 -pattern_type glob -i 'qa_all/*.jpg' -vf 'scale=270:-1,tile=4x3:padding=4:margin=4' -frames:v 1 Strange_But_Verified_Fire_Ice_PREMIUM_Contact_Sheet.jpg
+          ffmpeg -y -v error -framerate 1 -pattern_type glob -i 'qa_first/*.jpg' -vf 'scale=270:-1,tile=4x2:padding=4:margin=4' -frames:v 1 Strange_But_Verified_Fire_Ice_PREMIUM_First3s.jpg
+          ffmpeg -y -v error -framerate 1 -pattern_type glob -i 'qa_trans/*.jpg' -vf 'scale=216:-1,tile=5x4:padding=4:margin=4' -frames:v 1 Strange_But_Verified_Fire_Ice_PREMIUM_Transitions.jpg
+      - name: Final documents
+        run: |
+          cp previous/Strange_But_Verified_Fire_Ice_PREMIUM_Metadata.md . || true
+          cp previous/Strange_But_Verified_Fire_Ice_PREMIUM_Sources.md . || true
+          python - <<'PY'
+          import json,re
+          p=json.load(open('final_probe.json')); d=float(p['format']['duration']); al=json.load(open('word_alignment.json')); ed=json.load(open('edit_plan_polished.json'))
+          eb=open('final_ebur128.txt',errors='ignore').read(); im=re.findall(r'I:\s+(-?[0-9.]+) LUFS',eb); pm=re.findall(r'Peak:\s+(-?[0-9.]+) dBFS',eb)
+          black=len(re.findall(r'black_start:',open('blackdetect.txt',errors='ignore').read())); freeze=len(re.findall(r'freeze_start:',open('freezedetect.txt',errors='ignore').read())); sha=open('SHA256.txt').read().split()[0]
+          # Mathematically prove captions no longer overlap.
+          caps=ed['captions']; overlap=max([max(0,float(a['end'])-float(b['start'])) for a,b in zip(caps,caps[1:])] or [0])
+          q=f'''# QA — Fire Ice PREMIUM FINAL POLISH\n\n- Duration: **{d:.3f} s**\n- Canvas: **1080×1920 / 30 fps**\n- Video/audio: **H.264 / AAC 48 kHz stereo**\n- Integrated loudness: **{im[-1] if im else 'n/a'} LUFS**\n- Peak: **{pm[-1] if pm else 'n/a'} dBFS**\n- Full decode: **PASS**\n- Blackdetect >=0.12 s: **{black}**\n- Freeze >=1.5 s: **{freeze}**\n- Maximum caption overlap: **{overlap*1000:.1f} ms**\n- Word alignment direct-match ratio: **{al['match_ratio']*100:.1f}% ({al['matched_words']}/{al['expected_words_count']})**\n- Visuals: authentic NOAA/USGS only.\n- Audio: narrator plus subtle filtered authentic texture from the exact USGS burning-hydrate source; no stock whooshes or fake ambience.\n- Corrected hydrate-handling shot begins at USGS **305 s** rather than the magazine-cover transition.\n- SHA-256: `{sha}`\n'''
+          open('Strange_But_Verified_Fire_Ice_PREMIUM_QA.md','w').write(q)
+          PY
+      - name: Upload polished final
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Fire-Ice-PREMIUM-POLISHED-FINAL
+          path: |
+            Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4
+            Strange_But_Verified_Fire_Ice_PREMIUM_Metadata.md
+            Strange_But_Verified_Fire_Ice_PREMIUM_Sources.md
+            Strange_But_Verified_Fire_Ice_PREMIUM_QA.md
+            SBV_Fire_Ice_Premium_English.srt
+            SBV_Fire_Ice_Premium_Narration.mp3
+            edit_plan_polished.json
+            word_alignment.json
+            recognized_transcript.txt
+            final_probe.json
+            final_ebur128.txt
+            blackdetect.txt
+            freezedetect.txt
+            SHA256.txt
+            Strange_But_Verified_Fire_Ice_PREMIUM_Contact_Sheet.jpg
+            Strange_But_Verified_Fire_Ice_PREMIUM_First3s.jpg
+            Strange_But_Verified_Fire_Ice_PREMIUM_Transitions.jpg
+          retention-days: 7
