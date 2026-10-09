@@ -22,12 +22,24 @@ jobs:
           sudo apt-get install -y ffmpeg fonts-dejavu-core
       - name: Install Python dependencies
         run: pip install -r sbv_ice_render/requirements.txt
+      - name: Patch Vana-Vigala framing for V2
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('sbv_ice_render/render_ice_circle.py')
+          s=p.read_text()
+          old='vf=f"scale=-2:{H},crop={W}:{H}:(iw-{W})/2:0,fps={FPS},setsar=1"'
+          new='vf=f"split=2[bg][fg];[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},gblur=sigma=28[bg2];[fg]scale=1440:810,crop={W}:810:(iw-{W})/2:0[fg2];[bg2][fg2]overlay=0:410,fps={FPS},setsar=1"'
+          if old not in s:
+              raise SystemExit('Expected Vana filter not found')
+          p.write_text(s.replace(old,new))
+          PY
       - name: Render and QA
         run: python sbv_ice_render/render_ice_circle.py
       - name: Upload final package
         uses: actions/upload-artifact@v4
         with:
-          name: sbv-ice-circle-final
+          name: sbv-ice-circle-final-v2
           path: sbv_ice_render/output/
           if-no-files-found: error
           retention-days: 3
