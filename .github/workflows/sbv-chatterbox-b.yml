@@ -52,11 +52,21 @@ jobs:
           .venv-chatter/bin/python -m pip install --upgrade pip setuptools wheel
           .venv-chatter/bin/python -m pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
           .venv-chatter/bin/python -m pip install chatterbox-tts==0.1.6 soundfile
-          .venv-chatter/bin/python -m pip install --upgrade --no-deps resemble-perth==1.1.0
+          .venv-chatter/bin/python -m pip uninstall -y resemble-perth
+          .venv-chatter/bin/python -m pip install --no-deps 'git+https://github.com/resemble-ai/Perth.git@master'
           .venv-chatter/bin/python - <<'PY'
           import perth
           print('perth_version=', getattr(perth, '__version__', 'unknown'))
+          print('perth_path=', perth.__file__)
           print('watermarker_available=', perth.PerthImplicitWatermarker is not None)
+          if perth.PerthImplicitWatermarker is None:
+              try:
+                  from perth.perth_net.perth_net_implicit.perth_watermarker import PerthImplicitWatermarker
+                  print('direct_watermarker_import=success')
+              except Exception:
+                  import traceback
+                  traceback.print_exc()
+                  raise
           PY
 
       - name: Generate real B with Chatterbox Turbo
