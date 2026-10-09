@@ -1,0 +1,90 @@
+name: SBV Orpheus C Voice Test
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sbv-orpheus-c.yml'
+
+jobs:
+  synthesize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Orpheus CPU stack
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install orpheus-cpp scipy numpy soundfile
+          python -m pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+
+      - name: Generate C with Orpheus tara
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_DISABLE_XET: '1'
+        run: |
+          cat > synth_c.py <<'PY'
+          import numpy as np
+          from scipy.io.wavfile import write
+          from orpheus_cpp import OrpheusCpp
+
+          TEXT = "As the mass turns, it rubs against surrounding ice and shoreline, grinding the edge smoother and smoother. And the spinning may get help from the ice itself. Lab experiments found that melting can create a vortex underneath an ice disk and keep it rotating."
+
+          print('Loading Orpheus CPU backend...')
+          orpheus = OrpheusCpp(verbose=False, lang='en')
+          print('Generating C with female preset tara...')
+          sr, audio = orpheus.tts(TEXT, options={
+              'voice_id': 'tara',
+              'temperature': 0.6,
+              'top_p': 0.8,
+              'top_k': 40,
+              'min_p': 0.05,
+          })
+          audio = np.asarray(audio).squeeze()
+          write('SBV_C_Orpheus_3B_tara_RAW.wav', sr, audio)
+          print(f'sr={sr} samples={audio.shape[-1]} duration={audio.shape[-1]/sr:.3f}')
+          PY
+          python synth_c.py
+
+      - name: Normalize and export
+        run: |
+          # First pass measurement
+          ffmpeg -hide_banner -i SBV_C_Orpheus_3B_tara_RAW.wav -af loudnorm=I=-16:TP=-2:LRA=5:print_format=json -f null - 2> loudnorm_pass1.txt
+          python - <<'PY'
+          import json,re,subprocess
+          s=open('loudnorm_pass1.txt',encoding='utf-8').read()
+          m=re.search(r'\{\s*"input_i".*?\}',s,re.S)
+          if not m: raise SystemExit('Could not parse loudnorm measurement')
+          d=json.loads(m.group(0))
+          filt=(f"loudnorm=I=-16:TP=-2:LRA=5:measured_I={d['input_i']}:"
+                f"measured_TP={d['input_tp']}:measured_LRA={d['input_lra']}:"
+                f"measured_thresh={d['input_thresh']}:offset={d['target_offset']}:linear=true:print_format=summary")
+          subprocess.run(['ffmpeg','-y','-v','error','-i','SBV_C_Orpheus_3B_tara_RAW.wav','-af',filt,'-ar','48000','-ac','1','SBV_C_Orpheus_3B_tara_FINAL.wav'],check=True)
+          PY
+          ffmpeg -y -v error -i SBV_C_Orpheus_3B_tara_FINAL.wav -codec:a libmp3lame -b:a 192k SBV_C_Orpheus_3B_tara_FINAL.mp3
+          ffmpeg -v error -i SBV_C_Orpheus_3B_tara_FINAL.wav -f null -
+          ffmpeg -hide_banner -i SBV_C_Orpheus_3B_tara_FINAL.wav -af ebur128=peak=true -f null - 2> ebur128.txt
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,sample_rate,channels -of json SBV_C_Orpheus_3B_tara_FINAL.mp3 > probe.json
+          sha256sum SBV_C_Orpheus_3B_tara_FINAL.* > SHA256.txt
+
+      - name: Upload C artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Orpheus-C
+          path: |
+            SBV_C_Orpheus_3B_tara_FINAL.mp3
+            SBV_C_Orpheus_3B_tara_FINAL.wav
+            SBV_C_Orpheus_3B_tara_RAW.wav
+            ebur128.txt
+            probe.json
+            SHA256.txt
+          retention-days: 7
