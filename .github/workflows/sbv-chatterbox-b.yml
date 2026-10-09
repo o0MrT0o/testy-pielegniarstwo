@@ -1,0 +1,88 @@
+name: SBV Chatterbox B Voice Test
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sbv-chatterbox-b.yml'
+
+jobs:
+  synthesize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak-ng ffmpeg
+
+      - name: Install CPU PyTorch and TTS packages
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install chatterbox-tts==0.1.6 kokoro-onnx soundfile
+
+      - name: Download Kokoro v1.0 files
+        run: |
+          curl -L --fail -o kokoro-v1.0.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx
+          curl -L --fail -o voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin
+
+      - name: Generate real B
+        run: |
+          cat > synth.py <<'PY'
+          import random
+          import numpy as np
+          import torch
+          import torchaudio as ta
+          import soundfile as sf
+          from kokoro_onnx import Kokoro
+          from chatterbox.tts_turbo import ChatterboxTurboTTS
+
+          REF_TEXT = "Nobody cut this circle. A river made it. These are ice disks: rare slabs of ice that can spin almost perfectly round on slow-moving water."
+          TEST_TEXT = "As the mass turns, it rubs against surrounding ice and shoreline, grinding the edge smoother and smoother. And the spinning may get help from the ice itself. Lab experiments found that melting can create a vortex underneath an ice disk and keep it rotating."
+
+          kokoro = Kokoro('kokoro-v1.0.onnx', 'voices-v1.0.bin')
+          ref_audio, ref_sr = kokoro.create(REF_TEXT, voice='af_heart', speed=0.88, lang='en-us')
+          sf.write('SBV_af_heart_REFERENCE.wav', ref_audio, ref_sr, subtype='PCM_16')
+
+          model = ChatterboxTurboTTS.from_pretrained(device='cpu')
+          random.seed(42)
+          np.random.seed(42)
+          torch.manual_seed(42)
+
+          wav = model.generate(
+              TEST_TEXT,
+              audio_prompt_path='SBV_af_heart_REFERENCE.wav',
+              temperature=0.75,
+              min_p=0.0,
+              top_p=0.95,
+              top_k=1000,
+              repetition_penalty=1.2,
+              norm_loudness=True,
+          )
+          ta.save('SBV_B_Chatterbox_Turbo_af_heart_RAW.wav', wav.cpu(), model.sr)
+          PY
+          python synth.py
+
+      - name: Normalize and export MP3
+        run: |
+          ffmpeg -y -v error -i SBV_B_Chatterbox_Turbo_af_heart_RAW.wav -af loudnorm=I=-16:TP=-2:LRA=5 -ar 48000 -ac 1 SBV_B_Chatterbox_Turbo_af_heart_-16LUFS.wav
+          ffmpeg -y -v error -i SBV_B_Chatterbox_Turbo_af_heart_-16LUFS.wav -codec:a libmp3lame -b:a 192k SBV_B_Chatterbox_Turbo_af_heart_-16LUFS.mp3
+          ffprobe -v error -show_entries format=duration,size -of default=nw=1 SBV_B_Chatterbox_Turbo_af_heart_-16LUFS.mp3
+          sha256sum SBV_B_Chatterbox_Turbo_af_heart_-16LUFS.* > SHA256.txt
+
+      - name: Upload B artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Chatterbox-B
+          path: |
+            SBV_B_Chatterbox_Turbo_af_heart_-16LUFS.mp3
+            SBV_B_Chatterbox_Turbo_af_heart_-16LUFS.wav
+            SBV_af_heart_REFERENCE.wav
+            SHA256.txt
+          retention-days: 7
