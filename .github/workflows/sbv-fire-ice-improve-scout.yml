@@ -1,0 +1,47 @@
+name: SBV Fire Ice Improve Scout
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sbv-fire-ice-improve-scout.yml'
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Download verified sources
+        run: |
+          curl -L --fail --retry 3 -o usgs_lab.mp4 'https://usgs-ocapsv2-public-input-media.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/Gas_Hydrates_2012.mp4'
+          curl -L --fail --retry 3 -o noaa_hydrate.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2013/01/methane-1280x720-2.mp4'
+          curl -L --fail --retry 3 -o noaa_formation.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2025/04/methane-hydrate-formation-demonstration.mp4'
+          curl -L --fail --retry 3 -o noaa_bubbles.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2023/07/dive04-bubbles-1280x720-2.mp4'
+      - name: Probe and contact sheets
+        run: |
+          mkdir -p sheets
+          for f in usgs_lab.mp4 noaa_hydrate.mp4 noaa_formation.mp4 noaa_bubbles.mp4; do
+            ffprobe -v error -show_entries format=duration,size -show_entries stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of json "$f" > "${f%.mp4}_probe.json"
+          done
+          ffmpeg -y -v error -i noaa_formation.mp4 -vf "fps=1/2,scale=320:-1,tile=5x6:padding=4:margin=4" -frames:v 1 sheets/noaa_formation.jpg || true
+          ffmpeg -y -v error -i noaa_bubbles.mp4 -vf "fps=1/2,scale=320:-1,tile=5x6:padding=4:margin=4" -frames:v 1 sheets/noaa_bubbles.jpg || true
+          ffmpeg -y -v error -ss 240 -i usgs_lab.mp4 -t 160 -vf "fps=1/5,scale=320:-1,tile=4x8:padding=4:margin=4" -frames:v 1 sheets/usgs_late.jpg || true
+          ffmpeg -y -v error -i noaa_hydrate.mp4 -vf "fps=1/2,scale=320:-1,tile=5x6:padding=4:margin=4" -frames:v 1 sheets/noaa_hydrate.jpg || true
+      - name: Make small proxies
+        run: |
+          for f in noaa_formation.mp4 noaa_bubbles.mp4 noaa_hydrate.mp4; do
+            ffmpeg -y -v error -i "$f" -vf scale=640:-2 -c:v libx264 -preset veryfast -crf 30 -c:a aac -b:a 64k "${f%.mp4}_proxy.mp4" || true
+          done
+      - name: Upload scout
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Fire-Ice-Improve-Scout
+          path: |
+            sheets/*.jpg
+            *_probe.json
+            *_proxy.mp4
+          retention-days: 7
