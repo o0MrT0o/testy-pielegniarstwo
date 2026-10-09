@@ -55,7 +55,6 @@ jobs:
           for i in range(12):
               t=(d-.05)*i/11; subprocess.run(['ffmpeg','-y','-v','error','-ss',f'{t:.3f}','-i','Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4','-frames:v','1',f'qa_all/{i:02d}.jpg'],check=True)
           for i,t in enumerate([0,.5,1,1.5,2,2.5,3]): subprocess.run(['ffmpeg','-y','-v','error','-ss',str(t),'-i','Strange_But_Verified_Fire_Ice_PREMIUM_FINAL.mp4','-frames:v','1',f'qa_first/{i:02d}.jpg'],check=True)
-          # Inspect every semantic caption boundary and every shot boundary.
           k=0
           caps=ed['captions']
           for a,b in zip(caps,caps[1:]):
@@ -78,7 +77,6 @@ jobs:
           p=json.load(open('final_probe.json')); d=float(p['format']['duration']); al=json.load(open('word_alignment.json')); ed=json.load(open('edit_plan_polished.json'))
           eb=open('final_ebur128.txt',errors='ignore').read(); im=re.findall(r'I:\s+(-?[0-9.]+) LUFS',eb); pm=re.findall(r'Peak:\s+(-?[0-9.]+) dBFS',eb)
           black=len(re.findall(r'black_start:',open('blackdetect.txt',errors='ignore').read())); freeze=len(re.findall(r'freeze_start:',open('freezedetect.txt',errors='ignore').read())); sha=open('SHA256.txt').read().split()[0]
-          # Mathematically prove captions no longer overlap.
           caps=ed['captions']; overlap=max([max(0,float(a['end'])-float(b['start'])) for a,b in zip(caps,caps[1:])] or [0])
           q=f'''# QA — Fire Ice PREMIUM FINAL POLISH\n\n- Duration: **{d:.3f} s**\n- Canvas: **1080×1920 / 30 fps**\n- Video/audio: **H.264 / AAC 48 kHz stereo**\n- Integrated loudness: **{im[-1] if im else 'n/a'} LUFS**\n- Peak: **{pm[-1] if pm else 'n/a'} dBFS**\n- Full decode: **PASS**\n- Blackdetect >=0.12 s: **{black}**\n- Freeze >=1.5 s: **{freeze}**\n- Maximum caption overlap: **{overlap*1000:.1f} ms**\n- Word alignment direct-match ratio: **{al['match_ratio']*100:.1f}% ({al['matched_words']}/{al['expected_words_count']})**\n- Visuals: authentic NOAA/USGS only.\n- Audio: narrator plus subtle filtered authentic texture from the exact USGS burning-hydrate source; no stock whooshes or fake ambience.\n- Corrected hydrate-handling shot begins at USGS **305 s** rather than the magazine-cover transition.\n- SHA-256: `{sha}`\n'''
           open('Strange_But_Verified_Fire_Ice_PREMIUM_QA.md','w').write(q)
@@ -106,3 +104,5 @@ jobs:
             Strange_But_Verified_Fire_Ice_PREMIUM_First3s.jpg
             Strange_But_Verified_Fire_Ice_PREMIUM_Transitions.jpg
           retention-days: 7
+
+# retry after FFmpeg fade-duration syntax correction
