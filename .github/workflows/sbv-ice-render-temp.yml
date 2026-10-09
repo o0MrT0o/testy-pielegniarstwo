@@ -1,0 +1,33 @@
+name: SBV Ice Circle Temp Render
+
+on:
+  push:
+    branches: [ sbv-ice-render-temp ]
+    paths:
+      - 'sbv_ice_render/**'
+      - '.github/workflows/sbv-ice-render-temp.yml'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - name: Install Python dependencies
+        run: pip install -r sbv_ice_render/requirements.txt
+      - name: Render and QA
+        run: python sbv_ice_render/render_ice_circle.py
+      - name: Upload final package
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbv-ice-circle-final
+          path: sbv_ice_render/output/
+          if-no-files-found: error
+          retention-days: 3
