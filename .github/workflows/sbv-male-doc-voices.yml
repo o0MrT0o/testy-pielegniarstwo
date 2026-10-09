@@ -36,8 +36,8 @@ jobs:
           text = "Across the frozen river, a vast circle of ice turns almost silently. No machine carved it. No one set it in motion. The river itself did that."
           k = Kokoro('kokoro-v1.0.onnx','voices-v1.0.bin')
           for voice,speed,lang,out in [
-              ('am_fenrir',0.80,'en-us','REF_US_FENRIR.wav'),
-              ('bm_george',0.82,'en-gb','REF_UK_GEORGE.wav')]:
+              ('am_fenrir',0.84,'en-us','REF_US_FENRIR.wav'),
+              ('bm_george',0.86,'en-gb','REF_UK_GEORGE.wav')]:
               audio,sr = k.create(text, voice=voice, speed=speed, lang=lang)
               sf.write(out, audio, sr, subtype='PCM_16')
           PY
@@ -52,7 +52,7 @@ jobs:
           .venv-chatter/bin/python -m pip uninstall -y resemble-perth
           .venv-chatter/bin/python -m pip install --no-deps 'git+https://github.com/resemble-ai/Perth.git@master'
 
-      - name: Generate serious male documentary variants
+      - name: Generate sentence-level male documentary variants
         env:
           HF_HUB_DISABLE_TELEMETRY: '1'
           HF_HUB_DISABLE_XET: '1'
@@ -62,47 +62,80 @@ jobs:
           import chatterbox.tts_turbo as turbo
           from huggingface_hub import snapshot_download as hf_snapshot_download
 
-          TEXT = "As the mass turns, it rubs against surrounding ice and shoreline, grinding the edge smoother and smoother. And the spinning may get help from the ice itself. Lab experiments found that melting can create a vortex underneath an ice disk and keep it rotating."
+          SENTENCES = [
+              "As the mass turns, it rubs against surrounding ice and shoreline, grinding the edge smoother and smoother.",
+              "And the spinning may get help from the ice itself.",
+              "Lab experiments found that melting can create a vortex underneath an ice disk and keep it rotating."
+          ]
 
           def public_snapshot_download(*args, **kwargs):
               kwargs.pop('token', None)
               return hf_snapshot_download(*args, token=False, **kwargs)
           turbo.snapshot_download = public_snapshot_download
 
-          random.seed(19); np.random.seed(19); torch.manual_seed(19)
           model = turbo.ChatterboxTurboTTS.from_pretrained(device='cpu')
           settings=dict(
-              temperature=0.48,
+              temperature=0.52,
               min_p=0.0,
-              top_p=0.80,
-              top_k=600,
+              top_p=0.84,
+              top_k=700,
               repetition_penalty=1.15,
               norm_loudness=True,
           )
-          for ref,out in [
-              ('REF_US_FENRIR.wav','F_US_MALE_DOC_RAW.wav'),
-              ('REF_UK_GEORGE.wav','G_UK_MALE_DOC_RAW.wav')]:
-              wav = model.generate(TEXT, audio_prompt_path=ref, **settings)
-              ta.save(out, wav.cpu(), model.sr)
+          voices = [
+              ('REF_US_FENRIR.wav','F_US_MALE_DOC',101),
+              ('REF_UK_GEORGE.wav','G_UK_MALE_DOC',201),
+          ]
+          for ref,prefix,seed0 in voices:
+              for i,text in enumerate(SENTENCES,1):
+                  seed = seed0 + i
+                  random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
+                  wav = model.generate(text, audio_prompt_path=ref, **settings)
+                  ta.save(f'{prefix}_S{i}_RAW.wav', wav.cpu(), model.sr)
+                  print(prefix, i, model.sr, wav.shape[-1])
           PY
           .venv-chatter/bin/python synth.py
 
-      - name: Master files
+      - name: Clean pauses assemble and master
         run: |
-          for f in F_US_MALE_DOC G_UK_MALE_DOC; do
-            ffmpeg -y -v error -i ${f}_RAW.wav -af loudnorm=I=-16:TP=-2:LRA=5 -ar 48000 -ac 1 ${f}_FINAL.wav
-            ffmpeg -y -v error -i ${f}_FINAL.wav -codec:a libmp3lame -b:a 192k ${f}_FINAL.mp3
-            ffmpeg -v error -i ${f}_FINAL.wav -f null -
-            ffmpeg -hide_banner -i ${f}_FINAL.wav -af ebur128=peak=true -f null - 2> ${f}_ebur128.txt
+          set -e
+          for prefix in F_US_MALE_DOC G_UK_MALE_DOC; do
+            for i in 1 2 3; do
+              ffmpeg -y -v error -i ${prefix}_S${i}_RAW.wav \
+                -af "silenceremove=start_periods=1:start_duration=0.03:start_threshold=-45dB:stop_periods=-1:stop_duration=0.65:stop_threshold=-45dB:stop_silence=0.25" \
+                ${prefix}_S${i}_CLEAN.wav
+            done
+
+            ffmpeg -y -v error \
+              -i ${prefix}_S1_CLEAN.wav -i ${prefix}_S2_CLEAN.wav -i ${prefix}_S3_CLEAN.wav \
+              -f lavfi -t 0.30 -i anullsrc=r=24000:cl=mono \
+              -f lavfi -t 0.34 -i anullsrc=r=24000:cl=mono \
+              -filter_complex "[0:a][3:a][1:a][4:a][2:a]concat=n=5:v=0:a=1[voice]" \
+              -map "[voice]" ${prefix}_ASSEMBLED.wav
+
+            ffmpeg -y -v error -i ${prefix}_ASSEMBLED.wav \
+              -af loudnorm=I=-16:TP=-2:LRA=5 -ar 48000 -ac 1 ${prefix}_FINAL.wav
+            ffmpeg -y -v error -i ${prefix}_FINAL.wav \
+              -codec:a libmp3lame -b:a 192k ${prefix}_FINAL.mp3
+            ffmpeg -v error -i ${prefix}_FINAL.wav -f null -
+            ffmpeg -hide_banner -i ${prefix}_FINAL.wav \
+              -af ebur128=peak=true -f null - 2> ${prefix}_ebur128.txt
+            ffmpeg -hide_banner -i ${prefix}_FINAL.mp3 \
+              -af silencedetect=noise=-42dB:d=0.7 -f null - 2> ${prefix}_silence.txt
           done
-          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,sample_rate,channels -of json F_US_MALE_DOC_FINAL.mp3 > F_probe.json
-          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,sample_rate,channels -of json G_UK_MALE_DOC_FINAL.mp3 > G_probe.json
+
+          ffprobe -v error -show_entries format=duration,size \
+            -show_entries stream=codec_name,sample_rate,channels -of json \
+            F_US_MALE_DOC_FINAL.mp3 > F_probe.json
+          ffprobe -v error -show_entries format=duration,size \
+            -show_entries stream=codec_name,sample_rate,channels -of json \
+            G_UK_MALE_DOC_FINAL.mp3 > G_probe.json
           sha256sum F_US_MALE_DOC_FINAL.* G_UK_MALE_DOC_FINAL.* > SHA256.txt
 
-      - name: Upload male documentary variants
+      - name: Upload clean male documentary variants
         uses: actions/upload-artifact@v4
         with:
-          name: SBV-Male-Documentary-Voices
+          name: SBV-Male-Documentary-Voices-Clean
           path: |
             F_US_MALE_DOC_FINAL.mp3
             F_US_MALE_DOC_FINAL.wav
@@ -110,6 +143,8 @@ jobs:
             G_UK_MALE_DOC_FINAL.wav
             F_US_MALE_DOC_ebur128.txt
             G_UK_MALE_DOC_ebur128.txt
+            F_US_MALE_DOC_silence.txt
+            G_UK_MALE_DOC_silence.txt
             F_probe.json
             G_probe.json
             REF_US_FENRIR.wav
