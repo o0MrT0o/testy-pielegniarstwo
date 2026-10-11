@@ -13,6 +13,11 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install system audio tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
       - name: Install Kokoro reference generator
         run: |
           python -m pip install --upgrade pip
@@ -33,22 +38,16 @@ jobs:
           import onnxruntime as ort
           ort.disable_telemetry_events()
           from kokoro_onnx import Kokoro
-
           opt=ort.SessionOptions(); opt.intra_op_num_threads=4; opt.inter_op_num_threads=1
           session=ort.InferenceSession('kokoro-v1.0.onnx',sess_options=opt,providers=['CPUExecutionProvider'])
           k=Kokoro.from_session(session,'voices-v1.0.bin')
-
-          # Original synthetic channel voice. Female-dominant blend with a small low-register component.
           emma=k.get_voice_style('bf_emma')
           bella=k.get_voice_style('af_bella')
           michael=k.get_voice_style('am_michael')
           voice = emma*0.72 + bella*0.18 + michael*0.10
-
-          ref_text=(
-            'In the stillness of the forest, nothing is truly silent. '
-            'Beneath the soil, roots exchange water, minerals, and chemical signals through a hidden network. '
-            'What looks motionless is alive with communication.'
-          )
+          ref_text=('In the stillness of the forest, nothing is truly silent. '
+                    'Beneath the soil, roots exchange water, minerals, and chemical signals through a hidden network. '
+                    'What looks motionless is alive with communication.')
           audio,sr=k.create(ref_text,voice=voice,speed=0.82,lang='en-gb',trim=False,continuous=True)
           sf.write('SBV_Documentary_Female_REFERENCE.wav',audio,sr,subtype='PCM_24')
           print('reference_seconds',len(audio)/sr)
@@ -65,26 +64,20 @@ jobs:
           import random, numpy as np, torch
           import torchaudio as ta
           from chatterbox.tts import ChatterboxTTS
-
           seed=48217
           random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
-          device='cpu'
-          model=ChatterboxTTS.from_pretrained(device=device)
-          text=(
-            'At first glance, the forest seems perfectly still. '
-            'But beneath the bark and soil, every tree is connected to a world of signals, water, and shared resources. '
-            'The quiet is only an illusion.'
-          )
-          wav=model.generate(
-            text,
+          model=ChatterboxTTS.from_pretrained(device='cpu')
+          text=('At first glance, the forest seems perfectly still. '
+                'But beneath the bark and soil, every tree is connected to a world of signals, water, and shared resources. '
+                'The quiet is only an illusion.')
+          wav=model.generate(text,
             audio_prompt_path='SBV_Documentary_Female_REFERENCE.wav',
             exaggeration=0.28,
             temperature=0.66,
             cfg_weight=0.48,
             min_p=0.05,
             top_p=0.88,
-            repetition_penalty=1.12,
-          )
+            repetition_penalty=1.12)
           ta.save('SBV_Documentary_Female_V1_RAW.wav',wav,model.sr)
           print('sample_rate',model.sr,'seconds',wav.shape[-1]/model.sr)
           PY
