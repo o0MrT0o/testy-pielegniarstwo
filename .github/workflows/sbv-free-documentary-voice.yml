@@ -1,0 +1,127 @@
+name: SBV Free Documentary Voice
+
+on:
+  push:
+    branches: [ chatgpt-sbv-free-voice ]
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Kokoro reference generator
+        run: |
+          python -m pip install --upgrade pip
+          pip install kokoro-onnx==0.6.1 soundfile onnxruntime numpy
+
+      - name: Download Kokoro v1.0
+        run: |
+          wget -q https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx
+          wget -q https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin
+
+      - name: Build original low mature female reference
+        run: |
+          cat > make_reference.py <<'PY'
+          import os
+          os.environ['ORT_DISABLE_TELEMETRY']='1'
+          import numpy as np
+          import soundfile as sf
+          import onnxruntime as ort
+          ort.disable_telemetry_events()
+          from kokoro_onnx import Kokoro
+
+          opt=ort.SessionOptions(); opt.intra_op_num_threads=4; opt.inter_op_num_threads=1
+          session=ort.InferenceSession('kokoro-v1.0.onnx',sess_options=opt,providers=['CPUExecutionProvider'])
+          k=Kokoro.from_session(session,'voices-v1.0.bin')
+
+          # Original synthetic channel voice. Female-dominant blend with a small low-register component.
+          emma=k.get_voice_style('bf_emma')
+          bella=k.get_voice_style('af_bella')
+          michael=k.get_voice_style('am_michael')
+          voice = emma*0.72 + bella*0.18 + michael*0.10
+
+          ref_text=(
+            'In the stillness of the forest, nothing is truly silent. '
+            'Beneath the soil, roots exchange water, minerals, and chemical signals through a hidden network. '
+            'What looks motionless is alive with communication.'
+          )
+          audio,sr=k.create(ref_text,voice=voice,speed=0.82,lang='en-gb',trim=False,continuous=True)
+          sf.write('SBV_Documentary_Female_REFERENCE.wav',audio,sr,subtype='PCM_24')
+          print('reference_seconds',len(audio)/sr)
+          PY
+          python make_reference.py
+
+      - name: Install Chatterbox
+        run: |
+          pip install chatterbox-tts
+
+      - name: Humanize with Chatterbox
+        run: |
+          cat > make_final.py <<'PY'
+          import random, numpy as np, torch
+          import torchaudio as ta
+          from chatterbox.tts import ChatterboxTTS
+
+          seed=48217
+          random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
+          device='cpu'
+          model=ChatterboxTTS.from_pretrained(device=device)
+          text=(
+            'At first glance, the forest seems perfectly still. '
+            'But beneath the bark and soil, every tree is connected to a world of signals, water, and shared resources. '
+            'The quiet is only an illusion.'
+          )
+          wav=model.generate(
+            text,
+            audio_prompt_path='SBV_Documentary_Female_REFERENCE.wav',
+            exaggeration=0.28,
+            temperature=0.66,
+            cfg_weight=0.48,
+            min_p=0.05,
+            top_p=0.88,
+            repetition_penalty=1.12,
+          )
+          ta.save('SBV_Documentary_Female_V1_RAW.wav',wav,model.sr)
+          print('sample_rate',model.sr,'seconds',wav.shape[-1]/model.sr)
+          PY
+          python make_final.py
+
+      - name: Master sample
+        run: |
+          ffmpeg -y -hide_banner -loglevel error -i SBV_Documentary_Female_V1_RAW.wav \
+            -af "highpass=f=65,lowpass=f=15000,equalizer=f=190:t=q:w=1.0:g=1.0,equalizer=f=3200:t=q:w=1.1:g=0.7,loudnorm=I=-16:TP=-2:LRA=5" \
+            -ar 48000 -ac 1 -c:a pcm_s24le SBV_Documentary_Female_V1.wav
+          ffmpeg -y -hide_banner -loglevel error -i SBV_Documentary_Female_V1.wav -c:a libmp3lame -b:a 192k SBV_Documentary_Female_V1.mp3
+
+      - name: Save voice recipe
+        run: |
+          cat > SBV_Documentary_Female_V1.json <<'JSON'
+          {
+            "name": "SBV Documentary Female V1",
+            "purpose": "Original English female documentary narrator for Strange, But Verified",
+            "identity_source": "fully synthetic Kokoro blend; not modeled on an identifiable person",
+            "kokoro_model": "Kokoro-82M v1.0",
+            "kokoro_blend": {"bf_emma": 0.72, "af_bella": 0.18, "am_michael": 0.10},
+            "kokoro_speed": 0.82,
+            "kokoro_language": "en-gb",
+            "humanizer": "Chatterbox TTS",
+            "chatterbox_settings": {"exaggeration": 0.28, "temperature": 0.66, "cfg_weight": 0.48, "min_p": 0.05, "top_p": 0.88, "repetition_penalty": 1.12, "seed": 48217},
+            "master_target": "-16 LUFS / -2 dBTP",
+            "commercial_intent": true
+          }
+          JSON
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbv-documentary-female-v1
+          path: |
+            SBV_Documentary_Female_REFERENCE.wav
+            SBV_Documentary_Female_V1_RAW.wav
+            SBV_Documentary_Female_V1.wav
+            SBV_Documentary_Female_V1.mp3
+            SBV_Documentary_Female_V1.json
+          if-no-files-found: error
