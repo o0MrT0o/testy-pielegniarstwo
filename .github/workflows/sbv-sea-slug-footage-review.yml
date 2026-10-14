@@ -1,0 +1,26 @@
+name: SBV sea slug footage review
+on:
+  push:
+    branches: [chatgpt-sbv-render-assets]
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install yt-dlp and ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install -q yt-dlp
+      - name: Download authentic source edits for visual review
+        run: |
+          mkdir -p footage
+          yt-dlp -f 'bv*[height<=1080]+ba/b[height<=1080]' --merge-output-format mp4 -o 'footage/nara_youtube.%(ext)s' 'https://www.youtube.com/watch?v=rtmtW_n09f4'
+          yt-dlp -f 'bv*[height<=1080]+ba/b[height<=1080]' --merge-output-format mp4 -o 'footage/sciencenews_youtube.%(ext)s' 'https://www.youtube.com/watch?v=rZ3kCcKCqCc'
+          ffmpeg -y -i footage/nara_youtube.mp4 -vf "fps=1/5,scale=320:-1,tile=5x5" -frames:v 1 footage/nara_contact.jpg
+          ffmpeg -y -i footage/sciencenews_youtube.mp4 -vf "fps=1/5,scale=320:-1,tile=5x5" -frames:v 1 footage/sciencenews_contact.jpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbv-sea-slug-footage-review
+          path: footage/
+          retention-days: 1
