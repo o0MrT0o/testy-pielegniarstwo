@@ -1,0 +1,18 @@
+name: Swarmhold Public Runner Test
+
+on:
+  push:
+    branches:
+      - swarmhold-apk-temp
+    paths:
+      - '.github/workflows/swarmhold-public-runner-test.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - run: echo public-runner-ok
