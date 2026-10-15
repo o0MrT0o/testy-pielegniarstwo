@@ -1,0 +1,52 @@
+name: Swarmhold Toolchain Slim
+
+on:
+  push:
+    branches:
+      - swarmhold-ci-probe-20261015
+    paths:
+      - '.github/workflows/swarmhold-toolchain-slim.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Extract slim Godot Android toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker pull barichello/godot-ci:4.7.2
+          mkdir -p "$GITHUB_WORKSPACE/slim"
+          docker create --name swarmhold-slim barichello/godot-ci:4.7.2 >/dev/null
+          docker cp swarmhold-slim:/usr/local/bin/godot "$GITHUB_WORKSPACE/slim/godot"
+          mkdir -p "$GITHUB_WORKSPACE/slim/export_templates/4.7.2.stable"
+          docker cp swarmhold-slim:/root/.local/share/godot/export_templates/4.7.2.stable/android_debug.apk "$GITHUB_WORKSPACE/slim/export_templates/4.7.2.stable/android_debug.apk"
+          docker cp swarmhold-slim:/root/.local/share/godot/export_templates/4.7.2.stable/android_release.apk "$GITHUB_WORKSPACE/slim/export_templates/4.7.2.stable/android_release.apk"
+          docker cp swarmhold-slim:/root/.local/share/godot/export_templates/4.7.2.stable/version.txt "$GITHUB_WORKSPACE/slim/export_templates/4.7.2.stable/version.txt"
+          mkdir -p "$GITHUB_WORKSPACE/slim/android-sdk"
+          docker cp swarmhold-slim:/usr/lib/android-sdk/build-tools "$GITHUB_WORKSPACE/slim/android-sdk/build-tools"
+          docker cp swarmhold-slim:/usr/lib/android-sdk/platform-tools "$GITHUB_WORKSPACE/slim/android-sdk/platform-tools"
+          docker cp swarmhold-slim:/usr/lib/android-sdk/platforms "$GITHUB_WORKSPACE/slim/android-sdk/platforms" || true
+          docker cp swarmhold-slim:/root/.android "$GITHUB_WORKSPACE/slim/android-user" || true
+          docker rm swarmhold-slim >/dev/null
+          chmod +x "$GITHUB_WORKSPACE/slim/godot"
+          du -sh "$GITHUB_WORKSPACE/slim" "$GITHUB_WORKSPACE/slim/android-sdk" "$GITHUB_WORKSPACE/slim/export_templates/4.7.2.stable" || true
+          tar -C "$GITHUB_WORKSPACE" -czf "$GITHUB_WORKSPACE/swarmhold-toolchain-slim.tar.gz" slim
+          ls -lh "$GITHUB_WORKSPACE/swarmhold-toolchain-slim.tar.gz"
+          sha256sum "$GITHUB_WORKSPACE/swarmhold-toolchain-slim.tar.gz" > "$GITHUB_WORKSPACE/swarmhold-toolchain-slim.sha256"
+
+      - name: Upload slim toolchain
+        uses: actions/upload-artifact@v4
+        with:
+          name: swarmhold-toolchain-slim
+          path: |
+            swarmhold-toolchain-slim.tar.gz
+            swarmhold-toolchain-slim.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
