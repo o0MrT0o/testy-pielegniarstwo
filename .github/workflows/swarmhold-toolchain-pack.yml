@@ -1,0 +1,48 @@
+name: Swarmhold Toolchain Pack
+
+on:
+  push:
+    branches:
+      - swarmhold-ci-probe-20261015
+    paths:
+      - '.github/workflows/swarmhold-toolchain-pack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Extract minimal Godot Android toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker pull barichello/godot-ci:4.7.2
+          mkdir -p "$GITHUB_WORKSPACE/toolchain"
+          docker create --name swarmhold-toolchain barichello/godot-ci:4.7.2 >/dev/null
+          docker cp swarmhold-toolchain:/usr/local/bin/godot "$GITHUB_WORKSPACE/toolchain/godot"
+          mkdir -p "$GITHUB_WORKSPACE/toolchain/export_templates/4.7.2.stable"
+          docker cp swarmhold-toolchain:/root/.local/share/godot/export_templates/4.7.2.stable/android_debug.apk "$GITHUB_WORKSPACE/toolchain/export_templates/4.7.2.stable/android_debug.apk"
+          docker cp swarmhold-toolchain:/root/.local/share/godot/export_templates/4.7.2.stable/android_release.apk "$GITHUB_WORKSPACE/toolchain/export_templates/4.7.2.stable/android_release.apk"
+          docker cp swarmhold-toolchain:/root/.local/share/godot/export_templates/4.7.2.stable/version.txt "$GITHUB_WORKSPACE/toolchain/export_templates/4.7.2.stable/version.txt"
+          docker cp swarmhold-toolchain:/usr/lib/android-sdk "$GITHUB_WORKSPACE/toolchain/android-sdk"
+          docker rm swarmhold-toolchain >/dev/null
+          chmod +x "$GITHUB_WORKSPACE/toolchain/godot"
+          du -sh "$GITHUB_WORKSPACE/toolchain" "$GITHUB_WORKSPACE/toolchain/android-sdk" "$GITHUB_WORKSPACE/toolchain/export_templates/4.7.2.stable" || true
+          tar -C "$GITHUB_WORKSPACE" -czf "$GITHUB_WORKSPACE/swarmhold-godot-android-toolchain.tar.gz" toolchain
+          ls -lh "$GITHUB_WORKSPACE/swarmhold-godot-android-toolchain.tar.gz"
+          sha256sum "$GITHUB_WORKSPACE/swarmhold-godot-android-toolchain.tar.gz" > "$GITHUB_WORKSPACE/swarmhold-toolchain.sha256"
+
+      - name: Upload toolchain artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: swarmhold-godot-android-toolchain
+          path: |
+            swarmhold-godot-android-toolchain.tar.gz
+            swarmhold-toolchain.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
