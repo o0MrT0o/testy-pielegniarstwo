@@ -64,10 +64,10 @@ jobs:
             ("The largest known one reached six point four meters",r"LARGEST KNOWN:\N{\c&H66D7FF&}6.4 METERS{\c&HFFFFFF&}"),
             ("six point one meters of that was arms and tentacles.",r"{\c&H66D7FF&}6.1 METERS{\c&HFFFFFF&}\NWAS ARMS + TENTACLES."),
             ("Scientists think these hanging appendages",r"SCIENTISTS THINK\NTHESE APPENDAGES..."),
-            ("may trap prey that bumps into them.",r"MAY {\c&H66D7FF&}TRAP PREY{\c&HFFFFFF&}\NTHAT BUMPS INTO THEM."),
+            ("may trap prey that bumps into them.",r"MAY {\c&H66D7FF&}TRAP PREY{\c&HFFFFFF'}\NTHAT BUMPS INTO THEM."),
             ("Almost the entire squid is arms and tentacles.",r"ALMOST THE ENTIRE SQUID\NIS {\c&H66D7FF&}ARMS + TENTACLES{\c&HFFFFFF&}.")]
           HEAD=.120; TAIL=.080
-          STARTS=[3.0,12.0,21.0,30.0,39.0,48.0,58.0,69.0,80.0]
+          STARTS=[12.0,16.5,21.0,30.0,39.0,48.0,58.0,66.0,72.0]
           BASE=[2.2,2.3,2.8,3.0,3.2,3.3,3.4,3.6]
 
           def run(cmd, cap=False, check=True):
