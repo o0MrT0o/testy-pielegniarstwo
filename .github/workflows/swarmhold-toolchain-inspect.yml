@@ -1,0 +1,20 @@
+name: Swarmhold Toolchain Inspect
+
+on:
+  push:
+    branches:
+      - swarmhold-ci-probe-20261015
+    paths:
+      - '.github/workflows/swarmhold-toolchain-inspect.yml'
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect Godot CI image
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker pull barichello/godot-ci:4.7.2
+          docker run --rm barichello/godot-ci:4.7.2 bash -lc 'which godot || true; godot --version || true; echo HOME=$HOME; ls -la /root/.local/share/godot/export_templates 2>/dev/null || true; find /root/.local/share/godot/export_templates -maxdepth 2 -type f 2>/dev/null | head -50 || true; echo ANDROID_HOME=$ANDROID_HOME; echo ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT; find /opt /usr/local -maxdepth 3 -type d -iname "*android*" 2>/dev/null | head -50 || true; command -v sdkmanager || true; command -v apksigner || true; command -v zipalign || true'
