@@ -48,13 +48,13 @@ jobs:
           ffmpeg -y -v error -i sbv_spider/source_mmc2.mp4 -vf "fps=1/2,scale=360:-2,tile=5x4:padding=6:margin=6" -frames:v 1 sbv_spider/contact_mmc2.jpg
           ffmpeg -y -v error -i sbv_spider/source_mmc4.mp4 -vf "fps=1/8,scale=270:-2,tile=5x4:padding=5:margin=5" -frames:v 1 sbv_spider/contact_mmc4.jpg
 
-      - name: Generate approved native af_heart narration
+      - name: Generate exact approved af_heart narration
         run: |
           set -euo pipefail
-          python -m pip install -q 'kokoro-onnx==0.6.1' 'onnxruntime>=1.20,<2' soundfile numpy
-          curl -L --fail --retry 3 -o sbv_spider/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx'
-          curl -L --fail --retry 3 -o sbv_spider/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin'
-          echo '7d5df8ecf7d4b1878015a32686053fd0eebe2bc377234608764cc0ef3636a6c5  sbv_spider/kokoro-v1.0.onnx' | sha256sum -c -
+          python -m pip install -q 'kokoro-onnx==0.6.1' 'onnxruntime>=1.20,<2' soundfile numpy espeakng-loader
+          curl -L --fail --retry 3 -o sbv_spider/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 3 -o sbv_spider/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  sbv_spider/kokoro-v1.0.onnx' | sha256sum -c -
           echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  sbv_spider/voices-v1.0.bin' | sha256sum -c -
           python - <<'PY'
           import os,json,hashlib,dataclasses
