@@ -1,0 +1,18 @@
+name: SBV feeding photo fetch
+on:
+  push:
+    branches: [chatgpt-sbv-render-assets]
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch CC feeding photo
+        run: |
+          mkdir -p out
+          curl -L --fail --retry 3 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Elysia%20Grandifolia%20eating%20algae%20(17111551869).jpg' -o out/elysia_marginata_feeding.jpg
+          file out/elysia_marginata_feeding.jpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbv-feeding-photo
+          path: out/elysia_marginata_feeding.jpg
+          retention-days: 1
