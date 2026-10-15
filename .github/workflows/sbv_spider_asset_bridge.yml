@@ -10,6 +10,11 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
       - name: Fetch authentic Morley-Robert videos
         run: |
           set -euo pipefail
