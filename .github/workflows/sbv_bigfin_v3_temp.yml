@@ -1,0 +1,69 @@
+name: SBV Bigfin Squid V3 Temp Render
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sbv_bigfin_v3_temp.yml'
+  workflow_dispatch:
+
+jobs:
+  render-v3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core
+          python -m pip install --upgrade pip
+          python -m pip install 'kokoro-onnx==0.6.1' 'onnxruntime>=1.17,<2' 'soundfile>=0.13' 'numpy>=1.26,<3' 'Pillow>=10'
+
+      - name: Download source, models, and proven V2 renderer
+        run: |
+          set -euxo pipefail
+          mkdir -p work/assets work/models work/out work/qa
+          curl -L --fail --retry 4 --retry-all-errors -o work/assets/noaa_bigfin.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2021/11/dive10-bigfin-squid-1280x720-2.mp4'
+          curl -L --fail --retry 4 --retry-all-errors -o work/models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 4 --retry-all-errors -o work/models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          curl -L --fail --retry 4 --retry-all-errors -o work/base_renderer.yml 'https://raw.githubusercontent.com/o0MrT0o/testy-pielegniarstwo/sbv-bigfin-render-20261015/.github/workflows/sbv_bigfin_render.yml'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  work/models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  work/models/voices-v1.0.bin' | sha256sum -c -
+
+      - name: Build V3 from audited V2 renderer
+        run: |
+          python - <<'PATCHPY'
+          from pathlib import Path
+          txt=Path('work/base_renderer.yml').read_text(encoding='utf-8')
+          marker="cat > work/render.py <<'PY'\n"
+          block=txt.split(marker,1)[1].split("\n          PY",1)[0]
+          code='\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())+'\n'
+          old="STARTS=[12.0,16.5,21.0,30.0,39.0,48.0,58.0,66.0,72.0]"
+          new="STARTS=[39.5,16.5,21.0,30.0,39.0,48.0,58.0,66.0,48.0]"
+          assert old in code
+          code=code.replace(old,new,1)
+          old_total="total=dur(W/'voice.wav')"
+          new_total="""raw_total=dur(W/'voice.wav')
+          sil=run(['ffmpeg','-hide_banner','-i',str(W/'voice.wav'),'-af','silencedetect=noise=-45dB:d=0.15','-f','null','-'],True,False)
+          ss=[float(x) for x in re.findall(r'silence_start: ([0-9.]+)',sil.stderr)]
+          total=min(raw_total,27.22)
+          if ss and raw_total-ss[-1] >= 0.15:
+              total=min(total,ss[-1]+0.10)
+          print('V3 trimmed runtime',total,'raw',raw_total,'last silence',ss[-1] if ss else None)"""
+          assert old_total in code
+          code=code.replace(old_total,new_total,1)
+          code=code.replace("FINAL=O/'Strange_But_Verified_Bigfin_Squid_FINAL.mp4'","FINAL=O/'Strange_But_Verified_Bigfin_Squid_FINAL_V3.mp4'",1)
+          Path('work/render_v3.py').write_text(code,encoding='utf-8')
+          PATCHPY
+          python work/render_v3.py
+
+      - name: Upload V3 and QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Bigfin-Squid-FINAL-V3
+          path: |
+            work/out/Strange_But_Verified_Bigfin_Squid_FINAL_V3.mp4
+            work/qa/
+          retention-days: 1
+          compression-level: 0
