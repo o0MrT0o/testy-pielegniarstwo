@@ -1,0 +1,41 @@
+name: SBV Fire Voice V2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sbv_fire_voice_v2.yml'
+
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng
+          python -m pip install --upgrade pip
+          python -m pip install 'kokoro-onnx==0.6.1' soundfile
+      - run: |
+          curl -L --fail --retry 3 -o kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 3 -o voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          mkdir -p out
+          sha256sum kokoro-v1.0.onnx voices-v1.0.bin > out/kokoro_hashes.txt
+      - run: |
+          cat > make_voice.py <<'PY'
+          import soundfile as sf
+          from kokoro_onnx import Kokoro
+          text = "This is a real flame. So why does it look like a glowing ball? On Earth, hot gas rises, pulling cooler air in from below. That flow stretches fire into the familiar teardrop shape. In microgravity, hot gas doesn't rise the same way. Oxygen reaches the flame from all directions, wrapping it around the fuel as a sphere. NASA's FLEX experiments filmed this aboard the International Space Station. And that matters, because fire safety in spacecraft depends on understanding this behavior. Same fire. Different gravity. Completely different shape."
+          tts = Kokoro('kokoro-v1.0.onnx','voices-v1.0.bin')
+          audio, sr = tts.create(text, voice='af_heart', speed=0.88, lang='en-us', continuous=True)
+          sf.write('out/narration_v2.wav', audio, sr, subtype='PCM_16')
+          open('out/script_v2.txt','w').write(text+'\n')
+          PY
+          python make_voice.py
+          ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 out/narration_v2.wav > out/duration.txt
+          sha256sum out/narration_v2.wav > out/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbv-fire-voice-v2
+          path: out/
+          retention-days: 1
