@@ -1,0 +1,88 @@
+name: SBV Searobin V3 Caption Only Fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sbv_searobin_v3_no_em_dash.yml'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core
+          python -m pip install --upgrade pip
+          python -m pip install 'kokoro-onnx==0.6.1' 'onnxruntime>=1.17,<2' 'soundfile>=0.13' 'numpy>=1.26,<3'
+
+      - name: Download exact renderer and assets
+        run: |
+          set -euxo pipefail
+          mkdir -p work/assets work/models work/out work/qa previous
+          curl -L --fail --retry 4 --retry-all-errors -o work/assets/searobin.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2018/05/searobin_1280x720.mp4'
+          curl -L --fail --retry 4 --retry-all-errors -o work/models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 4 --retry-all-errors -o work/models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          curl -L --fail --retry 4 --retry-all-errors -o work/base.yml 'https://raw.githubusercontent.com/o0MrT0o/testy-pielegniarstwo/580a2e2a40f3fd892d3de112fe1ca649e1138948/.github/workflows/sbv_searobin_v3_render.yml'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  work/models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  work/models/voices-v1.0.bin' | sha256sum -c -
+          gh run download 38866141717 -n SBV-Armored-Searobin-FINAL-V3-REFINED -D previous
+
+      - name: Apply only caption punctuation fix to refined V3
+        run: |
+          python - <<'PATCHPY'
+          from pathlib import Path
+          txt=Path('work/base.yml').read_text(encoding='utf-8')
+          marker="cat > work/render_v3.py <<'PY'\n"
+          block=txt.split(marker,1)[1].split("\n          PY",1)[0]
+          code='\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())+'\n'
+          replacements={
+            "STARTS=[18.0,20.5,24.0,27.0,30.0,40.5,21.0,33.0,18.8]":"STARTS=[18.0,20.5,24.0,27.0,30.0,12.0,21.0,33.0,18.8]",
+            "WIDTHS=[2200,2200,3000,3000,3000,2200,2300,3200,2200]":"WIDTHS=[2200,2200,2000,2000,2000,2200,2200,2100,2200]",
+            "XRAT=[0.42,0.50,0.50,0.50,0.50,0.50,0.50,0.50,0.44]":"XRAT=[0.42,0.50,0.65,1.00,1.00,0.30,0.50,0.90,0.44]",
+            "pos(500,1260)":"pos(500,1220)",
+            "'caption_y':1260":"'caption_y':1220",
+            "Caption center Y: 1260":"Caption center Y: 1220",
+            "Sharp layer heights approx: 1238-1800 px":"Sharp layer heights approx: 1125-1238 px",
+            r"IT {\c&H66D7FF&}WALKS{\c&HFFFFFF&} — AND {\c&H66D7FF&}TASTES{\c&HFFFFFF&} —\NTHE SEAFLOOR.":r"IT {\c&H66D7FF&}WALKS{\c&HFFFFFF&} AND {\c&H66D7FF&}TASTES{\c&HFFFFFF&}\NTHE SEAFLOOR."
+          }
+          for old,new in replacements.items():
+              assert old in code, old
+              code=code.replace(old,new,1)
+          Path('work/render_v3.py').write_text(code,encoding='utf-8')
+          PATCHPY
+          python work/render_v3.py
+          ! grep -q ' — ' work/captions.ass
+
+      - name: Verify nothing else changed
+        run: |
+          set -euxo pipefail
+          OLD='previous/SBV_Armored_Searobin_FINAL_YouTube_V3.mp4'
+          NEW='work/out/SBV_Armored_Searobin_FINAL_YouTube_V3.mp4'
+          test -f "$OLD"
+          test -f "$NEW"
+          ffmpeg -v error -i "$OLD" -map 0:a:0 -f s16le -acodec pcm_s16le -ar 48000 -ac 2 old_audio.pcm
+          ffmpeg -v error -i "$NEW" -map 0:a:0 -f s16le -acodec pcm_s16le -ar 48000 -ac 2 new_audio.pcm
+          test "$(sha256sum old_audio.pcm | awk '{print $1}')" = "$(sha256sum new_audio.pcm | awk '{print $1}')"
+          ffmpeg -v error -t 17 -i "$OLD" -map 0:v:0 -f framemd5 old_pre17.md5
+          ffmpeg -v error -t 17 -i "$NEW" -map 0:v:0 -f framemd5 new_pre17.md5
+          diff -u old_pre17.md5 new_pre17.md5
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$NEW" > work/qa/duration.txt
+          sha256sum "$NEW" > work/qa/final_sha256.txt
+          cp work/captions.ass work/qa/captions.ass
+
+      - name: Upload caption-fixed final
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Armored-Searobin-FINAL-V3-NO-EM-DASH
+          path: |
+            work/out/SBV_Armored_Searobin_FINAL_YouTube_V3.mp4
+            work/qa/
+          retention-days: 1
+          compression-level: 0
