@@ -1,0 +1,34 @@
+name: SBV Searobin Source Audit
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sbv_searobin_source_audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Download NOAA source and build source contact sheets
+        run: |
+          set -euxo pipefail
+          mkdir -p work/qa
+          curl -L --fail --retry 4 --retry-all-errors -o work/searobin.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2018/05/searobin_1280x720.mp4'
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 work/searobin.mp4 > work/qa/duration.txt
+          DUR=$(cat work/qa/duration.txt)
+          echo "Duration: $DUR"
+          ffmpeg -y -i work/searobin.mp4 -vf "fps=1/3,scale=480:-2,tile=4x4:padding=8:margin=8" -frames:v 1 work/qa/source_sheet_3s.jpg
+          ffmpeg -y -ss 0 -t 12 -i work/searobin.mp4 -vf "fps=1,scale=360:-2,tile=4x3:padding=8:margin=8" -frames:v 1 work/qa/opening_12s.jpg
+          ffmpeg -y -ss 12 -t 12 -i work/searobin.mp4 -vf "fps=1,scale=360:-2,tile=4x3:padding=8:margin=8" -frames:v 1 work/qa/middle_12s.jpg || true
+          ffmpeg -y -ss 24 -t 12 -i work/searobin.mp4 -vf "fps=1,scale=360:-2,tile=4x3:padding=8:margin=8" -frames:v 1 work/qa/late_12s.jpg || true
+      - name: Upload source audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Searobin-Source-Audit
+          path: work/qa/
+          retention-days: 1
+          compression-level: 0
