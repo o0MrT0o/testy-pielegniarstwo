@@ -1,0 +1,31 @@
+name: SBV Bennu V4 additional real NASA video footage
+on:
+  push:
+    branches: [sbv-bennu-v4-diverse-realfootage]
+    paths: ['.github/workflows/sbv-v4-sources.yml']
+permissions: {contents: read}
+jobs:
+  sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Install FFmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - name: Download 4 distinct authentic NASA footage sources
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl -fLsS --retry 3 --max-time 120 'https://svs.gsfc.nasa.gov/vis/a010000/a014700/a014772/ARRIVAL_BennuFullRotation.mp4' -o out/PolyCam_Bennu_Full_Rotation.mp4
+          curl -fLsS --retry 3 --max-time 120 'https://svs.gsfc.nasa.gov/vis/a030000/a031200/a031244/osiris-rex-tag-navcam2.webm' -o out/NavCam2_Approach_BackAway.webm
+          curl -fLsS --retry 3 --max-time 120 'https://svs.gsfc.nasa.gov/vis/a010000/a014700/a014772/BENNU_SAMPLE_BROLL_NASA_GSFC_11_8_2023_720.mp4' -o out/NASA_Bennu_Actual_Sample_Lab_2023.mp4
+          curl -fLsS --retry 3 --max-time 120 'https://svs.gsfc.nasa.gov/vis/a010000/a014400/a014415/capsule_desert_1_1280x720.webm' -o out/Capsule_Actual_Utah_2023.webm
+          for f in out/*; do
+            ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 "$f"
+            ffmpeg -y -hide_banner -loglevel error -i "$f" -vf "fps=1/4,scale=256:-2,tile=5x5" -frames:v 1 "${f%.*}_SHEET.jpg" || true
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_Bennu_V4_NewRealNASA_SourceFilms
+          path: out/
+          retention-days: 7
+          compression-level: 0
