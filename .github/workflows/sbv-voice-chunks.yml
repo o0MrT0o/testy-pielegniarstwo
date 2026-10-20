@@ -1,0 +1,99 @@
+name: SBV Narration Chunk QA
+on:
+  push:
+    branches: [sbv-seacucumber-noaa-2026]
+    paths: ['.github/workflows/sbv-voice-chunks.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  segment-and-verify-narrator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Download previous original voice reference from same GitHub Actions run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ref
+          gh run download 39394945796 --repo o0MrT0o/testy-pielegniarstwo --name SBV_SeaCucumber_Original_Style_Narration --dir ref
+          ls -lh ref/
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install open source Chatterbox Turbo and local Whisper QA
+        run: |
+          python -m pip install -U pip
+          pip install torch==2.6.0+cpu torchaudio==2.6.0+cpu --index-url https://download.pytorch.org/whl/cpu
+          pip install chatterbox-tts==0.1.6 soundfile faster-whisper
+      - name: Synthesize five short segments with exact original voice profile
+        run: |
+          cat > /tmp/sbv_voice_qa.py <<'PY'
+          import os, numpy as np, torch, soundfile as sf, torchaudio as ta, re
+          from chatterbox.tts_turbo import ChatterboxTurboTTS
+          from huggingface_hub import snapshot_download as hf_snapshot_download
+          import chatterbox.tts_turbo as cbt
+          cbt.snapshot_download=lambda *args,**kwargs: hf_snapshot_download(*args,**{**kwargs,"token":False})
+          torch.set_num_threads(2)
+          model=ChatterboxTurboTTS.from_pretrained(device="cpu")
+          os.makedirs("out",exist_ok=True)
+          ref="ref/SBV_kokoro_original_mix_reference.wav"
+          assert os.path.exists(ref)
+          lines=[
+          "This isn't a jellyfish. It's a sea cucumber, and it swims.",
+          "NOAA filmed this animal more than two kilometres beneath the Pacific.",
+          "Most sea cucumbers crawl along the seafloor.",
+          "But some can leave it entirely, flexing their bodies to rise through open water.",
+          "They drift, then descend to feed. And every second you're seeing is real."
+          ]
+          clean_chunks=[]
+          for i,line in enumerate(lines):
+              print("BEGIN_CHUNK",i,line,flush=True)
+              torch.manual_seed(48217+i)
+              wav=model.generate(line,audio_prompt_path=ref,temperature=0.66,top_p=0.88,repetition_penalty=1.12)
+              raw=wav.cpu().numpy().reshape(-1)
+              rate=model.sr
+              sf.write(f"out/raw_{i}.wav",raw,rate)
+              # Compress near-silent pauses >0.6 seconds to 0.2 seconds, never alter spoken samples.
+              window=int(rate*0.02)
+              blocks=len(raw)//window
+              rms=np.sqrt(np.mean(raw[:blocks*window].reshape(blocks,window)**2,axis=1))
+              quiet=(rms<0.00065)
+              runs=[]; st=0
+              while st<len(quiet):
+                  if not quiet[st]:st+=1;continue
+                  en=st+1
+                  while en<len(quiet) and quiet[en]:en+=1
+                  if (en-st)*0.02>0.60:runs.append((st*window,en*window))
+                  st=en
+              for a,b in reversed(runs):
+                  raw=np.concatenate((raw[:a],np.zeros(int(.20*rate),dtype=raw.dtype),raw[b:]))
+              # trim outer near silence, but retain short padding
+              active=np.flatnonzero(np.abs(raw)>0.001)
+              if len(active):
+                  a=max(0,int(active[0]-.09*rate));b=min(len(raw),int(active[-1]+.12*rate))
+                  raw=raw[a:b]
+              print("CHUNK_DURATION",i,round(len(raw)/rate,2),"pause_runs",runs,flush=True)
+              clean_chunks.append(raw)
+              sf.write(f"out/chunk_{i}.wav",raw,rate)
+          gap=np.zeros(int(.16*rate),dtype=np.float32)
+          full=np.concatenate([p for i,ch in enumerate(clean_chunks) for p in ((gap,ch) if i else (ch,))])
+          sf.write("out/SBV_SeaCucumber_narration_FINAL_QA.wav",full,rate)
+          print("FINAL_DURATION",len(full)/rate,flush=True)
+          try:
+           from faster_whisper import WhisperModel
+           whisper=WhisperModel("tiny.en",device="cpu",compute_type="int8",cpu_threads=2)
+           parts,info=whisper.transcribe("out/SBV_SeaCucumber_narration_FINAL_QA.wav",beam_size=3,language="en",vad_filter=False)
+           transcript=" ".join(p.text.strip() for p in parts)
+           print("TRANSCRIPT",transcript,flush=True)
+           open("out/transcript_qa.txt","w").write("Expected: "+" ".join(lines)+"\nTranscribed: "+transcript+"\n")
+          except Exception as e:print("Transcription QA not available:",e,flush=True)
+          
+          PY
+          python /tmp/sbv_voice_qa.py
+      - name: Archive narration and independent transcription
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV_SeaCucumber_Voice_Segments_QA
+          path: out/
+          retention-days: 7
