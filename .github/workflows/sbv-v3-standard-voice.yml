@@ -1,0 +1,62 @@
+name: SBV V3 approved Kokoro af_heart
+on:
+  push:
+    branches: [sbv-seacucumber-v3-standard-2026]
+    paths: ['.github/workflows/sbv-v3-standard-voice.yml']
+permissions: {contents: read}
+jobs:
+  generate-approved-channel-voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Prepare model runtime
+        run: sudo apt-get update -qq && sudo apt-get install -y espeak-ng libsndfile1
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install exact previous TTS library and verification dependencies
+        run: |
+          pip install 'kokoro-onnx==0.6.1' soundfile 'faster-whisper>=1.0,<2'
+      - name: Download original standard model
+        run: |
+          curl -L --fail --retry 4 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx' -o kokoro-v1.0.onnx
+          curl -L --fail --retry 4 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin' -o voices-v1.0.bin
+      - name: Verify original approved weights and synthesize continuous narrator
+        run: |
+          cat > /tmp/sbv_v3_voice.py <<'PY'
+          import os,hashlib,json
+          import soundfile as sf
+          from kokoro_onnx import Kokoro
+          src="That looks like a jellyfish. But it's a sea cucumber. And it swims. NOAA scientists filmed it near American Samoa. Most sea cucumbers crawl along the seafloor. But some lift off, flexing their bodies to swim into open water. They drift, then settle back down to feed. And here's the surprise: they're much closer relatives of starfish than jellyfish."
+          h={"kokoro-v1.0.onnx":"beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a","voices-v1.0.bin":"bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"}
+          for f,expected in h.items():
+           observed=hashlib.file_digest(open(f,"rb"),"sha256").hexdigest()
+           print("MODEL_SHA",f,observed,flush=True)
+           assert observed==expected,(f,observed,expected)
+          k=Kokoro("kokoro-v1.0.onnx","voices-v1.0.bin")
+          a,sr=k.create(src,voice="af_heart",speed=0.88,lang="en-us")
+          os.makedirs("out",exist_ok=True)
+          sf.write("out/SBV_Sea_Cucumber_V3_af_heart_NATIVE.wav",a,sr,subtype="PCM_24")
+          open("out/narration.txt","w").write(src)
+          duration=len(a)/sr
+          print("DURATION",duration,"RATE",sr,flush=True)
+          assert 15<duration<42, "unreasonable speech duration"
+          try:
+           from faster_whisper import WhisperModel
+           w=WhisperModel("tiny.en",device="cpu",compute_type="int8",cpu_threads=2)
+           parts,info=w.transcribe("out/SBV_Sea_Cucumber_V3_af_heart_NATIVE.wav",language="en",word_timestamps=True,beam_size=3,vad_filter=False)
+           data=[]
+           for p in parts:
+            for word in p.words or []:data.append({"start":round(word.start,3),"end":round(word.end,3),"word":word.word})
+           json.dump(data,open("out/voice_timing_words.json","w"),indent=2)
+           print("TRANSCRIBED","".join(q["word"] for q in data),flush=True)
+          except Exception as e:print("ASR_FAIL",repr(e),flush=True)
+          
+          PY
+          python /tmp/sbv_v3_voice.py
+      - name: Download finished WAV + timing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV_Sea_Cucumber_V3_Approved_af_heart_Voice
+          path: out/
+          retention-days: 7
