@@ -1,0 +1,74 @@
+name: SBV Sea Cucumber V2 corrected voice
+on:
+  push:
+    branches: [sbv-seacucumber-noaa-2026]
+    paths: ['.github/workflows/sbv-v2-corrected-voice.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  corrected-narration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Reuse channel's original synthetic voice reference
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ref
+          gh run download 39394945796 --repo o0MrT0o/testy-pielegniarstwo --name SBV_SeaCucumber_Original_Style_Narration --dir ref
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Chatterbox
+        run: |
+          python -m pip install -U pip
+          pip install torch==2.6.0+cpu torchaudio==2.6.0+cpu --index-url https://download.pytorch.org/whl/cpu
+          pip install chatterbox-tts==0.1.6 soundfile
+      - name: Generate only two rewritten lines with same voice profile
+        run: |
+          cat > /tmp/v2_voice.py <<'PY'
+          import os, numpy as np, torch, soundfile as sf
+          from chatterbox.tts_turbo import ChatterboxTurboTTS
+          from huggingface_hub import snapshot_download as hf_snapshot_download
+          import chatterbox.tts_turbo as cb
+          cb.snapshot_download=lambda *args,**kwargs: hf_snapshot_download(*args,**{**kwargs,"token":False})
+          torch.set_num_threads(2)
+          model=ChatterboxTurboTTS.from_pretrained(device="cpu")
+          os.makedirs("out",exist_ok=True)
+          ref="ref/SBV_kokoro_original_mix_reference.wav"
+          assert os.path.exists(ref)
+          lines={
+          1:"NOAA filmed this animal roughly thirteen hundred metres beneath the Pacific.",
+          4:"They drift, then descend to feed. And the strangest part? Sea cucumbers are more closely related to starfish than jellyfish."
+          }
+          for i,txt in lines.items():
+              print("BEGIN",i,txt,flush=True)
+              torch.manual_seed(48217+i)
+              w=model.generate(txt,audio_prompt_path=ref,temperature=0.66,top_p=0.88,repetition_penalty=1.12)
+              a=w.cpu().numpy().reshape(-1);sr=model.sr
+              sf.write(f"out/raw_new_{i}.wav",a,sr)
+              wd=int(sr*.02); n=len(a)//wd; rms=np.sqrt(np.mean(a[:n*wd].reshape(n,wd)**2,axis=1)); q=(rms<.00065)
+              runs=[]; st=0
+              while st<len(q):
+                  if not q[st]:st+=1;continue
+                  en=st+1
+                  while en<len(q) and q[en]:en+=1
+                  if (en-st)*.02>.6:runs.append((st*wd,en*wd))
+                  st=en
+              for st,en in reversed(runs):a=np.concatenate([a[:st],np.zeros(int(.20*sr),dtype=a.dtype),a[en:]])
+              active=np.flatnonzero(np.abs(a)>.001)
+              if len(active):a=a[max(0,int(active[0]-.09*sr)):min(len(a),int(active[-1]+.12*sr))]
+              sf.write(f"out/chunk_new_{i}.wav",a,sr)
+              print("DONE",i,"DURATION",round(len(a)/sr,2),flush=True)
+              del w
+          print("ALL_DONE",flush=True)
+          
+          PY
+          python /tmp/v2_voice.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SBV_Sea_Cucumber_V2_Corrected_Voice
+          path: out/
+          retention-days: 7
