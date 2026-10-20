@@ -39,7 +39,7 @@ jobs:
           ref="ref/SBV_kokoro_original_mix_reference.wav"
           assert os.path.exists(ref)
           lines={
-          1:"NOAA filmed this animal roughly thirteen hundred metres beneath the Pacific.",
+          1:"NOAA filmed this swimming sea cucumber near American Samoa, deep in the Pacific.",
           4:"They drift, then descend to feed. And the strangest part? Sea cucumbers are more closely related to starfish than jellyfish."
           }
           for i,txt in lines.items():
