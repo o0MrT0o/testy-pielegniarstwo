@@ -1,0 +1,44 @@
+name: SBV Bennu V4 word timing
+on:
+  push:
+    branches: [sbv-bennu-v4-diverse-realfootage]
+    paths: ['.github/workflows/sbv-v4-align.yml']
+permissions: {contents: read,actions: read}
+jobs:
+  timings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - name: Retrieve approved af heart wav
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p in out
+          gh run download 39488855593 --repo o0MrT0o/testy-pielegniarstwo --name SBV_Bennu_V4_Approved_Narrator --dir in
+      - name: Install Whisper
+        run: pip install faster-whisper soundfile
+      - name: Timed words
+        run: |
+          cat >/tmp/align.py <<'PY'
+          import av,json
+          original=av.open
+          def patched(*a,**kw):
+           kw.pop("metadata_errors",None)
+           return original(*a,**kw)
+          av.open=patched
+          from faster_whisper import WhisperModel
+          model=WhisperModel("tiny.en",device="cpu",compute_type="int8",cpu_threads=2)
+          segments,_=model.transcribe("in/SBV_Bennu_V4_af_heart.wav",language="en",word_timestamps=True,beam_size=3,vad_filter=False)
+          words=[]
+          for seg in segments:
+           for w in seg.words or []:words.append({"text":w.word,"start":round(w.start,3),"end":round(w.end,3)})
+          json.dump(words,open("out/words.json","w"),indent=2)
+          print("TRANSCRIPT", " ".join(x["text"] for x in words),flush=True)
+          print("WORD_COUNT",len(words),flush=True)
+          
+          PY
+          python /tmp/align.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_Bennu_V4_ExactWordTimings
+          path: out/
