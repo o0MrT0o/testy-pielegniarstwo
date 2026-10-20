@@ -1,0 +1,29 @@
+name: SBV NOAA Sea Cucumber Source Transfer
+on:
+  push:
+    branches:
+      - sbv-seacucumber-noaa-2026
+jobs:
+  retrieve-authentic-footage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download official NOAA footage
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl --fail --location --retry 3 --max-time 240 \
+            'https://oceanexplorer.noaa.gov/wp-content/uploads/2026/09/ex2606-dive03-seacuke.mp4' \
+            -o out/NOAA_SeaCucumber_2026.mp4
+          test $(stat -c%s out/NOAA_SeaCucumber_2026.mp4) -gt 10000000
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 out/NOAA_SeaCucumber_2026.mp4
+      - name: Produce 12-frame contact sheet
+        run: |
+          ffmpeg -y -hide_banner -loglevel error -i out/NOAA_SeaCucumber_2026.mp4 \
+            -vf "fps=1/7,scale=480:-2,tile=4x3" -frames:v 1 out/contact_sheet.jpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_NOAA_Authentic_Source
+          path: out/
+          compression-level: 0
+          retention-days: 7
