@@ -1,0 +1,29 @@
+name: SBV Bennu NASA originals
+on:
+  push:
+    branches: [sbv-bennu-short-2026-10-20]
+    paths: ['.github/workflows/sbv-bennu-sources.yml']
+permissions: { contents: read }
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - name: Download real NASA SamCam and TAGSAM in-flight sequences
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl -fLsS --retry 4 --retry-delay 3 --max-time 240 'https://svs.gsfc.nasa.gov/vis/a030000/a031200/a031244/osiris-rex-tag_2160p30.mp4' -o out/NASA_Bennu_TAG_SamCam_4K.mp4
+          curl -fLsS --retry 4 --retry-delay 3 --max-time 240 'https://svs.gsfc.nasa.gov/vis/a030000/a031200/a031244/OSIRIS-REx_in-flight_2160p30.mp4' -o out/NASA_Bennu_TAGSAM_Inflight_4K.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 out/NASA_Bennu_TAG_SamCam_4K.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 out/NASA_Bennu_TAGSAM_Inflight_4K.mp4
+          ffmpeg -y -hide_banner -loglevel error -i out/NASA_Bennu_TAG_SamCam_4K.mp4 -vf "fps=3,scale=640:-2,tile=5x5" -frames:v 1 out/SamCam_frame_contact_sheet.jpg
+          ffmpeg -y -hide_banner -loglevel error -i out/NASA_Bennu_TAGSAM_Inflight_4K.mp4 -vf "fps=1,scale=640:-2,tile=6x5" -frames:v 1 out/TAGSAM_frame_contact_sheet.jpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_Bennu_NASA_Original_4K_Sources
+          path: out/
+          retention-days: 7
+          compression-level: 0
