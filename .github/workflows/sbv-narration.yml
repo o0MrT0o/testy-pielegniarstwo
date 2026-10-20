@@ -42,6 +42,10 @@ jobs:
           del p
           import gc
           gc.collect()
+          # Chatterbox hardcodes token=True although model is public MIT; force anonymous public download
+          import chatterbox.tts_turbo as cb_turbo
+          from huggingface_hub import snapshot_download as hf_snapshot_download
+          cb_turbo.snapshot_download=lambda *args,**kwargs: hf_snapshot_download(*args,**{**kwargs,"token":False})
           model=ChatterboxTurboTTS.from_pretrained(device="cpu")
           torch.manual_seed(48217)
           script="This isn't a jellyfish. It's a sea cucumber, and it swims. NOAA filmed this animal more than two kilometres beneath the Pacific. Most sea cucumbers crawl along the seafloor. But some can leave it entirely, flexing their bodies to rise through open water. They drift, then descend to feed. And every second you're seeing is real."
