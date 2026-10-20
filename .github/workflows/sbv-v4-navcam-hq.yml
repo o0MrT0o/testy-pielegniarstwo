@@ -1,0 +1,21 @@
+name: SBV Bennu high quality NavCam 2 source
+on:
+  push:
+    branches: [sbv-bennu-v4-diverse-realfootage]
+    paths: ['.github/workflows/sbv-v4-navcam-hq.yml']
+permissions: {contents: read}
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download original higher bitrate NASA navigation camera sequence
+        run: |
+          mkdir -p out
+          curl -LfSs --retry 4 --max-time 180 'https://svs.gsfc.nasa.gov/vis/a030000/a031200/a031244/osiris-rex-tag-navcam2.mp4' -o out/NASA_NavCam2_Original_FullHD.mp4
+          test $(stat -c%s out/NASA_NavCam2_Original_FullHD.mp4) -gt 30000000
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_Bennu_Navcam2_HQ_RealSource
+          path: out
+          compression-level: 0
+          retention-days: 7
