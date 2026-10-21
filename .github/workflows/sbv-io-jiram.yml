@@ -1,0 +1,27 @@
+name: SBV Io Juno JIRAM original thermal video
+on:
+  push:
+    branches: [sbv-space-04-io-20261021]
+    paths: ['.github/workflows/sbv-io-jiram.yml']
+permissions: {contents: read}
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install FFmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - name: Download direct official NASA Juno infrared sequence
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl -fLsS --retry 4 --max-time 210 'https://www.nasa.gov/wp-content/uploads/2025/04/e1-pia26594-jiram-animation.mp4' -o out/NASA_Juno_JIRAM_2024_Io.mp4
+          test $(stat -c%s out/NASA_Juno_JIRAM_2024_Io.mp4) -gt 200000
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=width,height,r_frame_rate -of default=noprint_wrappers=1 out/NASA_Juno_JIRAM_2024_Io.mp4
+          ffmpeg -y -loglevel error -i out/NASA_Juno_JIRAM_2024_Io.mp4 -vf "fps=1,scale=370:-2,tile=5x4" -frames:v 1 out/JIRAM_CONTACT.jpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_IO_2024_Real_Juno_JIRAM
+          path: out/
+          retention-days: 7
+          compression-level: 0
