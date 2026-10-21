@@ -1,0 +1,32 @@
+name: SBV Space 02 original NASA solar observations
+on:
+  push:
+    branches: [sbv-space-02-solar-filament-2026-10-21]
+    paths: ['.github/workflows/sbv-space02-assets.yml']
+permissions: {contents: read}
+jobs:
+  sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install video utilities
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - name: Download original NASA SDO 2012 filament recordings
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl --fail --location --retry 4 --max-time 240 'https://svs.gsfc.nasa.gov/vis/a000000/a004900/a004909/FilamentLaunch2012-Slow_304A_stand.HD1080i_p30.mp4' -o out/SDO_304_eruption_slow.mp4
+          curl --fail --location --retry 4 --max-time 240 'https://svs.gsfc.nasa.gov/vis/a000000/a004900/a004909/FilamentLaunch2012-Slow_171A_stand.HD1080i_p30.mp4' -o out/SDO_171_eruption_slow.mp4
+          curl --fail --location --retry 4 --max-time 240 'https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003999/AIA304A_2012Aug31_HD1080.mp4' -o out/SDO_304_highcadence.mp4
+          curl --fail --location --retry 4 --max-time 240 'https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003999/AIA193A_2012Aug31_HD1080i.mp4' -o out/SDO_193_highcadence.mp4
+          for f in out/*.mp4; do
+            echo "--- $f"
+            ffprobe -v error -show_entries format=duration,size -show_entries stream=width,height,r_frame_rate -of default=noprint_wrappers=1 "$f"
+            ffmpeg -y -hide_banner -loglevel error -i "$f" -vf "fps=1/4,scale=450:-2,tile=5x4" -frames:v 1 "${f%.mp4}_CONTACT.jpg" || true
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_SPACE02_NASA_SDO_real_solar_observations
+          path: out/
+          compression-level: 0
+          retention-days: 7
