@@ -1,0 +1,58 @@
+name: SBV Space 02 standard af-heart voice
+on:
+  push:
+    branches: [sbv-space-02-solar-filament-2026-10-21]
+    paths: ['.github/workflows/sbv-space02-voice.yml']
+permissions: {contents: read}
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Install original onnx engine
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y espeak-ng libsndfile1
+          pip install kokoro-onnx==0.6.1 soundfile faster-whisper
+      - name: Download unchanged approved voice models
+        run: |
+          curl --fail --location --retry 4 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx' -o kokoro-v1.0.onnx
+          curl --fail --location --retry 4 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin' -o voices-v1.0.bin
+      - name: Synthesize original af_heart 0.88 narrator and word timestamps
+        run: |
+          cat >/tmp/voice.py <<'PY'
+          import os,hashlib,json,soundfile as sf
+          from kokoro_onnx import Kokoro
+          script="Watch this ribbon tear away from the Sun. It isn't fire. It's an enormous filament of plasma, held by magnetic fields. NASA captured this eruption in twenty twelve. As the filament broke loose, it launched a huge cloud of solar material into space. Those colours show ultraviolet light, which human eyes cannot see. The eruption missed Earth head-on, but a glancing blow helped spark auroras three days later."
+          expected={"kokoro-v1.0.onnx":"beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a","voices-v1.0.bin":"bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"}
+          for f,sha in expected.items():
+           got=hashlib.file_digest(open(f,"rb"),"sha256").hexdigest()
+           print("VERIFIED",f,got,flush=True)
+           assert got==sha
+          speaker=Kokoro("kokoro-v1.0.onnx","voices-v1.0.bin")
+          voice,sr=speaker.create(script,voice="af_heart",speed=0.88,lang="en-us")
+          os.makedirs("out",exist_ok=True)
+          sf.write("out/SBV_SPACE02_af_heart.wav",voice,sr,subtype="PCM_24")
+          open("out/NARRATION_EN.txt","w").write(script)
+          print("NARRATION_DURATION",len(voice)/sr,flush=True)
+          try:
+           import av
+           _open=av.open
+           def patched(*a,**kw):
+            kw.pop("metadata_errors",None)
+            return _open(*a,**kw)
+           av.open=patched
+           from faster_whisper import WhisperModel
+           mdl=WhisperModel("tiny.en",device="cpu",compute_type="int8",cpu_threads=2)
+           segments,_=mdl.transcribe("out/SBV_SPACE02_af_heart.wav",language="en",word_timestamps=True,beam_size=3,vad_filter=False)
+           words=[{"text":w.word,"start":round(w.start,3),"end":round(w.end,3)} for seg in segments for w in (seg.words or [])]
+           json.dump(words,open("out/WORD_TIMINGS.json","w"),indent=2)
+           print("ASR"," ".join(w["text"] for w in words),flush=True)
+          except Exception as e:print("ASR_ERROR",repr(e),flush=True)
+          
+          PY
+          python /tmp/voice.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_SPACE02_approved_channel_voice
+          path: out/
+          retention-days: 7
