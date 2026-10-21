@@ -1,0 +1,26 @@
+name: SBV Space02 additional mission footage
+on:
+  push:
+    branches: [sbv-space02-v3-improvements]
+    paths: ['.github/workflows/sbv-space02-v3-source.yml']
+permissions: {contents: read}
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - name: Download real NASA SDO STEREO SOHO 2012 CME footage
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl -LfSs --retry 4 --max-time 300 'https://svs.gsfc.nasa.gov/vis/a010000/a011000/a011095/11095_Magnificent_CME_MPEG4_1920x1080_29.97.mp4' -o out/NASA_2012_CME_SDO_STEREO_SOHO.mp4
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=width,height -of default=nw=1 out/NASA_2012_CME_SDO_STEREO_SOHO.mp4
+          ffmpeg -y -loglevel error -ss 0 -i out/NASA_2012_CME_SDO_STEREO_SOHO.mp4 -vf "fps=1/7,scale=384:-2,tile=5x5" -frames:v 1 out/CONTACT.jpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_Space02_NASA_Actual_SDO_STEREO_SOHO
+          path: out/
+          compression-level: 0
+          retention-days: 7
