@@ -1,0 +1,67 @@
+name: SBV Space04 Verified NASA Io Movies
+on:
+  push:
+    branches: [sbv-space-04-io-20261021]
+    paths: ['.github/workflows/sbv-io-sources.yml']
+permissions: {contents: read}
+jobs:
+  original-footage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 19
+    steps:
+      - name: Setup science video tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+          pip install requests
+      - name: Get New Horizons 2007 eruption and Juno JIRAM real 2024 observations
+        run: |
+          cat >/tmp/io_sources.py <<'PY'
+          import os,requests,re,html,urllib.parse,json,subprocess
+          os.makedirs("out",exist_ok=True)
+          s=requests.Session();s.headers.update({"User-Agent":"Mozilla/5.0"})
+          candidates={
+          "NEW_HORIZONS_2007_VOLCANO":"https://svs.gsfc.nasa.gov/vis/a010000/a011400/a011455/IO_Eruption-540-MASTER_high.mp4",
+          "JUNO_JIRAM_2024_INFRARED":"https://photojournal.jpl.nasa.gov/archive/PIA26594.mp4",
+          }
+          for key,url in candidates.items():
+           try:
+            resp=s.get(url,timeout=90)
+            print("SOURCE_STATUS",key,resp.status_code,len(resp.content),resp.url,resp.headers.get("Content-Type"),flush=True)
+            if resp.ok and len(resp.content)>20000 and "video" in resp.headers.get("content-type",""):
+             path="out/"+key+".mp4";open(path,"wb").write(resp.content)
+             p=subprocess.run(["ffprobe","-v","error","-show_entries","format=duration,size","-show_entries","stream=width,height,avg_frame_rate","-of","json",path],capture_output=True,text=True)
+             print("PROBE",key,p.stdout[:1400],flush=True)
+             subprocess.run(["ffmpeg","-y","-loglevel","error","-i",path,"-vf","fps=1/2,scale=320:-2,tile=5x4","-frames:v","1","out/"+key+"_CONTACT.jpg"])
+           except Exception as e:print("SOURCE_ERROR",key,repr(e),flush=True)
+          pages={
+          "NASA_TVASHTAR_PIA09665":"https://science.nasa.gov/photojournal/tvashtar-in-motion/",
+          "NASA_TVASHTAR_PIA09357":"https://science.nasa.gov/photojournal/tvashtar-movie/",
+          }
+          for key,url in pages.items():
+           try:
+            r=s.get(url,timeout=45);r.raise_for_status()
+            raw=html.unescape(r.text).replace("\\/","/")
+            urls=list(set(re.findall(r'https?://[^\"\'\s<>]+?\.(?:mp4|mov|gif)(?:\?[^\"\'\s<>]*)?',raw,re.I)))
+            filtered=[u for u in urls if "nasa.gov" in urllib.parse.urlparse(u).netloc]
+            print("MEDIA",key,json.dumps(filtered[:20]),flush=True)
+            for i,u in enumerate(filtered[:5]):
+             try:
+              v=s.get(u,timeout=90)
+              print("GET",key,i,v.status_code,len(v.content),v.headers.get("Content-Type"),flush=True)
+              if v.ok and len(v.content)>20000 and ("video" in v.headers.get("Content-Type","") or "image/gif" in v.headers.get("Content-Type","")):
+               ext="gif" if ".gif" in urllib.parse.urlparse(u).path else ("mov" if ".mov" in urllib.parse.urlparse(u).path else "mp4")
+               p=f"out/{key}_{i}.{ext}";open(p,"wb").write(v.content)
+               ff=subprocess.run(["ffprobe","-v","error","-show_entries","format=duration,size","-show_entries","stream=width,height","-of","json",p],capture_output=True,text=True)
+               print("PROBE",p,ff.stdout[:1000],flush=True)
+             except Exception as e: print("MEDIA_ERROR",repr(e),flush=True)
+           except Exception as e:print("PAGE_ERROR",key,repr(e),flush=True)
+          
+          PY
+          python /tmp/io_sources.py
+          ls -lah out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV_SPACE04_Official_Real_Io_NASA_SourceVideos
+          path: out/
+          retention-days: 7
+          compression-level: 0
