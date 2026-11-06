@@ -1,0 +1,43 @@
+name: Verify real starling murmuration footage quality and licenses
+on:
+  push:
+    branches: [sbv-murmuration-highquality-20261106]
+    paths: [.github/workflows/sbv-murmuration-source-probe.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Inspect high-quality original starling footage sources
+        run: |
+          python - <<'PY'
+          import requests,hashlib,urllib.parse,json
+          s=requests.Session()
+          s.headers.update({'User-Agent':'SBVScienceDocumentary/1.0 (original attribution editing research)'})
+          commons=['Flock of starlings (Sturnus vulgaris).webm','Common Starlings flying away from a Marsh Harrier.webm','European Starling.webm']
+          for filename in commons:
+            h=hashlib.md5(filename.encode('utf-8')).hexdigest()
+            url='https://upload.wikimedia.org/wikipedia/commons/'+h[0]+'/'+h[:2]+'/'+urllib.parse.quote(filename)
+            try:
+              r=s.get(url,headers={'Range':'bytes=0-1023'},timeout=(10,25),stream=True)
+              print('WIKIMEDIA',filename,'STATUS',r.status_code,'RANGE',r.headers.get('content-range'),'LEN',r.headers.get('content-length'),'URL',url,flush=True)
+              r.close()
+            except Exception as e:print('WIKIMEDIA ERROR',filename,str(e)[:350],flush=True)
+          vids=[18217550,3851642,19378837,7235788,34368260]
+          qualities=['uhd_3840_2160_60fps','uhd_3840_2160_30fps','uhd_3840_2160_25fps','hd_1920_1080_30fps','hd_1920_1080_25fps']
+          for vid in vids:
+            try:
+              page=s.get(f'https://www.pexels.com/video/{vid}/',timeout=15)
+              print('PEXELS PAGE',vid,page.status_code,len(page.content),flush=True)
+            except Exception as e:print('PEXELS PAGE ERR',vid,str(e)[:120],flush=True)
+            for q in qualities:
+              u=f'https://videos.pexels.com/video-files/{vid}/{vid}-{q}.mp4'
+              try:
+                r=s.get(u,headers={'Range':'bytes=0-1023'},timeout=(10,12),stream=True)
+                if r.status_code in (200,206):
+                  print('PEXELS FULL SOURCE',vid,q,r.status_code,r.headers.get('content-range'),r.headers.get('content-length'),u,flush=True)
+                r.close()
+              except Exception as e:print('PEXELS CDN ERR',vid,q,str(e)[:80],flush=True)
+          PY
