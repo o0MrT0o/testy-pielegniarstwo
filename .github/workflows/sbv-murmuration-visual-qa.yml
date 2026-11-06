@@ -1,0 +1,55 @@
+name: SBV MURMURATION verify authentic footage 4K visually
+on:
+  push:
+    branches: [sbv-murmuration-highquality-20261106]
+    paths: [.github/workflows/sbv-murmuration-visual-qa.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - name: Download exact confirmed real bird-murmuration source videos
+        run: |
+          set -euo pipefail
+          mkdir -p assets out
+          curl --fail -L --retry 4 --retry-all-errors -o assets/murmuration_4k.mp4 'https://videos.pexels.com/video-files/19378837/19378837-uhd_3840_2160_25fps.mp4'
+          curl --fail -L --retry 4 --retry-all-errors -o assets/birdcloud_4k.mp4 'https://videos.pexels.com/video-files/18217550/18217550-uhd_3840_2160_60fps.mp4'
+          curl --fail -L --retry 4 --retry-all-errors -o assets/flock_hd.mp4 'https://videos.pexels.com/video-files/3851642/3851642-hd_1920_1080_30fps.mp4'
+          ls -lh assets
+      - name: Create contact sheet of actual decoded frames and technical report
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install -q Pillow
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          import subprocess,json,glob,math
+          shots=[];meta={}
+          for src in sorted(glob.glob('assets/*.mp4')):
+            data=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration,size,bit_rate:stream=codec_type,width,height,r_frame_rate,codec_name','-of','json',src],text=True))
+            name=Path(src).stem; d=float(data['format']['duration'])
+            print('VERIFIED SOURCE',name,json.dumps(data),flush=True)
+            meta[name]=data
+            for i in range(10):
+              sec=d*(.035+(.93*i/9))
+              p=f'out/{name}_{i:02d}.jpg'
+              subprocess.run(['ffmpeg','-y','-v','error','-ss',str(sec),'-i',src,'-vframes','1','-vf','scale=280:174:force_original_aspect_ratio=decrease,pad=280:174:(ow-iw)/2:(oh-ih)/2','-q:v','2',p],check=True)
+              shots.append((name,sec,p))
+          sheet=Image.new('RGB',(10*284,3*206),'#141519');draw=ImageDraw.Draw(sheet)
+          for i,(name,sec,p) in enumerate(shots):
+            col=i%10;row=i//10;x=col*284;y=row*206
+            sheet.paste(Image.open(p).convert('RGB'),(x+2,y+2))
+            draw.text((x+4,y+181),f'{name} {sec:.1f}s',fill='white')
+          sheet.save('out/REAL_FOOTAGE_CONTACT.jpg',quality=91)
+          Path('out/SOURCE_FFPROBE.json').write_text(json.dumps(meta,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Murmuration-3Videos-4K-HD-FrameQA
+          path: |
+            out/REAL_FOOTAGE_CONTACT.jpg
+            out/SOURCE_FFPROBE.json
+          retention-days: 4
