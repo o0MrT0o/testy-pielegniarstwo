@@ -144,24 +144,24 @@ def scout(sources):
         if not candidates:raise RuntimeError("No frames in "+str(path))
         data[idx]={"duration":duration,"candidates":candidates}
         log("SCOUT",idx,"duration",duration,"best",candidates[:5])
-    if data[0]["candidates"][0][1]<=.003:log("CAUTION: Portrait first source blue fire scoring is low; inspect contact sheet")
+    if data[1]["candidates"][0][1]<=.02:raise RuntimeError("Hook footage does not show strong blue fire")
     return data
 def shots(caps,source_info):
     used={i:[] for i in range(3)}
-    pattern=[0,0,1,0,2,0,1,0,0,2,0,1,0,2,0,0,1,0,2,0,1,0]
+    pattern=[1,1,2,1,2,1,1,2,1,1,2,1,1,2,1,1,1,2]
     selected=[]
     for i,e in enumerate(caps):
         d=(e["f1"]-e["f0"])/FPS
         priority=pattern[i%len(pattern)]
         # Every crop is real footage, with a unique source time interval; zero replays.
-        order=[priority]+[v for v in [0,1,2] if v!=priority]
+        order=[priority]+[v for v in [1,2] if v!=priority]
         best=None
         for idx in order:
             for t,score,cx in source_info[idx]["candidates"]:
                 ss=max(.1,t-.12)
                 if ss+d>source_info[idx]["duration"]-.05:continue
                 if any(not(ss>oe+.45 or ss+d+.45<os) for os,oe in used[idx]):continue
-                if i==0 and idx!=0: continue
+                if i==0 and idx!=1: continue
                 best={"source_idx":idx,"source_start":round(ss,3),"duration":d,"score":score,"focus_x":cx}
                 used[idx].append((ss,ss+d))
                 break
@@ -209,7 +209,7 @@ def format_clip(info,sp,overlay,out,dur,idx):
     # Translate blue flame position into focal crop, with center clamp.
     x=(cx-fraction/2)/(1-fraction) if fraction<1 else .5
     x=max(0,min(1,x))
-    vf=f"[0:v]scale=-2:{H}:flags=lanczos,crop={W}:{H}:(in_w-out_w)*{x:.5f}:0,eq=contrast=1.045:saturation=1.06,setsar=1[b];[b][1:v]overlay=0:0:shortest=1,format=yuv420p[v]"
+    vf=f"[0:v]scale=-2:{H}:flags=lanczos,crop={W}:{H}:(in_w-out_w)*{x:.5f}:0,eq=gamma=1.25:brightness=0.014:contrast=1.09:saturation=1.22,setsar=1[b];[b][1:v]overlay=0:0:shortest=1,format=yuv420p[v]"
     frames=round(dur*FPS)
     run(["ffmpeg","-y","-loglevel","error","-ss",f"{info['source_start']:.3f}","-i",sp,"-loop","1","-framerate",str(FPS),"-i",overlay,"-filter_complex",vf,"-map","[v]","-an","-r",str(FPS),"-frames:v",str(frames),"-c:v","libx264","-preset","veryfast","-crf","18","-pix_fmt","yuv420p","-threads","2",out])
 def audio_mix(v):
