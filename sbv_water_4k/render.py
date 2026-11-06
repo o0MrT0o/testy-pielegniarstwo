@@ -13,12 +13,12 @@ for x in [A,M,C,O]:x.mkdir(exist_ok=True)
 W,H,FPS=1080,1920,30
 FILES={n:A/(n+'.webm') for n in ['COLOR','TABLET','PINGPONG']}
 SOURCE_TIME=[
- ('COLOR',54.5),('COLOR',57.7),('COLOR',51.0),
+ ('COLOR',54.5),('COLOR',57.7),('COLOR',51.25),
  ('PINGPONG',43.5),('PINGPONG',48.4),('TABLET',69.5),
  ('COLOR',60.5),('COLOR',49.0),
  ('TABLET',74.5),('TABLET',87.6),('TABLET',93.3),
  ('TABLET',99.3),('TABLET',105.0),('TABLET',101.4),
- ('TABLET',113.1),('COLOR',53.3),('TABLET',108.5),('COLOR',63.6)
+ ('TABLET',113.1),('COLOR',52.83),('TABLET',108.5),('COLOR',63.6)
 ]
 SCRIPT=[
  ('That tiny planet is actually a ball of water. Floating in space.',['A TINY PLANET?',"IT'S ACTUALLY WATER",'FLOATING IN SPACE']),
@@ -123,12 +123,17 @@ def video(cards):
   # Native 4K crop to 9:16 before output; no blurred SD backgrounds.
   # Original NASA master files carry encoded black matte bars. Crop these from
   # the ORIGINAL 4K frames, not from a prior encoded 720p derivative.
-  crop_top,crop_h={'COLOR':(30,1966),'PINGPONG':(100,1960),'TABLET':(105,1920)}[key]
+  crop_top,crop_h={'COLOR':(30,1966),'PINGPONG':(100,1960),'TABLET':(130,1890)}[key]
   filt=(f"[0:v]crop=w='trunc({crop_h}*9/16/2)*2':h={crop_h}:x='(iw-ow)*0.5':y={crop_top},"
         "scale=1080:1920:flags=lanczos,setsar=1,eq=contrast=1.025:saturation=1.025[bg];"
         "[bg][1:v]overlay=0:0:shortest=1,format=yuv420p[v]")
   run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',f'{ss:.3f}','-i',FILES[key],'-loop','1','-framerate',FPS,'-i',png,'-filter_complex',filt,'-map','[v]','-an','-r',FPS,'-frames:v',c['f1']-c['f0'],'-threads','2','-c:v','libx264','-preset','veryfast','-crf','16','-pix_fmt','yuv420p',dest])
   edits.append({'i':i,'source':key,'source_start_sec':ss,'duration_sec':dt,'caption':c['text'],'time_start':c['f0']/FPS,'time_end':c['f1']/FPS})
+ # No repeated source-time interval longer than two frames, including non-adjacent shots.
+  for other in edits[:-1]:
+   if other['source']==key:
+    overlap=min(ss+dt,other['source_start_sec']+other['duration_sec'])-max(ss,other['source_start_sec'])
+    if overlap>2/FPS:raise RuntimeError(f"Repeated source segment: {other['i']} vs {i} ({key}, {overlap:.2f}s)")
  (C/'concat.txt').write_text('\n'.join("file '"+str((C/f'shot_{i:02d}.mp4').resolve())+"'" for i in range(len(cards)))+'\n')
  run(['ffmpeg','-y','-v','error','-f','concat','-safe','0','-i',C/'concat.txt','-c','copy',O/'video_only.mp4'])
  return specs,edits
