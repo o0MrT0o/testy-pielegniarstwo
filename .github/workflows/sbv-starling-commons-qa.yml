@@ -1,0 +1,52 @@
+name: Verify high bitrate commons starling murmurations
+on:
+  push:
+    branches: [sbv-murmuration-highquality-20261106]
+    paths: [.github/workflows/sbv-starling-commons-qa.yml]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - name: Download two legally attributable 1080p originals
+        run: |
+          set -euo pipefail
+          mkdir -p assets out
+          curl -fL --retry 4 --retry-all-errors -o assets/flock_britain.webm 'https://upload.wikimedia.org/wikipedia/commons/a/aa/Flock_of_starlings_%28Sturnus_vulgaris%29.webm'
+          curl -fL --retry 4 --retry-all-errors -o assets/flock_predator.webm 'https://upload.wikimedia.org/wikipedia/commons/a/af/Common_Starlings_flying_away_from_a_Marsh_Harrier.webm'
+      - name: Inspect authentic dense formation and predator event
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install -q Pillow
+          python - <<'PY'
+          import subprocess,json,glob,math
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          arr=[];data={}
+          for p in sorted(glob.glob('assets/*.webm')):
+            v=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration,size,bit_rate:stream=codec_type,width,height,codec_name','-of','json',p],text=True))
+            data[Path(p).stem]=v;dur=float(v['format']['duration'])
+            print('HIGH BITRATE',p,v,flush=True)
+            for i in range(12):
+              tm=dur*(.02+.95*i/11)
+              fn=f'out/{Path(p).stem}_{i}.jpg'
+              subprocess.run(['ffmpeg','-y','-v','error','-ss',str(tm),'-i',p,'-frames:v','1','-vf','scale=280:174:force_original_aspect_ratio=decrease,pad=280:174:(ow-iw)/2:(oh-ih)/2','-q:v','2',fn],check=True)
+              arr.append((Path(p).stem,tm,fn))
+          im=Image.new('RGB',(12*284,2*202),'#111116');d=ImageDraw.Draw(im)
+          for i,(name,t,fn) in enumerate(arr):
+            x=(i%12)*284;y=(i//12)*202
+            im.paste(Image.open(fn).convert('RGB'),(x+2,y+2))
+            d.text((x+3,y+176),f'{name} {t:.1f}s',fill='white')
+          im.save('out/STARLING_1080P_SOURCE_CONTACT.jpg',quality=92)
+          Path('out/REPORT.json').write_text(json.dumps(data,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Two-real-high-bitrate-CC-BY-starling-flock-videos-contact
+          path: |
+            out/STARLING_1080P_SOURCE_CONTACT.jpg
+            out/REPORT.json
+          retention-days: 4
