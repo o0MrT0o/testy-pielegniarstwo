@@ -17,7 +17,7 @@ SOURCE_TIME=[
  ('PINGPONG',45.3),('TABLET',75.0),('TABLET',90.0),('COLOR',61.0),
  ('TABLET',95.0),('TABLET',71.8),('TABLET',108.0),('TABLET',82.4),
  ('TABLET',113.2),('COLOR',52.4),('TABLET',116.3),('COLOR',59.2),
- ('TABLET',98.3),('COLOR',48.9),('TABLET',86.2),('COLOR',63.4),
+ ('TABLET',98.3),('COLOR',53.3),('TABLET',86.2),('COLOR',63.4),
  ('TABLET',81.4),('COLOR',35.2),('TABLET',76.1),('COLOR',45.5)]
 SCRIPT=[
  ('This looks like a tiny planet. But it is actually a floating ball of water.',['THIS LOOKS LIKE','A TINY PLANET','IT IS JUST WATER']),
@@ -71,8 +71,8 @@ def cards(blocks):
 
 def make_overlay(t,i):
  im=Image.new('RGBA',(W,H),(0,0,0,0));d=ImageDraw.Draw(im)
- d.text((52,69),'STRANGE, BUT VERIFIED',font=ImageFont.truetype(FONT,30),fill='white',stroke_width=3,stroke_fill='#060709')
- d.text((52,119),'FOOTAGE: NASA JOHNSON / PUBLIC DOMAIN',font=ImageFont.truetype(FONT,22),fill='white',stroke_width=3,stroke_fill='#060709')
+ d.text((40,72),'STRANGE, BUT VERIFIED',font=ImageFont.truetype(FONT,22),fill='white',stroke_width=3,stroke_fill='#060709')
+ d.text((40,112),'FOOTAGE: NASA / PUBLIC DOMAIN',font=ImageFont.truetype(FONT,16),fill='white',stroke_width=3,stroke_fill='#060709')
  hot=any(s in t for s in ['PLANET','WATER','FIZZY','TWIST','ALIVE','PHYSICS','SPACE','BUBBLES'])
  col='#FFE12B' if hot else '#FFFFFF'
  size=69
