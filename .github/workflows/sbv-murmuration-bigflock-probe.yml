@@ -1,0 +1,62 @@
+name: SBV Murmuration candidate giant dense flock source
+on:
+  push:
+    branches: [sbv-murmuration-highquality-20261106]
+    paths: [.github/workflows/sbv-murmuration-bigflock-probe.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Locate and preview 4K stock authentic giant flock
+        run: |
+          set -euo pipefail
+          mkdir -p src out
+          python - <<'PY'
+          import requests
+          s=requests.Session()
+          for vid in [36424077,4150354,7235788,34368260]:
+            for q in ['uhd_3840_2160_60fps','uhd_3840_2160_30fps','uhd_3840_2160_25fps','hd_1920_1080_60fps','hd_1920_1080_30fps','hd_1920_1080_25fps','hd_1920_1080_24fps','hd_1920_1080_29.97fps']:
+              u=f'https://videos.pexels.com/video-files/{vid}/{vid}-{q}.mp4'
+              try:
+                r=s.get(u,headers={'Range':'bytes=0-1000'},timeout=9,stream=True)
+                if r.status_code==206:
+                  print('WORKS',vid,q,r.headers.get('Content-Range'),u,flush=True)
+                  if vid==36424077:
+                    import subprocess
+                    subprocess.run(['curl','-fL','--retry','3','-o',f'src/giant_{vid}.mp4',u],check=True)
+                  r.close()
+                  break
+                r.close()
+              except Exception as e: print('ERR',vid,q,str(e)[:80])
+          PY
+      - name: Visual quality of massive flock if found
+        run: |
+          command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+          python -m pip install -q Pillow
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess,json
+          from PIL import Image,ImageDraw
+          for src in Path('src').glob('*.mp4'):
+            info=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration,size,bit_rate:stream=width,height,r_frame_rate','-of','json',str(src)],text=True))
+            print('GIANT FLOCK TECH',json.dumps(info),flush=True)
+            n=10;sheet=Image.new('RGB',(5*340,2*215),'#141519')
+            dr=ImageDraw.Draw(sheet);duration=float(info['format']['duration'])
+            for i in range(n):
+              ts=duration*(.025+.95*i/9)
+              p=Path('out')/f'bigflock_{i}.jpg'
+              subprocess.run(['ffmpeg','-y','-v','error','-ss',str(ts),'-i',str(src),'-frames:v','1','-vf','scale=336:186:force_original_aspect_ratio=decrease,pad=336:186:(ow-iw)/2:(oh-ih)/2','-q:v','2',str(p)],check=True)
+              x=i%5*340;y=i//5*215
+              sheet.paste(Image.open(p).convert('RGB'),(x+2,y+2))
+              dr.text((x+5,y+190),f'{ts:.2f}s',fill='white')
+            sheet.save('out/CONTACT.jpg',quality=91)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Murmuration-extra-bigflock-frames
+          path: out/CONTACT.jpg
+          if-no-files-found: warn
+          retention-days: 3
