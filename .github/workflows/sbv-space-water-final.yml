@@ -1,0 +1,68 @@
+name: SBV NASA WATER 4K | Kokoro Heart FINAL MP4
+on:
+  push:
+    branches: [sbv-liquid-space-4k-20261106]
+    paths:
+      - '.github/workflows/sbv-space-water-final.yml'
+      - 'sbv_water_4k/render.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  documentary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Production stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core
+          python -m pip install -q --upgrade pip
+          python -m pip install --prefer-binary 'kokoro-onnx==0.6.1'
+          python -m pip install --prefer-binary scipy Pillow soundfile
+          python -m py_compile sbv_water_4k/render.py
+      - name: Fetch three real NASA 4K camera videos
+        run: |
+          set -euo pipefail
+          mkdir -p assets models
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 -o assets/COLOR.webm 'https://upload.wikimedia.org/wikipedia/commons/a/a2/RED_4K_Video_of_Colorful_Liquid_in_Space.webm'
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 -o assets/TABLET.webm 'https://upload.wikimedia.org/wikipedia/commons/e/e3/4K_Camera_Captures_Riveting_Footage_of_Unique_Fluid_Behavior_in_Space_Laboratory.webm'
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 -o assets/PINGPONG.webm 'https://upload.wikimedia.org/wikipedia/commons/f/fb/Liquid_Ping_Pong_in_Space_-_RED_4K.webm'
+          for f in assets/*.webm; do echo "$f"; ffprobe -v error -show_entries format=duration,size,bit_rate:stream=width,height,codec_name -of default=nw=1 "$f"; done
+      - name: Download verified authentic Kokoro voice assets
+        run: |
+          curl -fL --retry 4 --retry-all-errors -o models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -fL --retry 4 --retry-all-errors -o models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  models/voices-v1.0.bin' | sha256sum -c -
+      - name: Actual 4K source vertical edit, Heart narration, original sound design and full QA
+        run: |
+          set -euo pipefail
+          python -u sbv_water_4k/render.py
+          test -s out/SBV_NASA_WATER_IN_SPACE_FINAL_1080x1920.mp4
+          test ! -s out/QA_DECODE_ERRORS.txt
+          ls -lh out/SBV_NASA_WATER_IN_SPACE_FINAL_1080x1920.mp4
+      - name: Deliver finished film and verified sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-NASA-4K-FLOATING-WATER-FINAL-MP4
+          path: |
+            out/SBV_NASA_WATER_IN_SPACE_FINAL_1080x1920.mp4
+            out/QA_CONTACT.jpg
+            out/TITLE_DESCRIPTION_SOURCES.txt
+            out/kokoro_heart.wav
+            out/CAPTIONS.srt
+            out/EDIT_SOURCE_MANIFEST.json
+            out/QA_FFPROBE.json
+            out/QA_DECODE_ERRORS.txt
+            out/QA_BLACK.txt
+            out/QA_FREEZE.txt
+            out/QA_LOUDNESS.txt
+            out/SHA256.txt
+          retention-days: 7
+          compression-level: 0
