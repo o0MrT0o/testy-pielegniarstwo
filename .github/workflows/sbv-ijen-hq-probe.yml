@@ -1,0 +1,36 @@
+name: SBV Ijen verified 4K source probe
+on:
+  push:
+    branches: [sbv-ijen-bluefire-master-20261106]
+    paths: [.github/workflows/sbv-ijen-hq-probe.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe original free-to-use HD and 4K Ijen crater shots
+        run: |
+          python - <<'PY'
+          import requests,re,html
+          s=requests.Session();s.headers.update({'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36'})
+          ids=[4581058,31115098]
+          for v in ids:
+              page='https://www.pexels.com/video/an-aerial-footage-of-the-kawah-ijen-crater-lake-4581058/' if v==4581058 else 'https://www.pexels.com/video/majestic-aerial-view-of-kawah-ijen-crater-31115098/'
+              try:
+                  r=s.get(page,timeout=20)
+                  print('PAGE',v,r.status_code,len(r.content),r.url)
+                  text=html.unescape(r.text)
+                  for pattern in [r'https?://[^" ]+\.mp4[^" ]*', r'https?://[^" ]+\.m3u8[^" ]*',r'"height":\d+,"width":\d+',r'video_files',r'videoUrl']:
+                      hits=re.findall(pattern,text,flags=re.I)
+                      print('PATTERN',pattern,'COUNT',len(hits),'EXAMPLES',hits[:8])
+              except Exception as e:print('PAGE ERROR',v,str(e)[:250])
+              for quality in ['hd_1920_1080_25fps','4k_3840_2160_25fps','hd_1920_1080_30fps','4k_3840_2160_30fps','uhd_3840_2160_25fps','hd_1280_720_25fps']:
+                  u=f'https://videos.pexels.com/video-files/{v}/{v}-{quality}.mp4'
+                  try:
+                      r=s.get(u,headers={'Range':'bytes=0-1023'},timeout=14,stream=True)
+                      print('CDN',v,quality,r.status_code,r.headers.get('Content-Type'),r.headers.get('Content-Range'),r.headers.get('Content-Length'))
+                      r.close()
+                  except Exception as e:print('CDN ERROR',v,quality,str(e)[:150])
+          PY
