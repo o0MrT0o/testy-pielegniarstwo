@@ -1,0 +1,72 @@
+name: Strange But Verified | Kawah Ijen Blue Fire FINAL
+on:
+  push:
+    branches:
+      - sbv-ijen-bluefire-master-20261106
+    paths:
+      - '.github/workflows/sbv-ijen-final.yml'
+      - 'sbv_ijen/render.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  render:
+    name: Authentic real-footage 9x16 Kokoro af_heart
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install FFmpeg fonts and Python production libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core espeak-ng
+          python -m pip install --upgrade pip
+          python -m pip install 'kokoro-onnx==0.6.1' 'onnxruntime>=1.17,<2' 'numpy>=1.26,<2' 'opencv-python-headless>=4.8,<4.11' 'soundfile>=0.13' 'scipy>=1.11,<1.15' 'Pillow>=10,<12' 'requests>=2.31'
+          ffmpeg -version | head -n 2
+      - name: Download and verify actual Kokoro v1.0 model and voices
+        run: |
+          set -euxo pipefail
+          mkdir -p models
+          curl -L --fail --retry 5 --retry-all-errors --connect-timeout 20 -o models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -L --fail --retry 5 --retry-all-errors --connect-timeout 20 -o models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  models/voices-v1.0.bin' | sha256sum -c -
+      - name: Select blue-flame peaks and render complete video with captions and original audio
+        run: |
+          python -m py_compile sbv_ijen/render.py
+          python -u sbv_ijen/render.py
+      - name: Final technical quality checks
+        run: |
+          set -e
+          OUT=out/Strange_But_Verified_BLUE_FIRE_FINAL_1080x1920.mp4
+          ffprobe -v error -show_entries format=duration,size,bit_rate:stream=codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of json "$OUT" | tee out/QA_FFPROBE.json
+          ffmpeg -v error -i "$OUT" -f null - 2> out/QA_DECODE_ERRORS.log
+          test ! -s out/QA_DECODE_ERRORS.log
+          ffmpeg -hide_banner -i "$OUT" -vf 'blackdetect=d=0.20:pix_th=0.09' -an -f null - 2> out/QA_BLACKDETECT.log || true
+          ffmpeg -hide_banner -i "$OUT" -vf 'freezedetect=n=-50dB:d=1.7' -an -f null - 2> out/QA_FREEZEDETECT.log || true
+          ffmpeg -hide_banner -i "$OUT" -af 'ebur128=peak=true' -vn -f null - 2> out/QA_LOUDNESS.log || true
+          sha256sum "$OUT" > out/SHA256.txt
+          ls -lh "$OUT"
+      - name: Upload ready-to-post MP4 and QA pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Kawah-Ijen-BLUE-FIRE-FINAL-MP4
+          path: |
+            out/Strange_But_Verified_BLUE_FIRE_FINAL_1080x1920.mp4
+            out/Kokoro_af_heart_original.wav
+            out/captions.srt
+            out/edit_manifest.json
+            out/UPLOAD_DESCRIPTION.txt
+            out/QA_CONTACT_SHEET.jpg
+            out/QA_FFPROBE.json
+            out/QA_DECODE_ERRORS.log
+            out/QA_BLACKDETECT.log
+            out/QA_FREEZEDETECT.log
+            out/QA_LOUDNESS.log
+            out/SHA256.txt
+          retention-days: 7
+          compression-level: 0
