@@ -121,7 +121,10 @@ def video(cards):
   png=make_overlay(c['text'],i)
   dest=C/f'shot_{i:02d}.mp4'
   # Native 4K crop to 9:16 before output; no blurred SD backgrounds.
-  filt=("[0:v]crop=w='trunc(ih*9/16/2)*2':h=ih:x='(iw-ow)*0.5':y=0,"
+  # Original NASA master files carry encoded black matte bars. Crop these from
+  # the ORIGINAL 4K frames, not from a prior encoded 720p derivative.
+  crop_top,crop_h={'COLOR':(30,1966),'PINGPONG':(100,1960),'TABLET':(105,1920)}[key]
+  filt=(f"[0:v]crop=w='trunc({crop_h}*9/16/2)*2':h={crop_h}:x='(iw-ow)*0.5':y={crop_top},"
         "scale=1080:1920:flags=lanczos,setsar=1,eq=contrast=1.025:saturation=1.025[bg];"
         "[bg][1:v]overlay=0:0:shortest=1,format=yuv420p[v]")
   run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',f'{ss:.3f}','-i',FILES[key],'-loop','1','-framerate',FPS,'-i',png,'-filter_complex',filt,'-map','[v]','-an','-r',FPS,'-frames:v',c['f1']-c['f0'],'-threads','2','-c:v','libx264','-preset','veryfast','-crf','16','-pix_fmt','yuv420p',dest])
