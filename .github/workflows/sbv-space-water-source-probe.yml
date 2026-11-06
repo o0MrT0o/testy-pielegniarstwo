@@ -1,0 +1,37 @@
+name: SBV Space Water original 4K source discovery
+on:
+  push:
+    branches: [sbv-liquid-space-4k-20261106]
+    paths: [.github/workflows/sbv-space-water-source-probe.yml]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Find exact NASA archive original 4K files
+        run: |
+          python - <<'PY'
+          import requests,json,hashlib,urllib.parse
+          s=requests.Session();s.headers['User-Agent']='SBV science documentary/1.0'
+          for base in ['https://archive.org/metadata/NASA-Ultra-High-Definition','https://ia801301.us.archive.org/metadata/NASA-Ultra-High-Definition']:
+            try:
+              r=s.get(base,timeout=22)
+              print('ARCHIVE META',r.status_code,len(r.content),r.url)
+              if not r.ok:continue
+              d=r.json(); print('IDENTIFIER',d.get('metadata',{}).get('identifier'))
+              for file in d.get('files',[]):
+                  if any(w in file.get('name','').lower() for w in ['liquid','fluid','ping','water','bubble']):
+                      print('ENTRY',json.dumps({k:file.get(k) for k in ['name','size','format','length']},ensure_ascii=False))
+              break
+            except Exception as e: print('ERR',str(e)[:300])
+          names=['RED_4K_Video_of_Colorful_Liquid_in_Space.webm','4K_Camera_Captures_Riveting_Footage_of_Unique_Fluid_Behavior_in_Space_Laboratory.webm','Liquid_Ping_Pong_in_Space_-_RED_4K.webm']
+          for name in names:
+              h=hashlib.md5(name.encode()).hexdigest();u='https://upload.wikimedia.org/wikipedia/commons/'+h[0]+'/'+h[:2]+'/'+urllib.parse.quote(name)
+              try:
+                  r=s.get(u,headers={'Range':'bytes=0-4095'},timeout=16,stream=True)
+                  print('WIKIMEDIA',name,r.status_code,r.headers.get('content-range'),r.headers.get('content-length'),u)
+                  r.close()
+              except Exception as e:print('WM_ERR',str(e)[:250])
+          PY
