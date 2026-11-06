@@ -1,0 +1,60 @@
+name: SBV Water 4K Actual footage Visual QA
+on:
+  push:
+    branches: [sbv-liquid-space-4k-20261106]
+    paths: [.github/workflows/sbv-space-water-visual-qa.yml]
+permissions:
+  contents: read
+jobs:
+  check-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Download full-resolution NASA originals (no still images)
+        run: |
+          set -euo pipefail
+          mkdir -p assets out
+          for spec in \
+            'COLOR|https://upload.wikimedia.org/wikipedia/commons/a/a2/RED_4K_Video_of_Colorful_Liquid_in_Space.webm' \
+            'TABLET|https://upload.wikimedia.org/wikipedia/commons/e/e3/4K_Camera_Captures_Riveting_Footage_of_Unique_Fluid_Behavior_in_Space_Laboratory.webm' \
+            'PINGPONG|https://upload.wikimedia.org/wikipedia/commons/f/fb/Liquid_Ping_Pong_in_Space_-_RED_4K.webm'
+          do
+            key=$(echo "$spec" | cut -d '|' -f1)
+            url=$(echo "$spec" | cut -d '|' -f2-)
+            echo "NASA ORIGINAL $key"
+            curl -L --fail --retry 5 --retry-all-errors --retry-delay 3 -H 'User-Agent: SBVScienceDocumentary/1.0 (non-automated publication research)' -o "assets/$key.webm" "$url"
+          done
+      - name: Decode and create actual footage contact sheets
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install -q Pillow
+          python - <<'PY'
+          import subprocess,glob,json,os
+          from PIL import Image,ImageDraw
+          files=glob.glob('assets/*.webm');data={}
+          collage=Image.new('RGB',(8*240,3*290),'#0c1019');dr=ImageDraw.Draw(collage)
+          for j,p in enumerate(sorted(files)):
+              info=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration,size,bit_rate:stream=codec_type,codec_name,width,height,r_frame_rate','-of','json',p],text=True))
+              data[os.path.basename(p)]=info
+              duration=float(info['format']['duration'])
+              print('NASA SOURCE',os.path.basename(p),'INFO',json.dumps(info),flush=True)
+              for i in range(8):
+                  at=max(0.25,duration*(i+.45)/8)
+                  fp=f'out/{os.path.basename(p).split(".")[0]}_{i:02d}.jpg'
+                  subprocess.run(['ffmpeg','-y','-v','error','-ss',str(at),'-i',p,'-frames:v','1','-vf','scale=238:258:force_original_aspect_ratio=decrease,pad=238:258:(ow-iw)/2:(oh-ih)/2','-q:v','2',fp],check=True)
+                  im=Image.open(fp).convert('RGB')
+                  collage.paste(im,(i*240+1,j*290))
+                  dr.text((i*240+6,j*290+258),f'{os.path.basename(p).split(".")[0]} {at:.1f}s',fill='white')
+          collage.save('out/NASA_4K_Water_Contact.jpg',quality=91)
+          open('out/NASA_FFPROBE.json','w').write(json.dumps(data,indent=2))
+          PY
+      - name: Share visual evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-REAL-NASA-4K-WATER-CONTACT-AND-SPECS
+          path: |
+            out/NASA_4K_Water_Contact.jpg
+            out/NASA_FFPROBE.json
+          retention-days: 4
