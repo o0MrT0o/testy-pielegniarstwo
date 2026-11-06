@@ -1,0 +1,57 @@
+name: SBV VENUS authentic NASA source QA
+on:
+  push:
+    branches: [sbv-venus-transit-final-20261106]
+    paths: [.github/workflows/sbv-venus-probe.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: NASA direct source only - download 2K and 1080p originals
+        run: |
+          set -euo pipefail
+          mkdir -p assets out/contact
+          ROOT=https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003941
+          curl -L --fail --retry 3 --retry-all-errors -o assets/HMIcomposite_2Kx2K.mov "$ROOT/HMIcomposite_2Kx2K.mov"
+          curl -L --fail --retry 3 --retry-all-errors -o assets/AIA171composite_2Kx2K.mov "$ROOT/AIA171composite_2Kx2K.mov"
+          curl -L --fail --retry 3 --retry-all-errors -o assets/HMIVenusTransit_HD1080.mp4 "$ROOT/HMIVenusTransit_HD1080.mp4"
+          curl -L --fail --retry 3 --retry-all-errors -o assets/AIA304VenusTransit_HD1080.mp4 "$ROOT/AIA304VenusTransit_HD1080.mp4"
+      - name: Check actual frame quality and assemble contact
+        run: |
+          set -euo pipefail
+          python -m pip install -q Pillow
+          python - <<'PY'
+          import json,subprocess,glob,os
+          from PIL import Image,ImageOps,ImageDraw,ImageFont
+          frames=[];details={}
+          for p in sorted(glob.glob('assets/*')):
+              meta=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration,size,bit_rate:stream=codec_type,width,height,avg_frame_rate','-of','json',p],text=True))
+              d=float(meta['format']['duration'])
+              details[os.path.basename(p)]=meta
+              print('ORIGINAL',os.path.basename(p),'seconds',d,'format',meta['format'],'streams',meta['streams'],flush=True)
+              for i,frac in enumerate([.03,.18,.36,.54,.72,.88]):
+                  t=frac*d; fp=f'out/contact/{os.path.basename(p)}_{i:02d}.jpg'
+                  subprocess.run(['ffmpeg','-y','-loglevel','error','-ss',str(t),'-i',p,'-frames:v','1','-vf','scale=450:450:force_original_aspect_ratio=decrease,pad=450:450:(ow-iw)/2:(oh-ih)/2','-q:v','2',fp],check=True)
+                  im=Image.open(fp).convert('RGB')
+                  frames.append((os.path.basename(p),round(t,1),im))
+          canvas=Image.new('RGB',(6*300,4*330),'#111217')
+          dr=ImageDraw.Draw(canvas)
+          for k,(name,t,im) in enumerate(frames):
+              x=(k%6)*300;y=(k//6)*330
+              im.thumbnail((296,296))
+              canvas.paste(im,(x+(300-im.width)//2,y))
+              dr.text((x+6,y+296),name[:18]+' '+str(t)+'s',fill='white')
+          canvas.save('out/NASA_Venus_Contact_Sheet.jpg',quality=92)
+          with open('out/Sources_FFprobe.json','w') as f:json.dump(details,f,indent=2)
+          PY
+      - name: Export verified technical images
+        uses: actions/upload-artifact@v4
+        with:
+          name: NASA-Venus-original-footage-QA
+          path: |
+            out/NASA_Venus_Contact_Sheet.jpg
+            out/Sources_FFprobe.json
+          retention-days: 4
