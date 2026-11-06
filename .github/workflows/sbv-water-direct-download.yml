@@ -1,0 +1,44 @@
+name: Publish final Water in Space MP4 as permanent direct browser downloads
+on:
+  push:
+    branches: [sbv-liquid-space-4k-20261106]
+    paths: [.github/workflows/sbv-water-direct-download.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Fetch already rendered and audited real NASA MP4
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 42219197544
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: SBV-NASA-4K-FLOATING-WATER-FINAL-MP4
+          path: finished
+      - name: Create permanent FullHD and lightweight mobile exports
+        run: |
+          set -euxo pipefail
+          ls -lh finished/
+          cp finished/SBV_NASA_WATER_IN_SPACE_FINAL_1080x1920.mp4 Water_In_Space_FINAL_1080p.mp4
+          command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+          ffmpeg -y -hide_banner -loglevel error -i Water_In_Space_FINAL_1080p.mp4 -vf 'scale=720:1280:flags=lanczos' -c:v libx264 -preset medium -crf 26 -maxrate 1200k -bufsize 2400k -c:a aac -b:a 96k -movflags +faststart Water_In_Space_MOBILE_720p.mp4
+          ffprobe -v error -show_entries format=duration,size:stream=codec_type,width,height -of json Water_In_Space_FINAL_1080p.mp4
+          ffprobe -v error -show_entries format=duration,size:stream=codec_type,width,height -of json Water_In_Space_MOBILE_720p.mp4
+          sha256sum Water_In_Space_FINAL_1080p.mp4 Water_In_Space_MOBILE_720p.mp4 | tee SHA256.txt
+          test -s Water_In_Space_MOBILE_720p.mp4
+      - name: Publish as stable public GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag='sbv-water-in-space-final-20261106-v7'
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" Water_In_Space_FINAL_1080p.mp4 Water_In_Space_MOBILE_720p.mp4 SHA256.txt --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" Water_In_Space_FINAL_1080p.mp4 Water_In_Space_MOBILE_720p.mp4 SHA256.txt --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Strange, But Verified: Water in Space (audited final)' --notes 'Two public-domain NASA microgravity experiments. 28.83s vertical video. Kokoro af_heart narration, captions, original sound design. Full HD and smaller mobile MP4s, plus checksums.'
+          fi
+          echo 'Published direct URLs:'
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets,url --jq '.url, (.assets[] | .url)'
