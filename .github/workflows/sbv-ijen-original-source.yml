@@ -1,0 +1,31 @@
+name: SBV Ijen original-source quality audit
+on:
+  push:
+    branches: [sbv-ijen-bluefire-master-20261106]
+    paths: [.github/workflows/sbv-ijen-original-source.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Install yt-dlp and system ffmpeg
+        run: |
+          python -m pip install -q -U yt-dlp
+          ffmpeg -version | head -n1
+      - name: Check original CC-licensed author uploads and file formats
+        run: |
+          mkdir -p input
+          for id in wvxAlM_Agmg ISfVeXl6MvU; do
+            echo "ORIGINAL VIDEO ID=$id"
+            yt-dlp --no-playlist --list-formats --ignore-errors "https://www.youtube.com/watch?v=$id" > "input/formats_$id.txt" 2>&1 || true
+            tail -90 "input/formats_$id.txt"
+            yt-dlp --no-playlist --skip-download --dump-json --ignore-errors "https://www.youtube.com/watch?v=$id" 2>/dev/null | python -c 'import sys,json; t=sys.stdin.read(); print({k:json.loads(t).get(k) for k in ("id","title","license","width","height","duration")}) if t else print("VIDEO_METADATA_UNAVAILABLE")' || true
+          done
+      - name: Upload format audits
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Ijen-YT-original-license-format-audit
+          path: input/
+          retention-days: 3
