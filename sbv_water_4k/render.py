@@ -142,7 +142,7 @@ def master(cards,specs,edits):
  (O/'EDIT_SOURCE_MANIFEST.json').write_text(json.dumps({'shots':edits,'sources':specs,'script':SCRIPT,'narrator':'Kokoro af_heart 0.88'},indent=2))
  desc='''TITLE: This Floating Water Looks Like CGI. It Is Not. #Shorts
 
-Watch water become a living-looking sphere aboard the International Space Station. Astronauts add dye and an effervescent tablet, and gas bubbles make the water twist in microgravity. Surface tension keeps the water together while the station remains in continuous free fall.
+Real NASA footage of two separate experiments aboard the International Space Station: food coloring turns one floating sphere green, while an effervescent tablet creates gas bubbles in another sphere. Surface tension helps the water stay together during continuous free fall.
 
 Every shot is authentic NASA Johnson 4K footage. Original English narrator: Kokoro af_heart. Graphics/vertical crop and original audio sound design added for this documentary edit.
 
