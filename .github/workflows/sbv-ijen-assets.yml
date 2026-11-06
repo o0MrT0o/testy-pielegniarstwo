@@ -1,0 +1,70 @@
+name: SBV Ijen source assets for quality repair
+on:
+  push:
+    branches:
+      - sbv-ijen-bluefire-master-20261106
+    paths:
+      - .github/workflows/sbv-ijen-assets.yml
+permissions:
+  contents: read
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch verified exact original license-compatible source files
+        run: |
+          python - <<'PY'
+          import hashlib,requests,time,os
+          from pathlib import Path
+          from urllib.parse import quote
+          dest=Path("source");dest.mkdir(exist_ok=True)
+          items=[
+          "Blue_fire,_Kawah_Ijen.webm",
+          "Blue_Fire_inside_Ijen_Volcano_-_Indonesia.webm",
+          "ISfVeXl6MvU-The_Blue_Flames_of_Ijen.webm",
+          "Blue_flames_in_the_Ijen_Caldera.jpg",
+          "The_blue_fire_of_Kawah_Ijen_1.jpg",
+          "Blue_fire_of_Ijen,_Kawah_Ijen,_Java,_Indonesia,_20220821_0432_9579.jpg"
+          ]
+          s=requests.Session();s.headers.update({'User-Agent':'StrangeButVerified-SourceVerification/1.0 (editorial original source audit)'})
+          for f in items:
+            h=hashlib.md5(f.encode()).hexdigest()
+            url='https://upload.wikimedia.org/wikipedia/commons/'+h[0]+'/'+h[:2]+'/'+quote(f,safe="().-_")
+            p=dest/f
+            for attempt in range(4):
+              try:
+                with s.get(url,stream=True,timeout=(30,100)) as r:
+                  print(url,r.status_code,flush=True);r.raise_for_status()
+                  with p.open('wb') as o:
+                    for part in r.iter_content(1024*1024):
+                      if part:o.write(part)
+                if p.stat().st_size<200000:raise ValueError("Small file")
+                print("SAVED",f,p.stat().st_size,flush=True)
+                break
+              except Exception as e:
+                print("RETRY",f,attempt,str(e)[:300],flush=True)
+                if p.exists():p.unlink()
+                time.sleep(1)
+            else:raise RuntimeError("Could not obtain "+f)
+          PY
+      - name: Export original media and credit ledger
+        run: |
+          cat > source/README_CREDITS.md <<'EOF'
+          These original source media files come from Wikimedia Commons, where page-specific license requirements apply:
+          Magul — Blue fire, Kawah Ijen.webm — CC BY-SA 4.0
+          Unkempt Casanova — Blue Fire inside Ijen Volcano - Indonesia.webm — CC BY 3.0
+          Jon Wedell — ISfVeXl6MvU-The Blue Flames of Ijen.webm — CC BY 3.0
+          Isderion — Blue flames in the Ijen Caldera.jpg — CC BY-SA 3.0 Germany
+          Thomas Fuhrmann — The blue fire of Kawah Ijen 1.jpg — CC BY-SA 4.0
+          Jakub Hałun — Blue fire of Ijen, Kawah Ijen, Java, Indonesia, 20220821 0432 9579.jpg — CC BY-SA 4.0
+          Attribution and sharealike licensing must be preserved in finished remix. Edit only genuine, non-synthetic footage.
+          EOF
+          ls -lh source
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Ijen-ORIGINALS-for-visual-quality-fix
+          path: source/
+          retention-days: 7
+          compression-level: 0
