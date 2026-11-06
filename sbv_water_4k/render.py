@@ -13,19 +13,20 @@ for x in [A,M,C,O]:x.mkdir(exist_ok=True)
 W,H,FPS=1080,1920,30
 FILES={n:A/(n+'.webm') for n in ['COLOR','TABLET','PINGPONG']}
 SOURCE_TIME=[
- ('COLOR',54.5),('COLOR',57.0),('TABLET',102.0),('COLOR',50.7),
- ('PINGPONG',45.3),('TABLET',75.0),('TABLET',90.0),('COLOR',61.0),
- ('TABLET',95.0),('TABLET',71.8),('TABLET',108.0),('TABLET',82.4),
- ('TABLET',113.2),('COLOR',52.4),('TABLET',116.3),('COLOR',59.2),
- ('TABLET',98.3),('COLOR',53.3),('TABLET',86.2),('COLOR',63.4),
- ('TABLET',81.4),('COLOR',35.2),('TABLET',76.1),('COLOR',45.5)]
+ ('COLOR',54.5),('COLOR',57.7),('COLOR',51.0),
+ ('PINGPONG',43.5),('PINGPONG',48.4),('COLOR',44.0),
+ ('COLOR',60.5),('COLOR',49.0),
+ ('TABLET',74.5),('TABLET',87.6),('TABLET',93.3),
+ ('TABLET',99.3),('TABLET',105.0),('COLOR',41.8),
+ ('TABLET',113.1),('COLOR',53.3),('TABLET',108.5),('COLOR',63.6)
+]
 SCRIPT=[
- ('This looks like a tiny planet. But it is actually a floating ball of water.',['THIS LOOKS LIKE','A TINY PLANET','IT IS JUST WATER']),
- ('NASA filmed it aboard the International Space Station. No glass. No strings.',['NASA FILMED IT','ON THE SPACE STATION','NO GLASS. NO STRINGS.']),
- ('They added food coloring, then dropped in a fizzy tablet.',['FOOD COLORING','THEN A FIZZY TABLET']),
- ('And the water started twisting like it was alive.',['THE WATER','STARTED TWISTING','LIKE IT WAS ALIVE']),
- ('In microgravity, surface tension keeps the blob together while gas bubbles move inside it.',['IN MICROGRAVITY','SURFACE TENSION','HOLDS IT TOGETHER','WHILE GAS BUBBLES MOVE']),
- ('No computer graphics. Just physics in orbit.',['NO COMPUTER GRAPHICS','JUST PHYSICS','IN ORBIT'])
+ ('That tiny planet is actually a ball of water. Floating in space.',['A TINY PLANET?',"IT'S ACTUALLY WATER",'FLOATING IN SPACE']),
+ ('NASA filmed this on the International Space Station. No glass. No container.',['NASA FILMED THIS','ON THE SPACE STATION','NO GLASS. NO CONTAINER']),
+ ('In one experiment, astronauts colored the floating water bright green.',['ONE EXPERIMENT','WATER TURNS GREEN']),
+ ('In another experiment, a fizzy tablet filled a sphere of water with gas bubbles.',['ANOTHER EXPERIMENT','A FIZZY TABLET','FILLS IT WITH BUBBLES']),
+ ('In microgravity, surface tension holds the water together. The bubbles move inside.',['IN MICROGRAVITY','SURFACE TENSION','HOLDS IT TOGETHER','BUBBLES MOVE INSIDE']),
+ ("It looks alive. But it's just physics in orbit.",['IT LOOKS ALIVE','JUST PHYSICS','IN ORBIT'])
 ]
 FONT='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
@@ -66,14 +67,14 @@ def cards(blocks):
  frame=0
  for x in all:
   x['f0']=frame;frame=max(frame+10,round(x['end']*FPS));x['f1']=frame
- assert 12<=len(all)<=len(SOURCE_TIME)
+ assert len(all)==len(SOURCE_TIME)==18, (len(all),len(SOURCE_TIME))
  return all
 
 def make_overlay(t,i):
  im=Image.new('RGBA',(W,H),(0,0,0,0));d=ImageDraw.Draw(im)
  d.text((40,72),'STRANGE, BUT VERIFIED',font=ImageFont.truetype(FONT,22),fill='white',stroke_width=3,stroke_fill='#060709')
  d.text((40,112),'FOOTAGE: NASA / PUBLIC DOMAIN',font=ImageFont.truetype(FONT,16),fill='white',stroke_width=3,stroke_fill='#060709')
- hot=any(s in t for s in ['PLANET','WATER','FIZZY','TWIST','ALIVE','PHYSICS','SPACE','BUBBLES'])
+ hot=any(s in t for s in ['PLANET','WATER','GREEN','FIZZY','ALIVE','PHYSICS','SPACE','BUBBLES'])
  col='#FFE12B' if hot else '#FFFFFF'
  size=69
  while size>=36:
@@ -81,7 +82,7 @@ def make_overlay(t,i):
   box=d.textbbox((0,0),t,font=f,stroke_width=7)
   if box[2]-box[0]<=W-118:break
   size-=2
- d.text((W//2,1068),t,font=f,anchor='mm',fill=col,stroke_width=7,stroke_fill='#07070A')
+ d.text((W//2,1180),t,font=f,anchor='mm',fill=col,stroke_width=7,stroke_fill='#07070A')
  out=C/f'overlay_{i:02d}.png';im.save(out);return out
 
 def audio_layers(wav,sr):
