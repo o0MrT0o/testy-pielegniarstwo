@@ -1,0 +1,25 @@
+name: SBV Ijen authentic source probe
+on:
+  push:
+    branches:
+      - sbv-ijen-bluefire-master-20261106
+    paths:
+      - .github/workflows/sbv-ijen-source-probe.yml
+permissions:
+  contents: read
+jobs:
+  source-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Validate Wikimedia original hosting from Actions runner
+        run: |
+          set -u
+          for u in \
+            'https://upload.wikimedia.org/wikipedia/commons/3/38/Blue_fire%2C_Kawah_Ijen.webm' \
+            'https://upload.wikimedia.org/wikipedia/commons/e/ed/Blue_Fire_inside_Ijen_Volcano_-_Indonesia.webm' \
+            'https://upload.wikimedia.org/wikipedia/commons/6/6c/ISfVeXl6MvU-The_Blue_Flames_of_Ijen.webm'
+          do
+            echo "SOURCE: $u"
+            curl -IL --connect-timeout 9 --max-time 20 -sS -w 'HTTP %{http_code}; bytes %{size_download}; time %{time_total}\n' "$u" | tail -15 || true
+          done
