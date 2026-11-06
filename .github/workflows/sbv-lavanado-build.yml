@@ -1,0 +1,72 @@
+name: SBV LAVANADO | Real USGS original FULLHD FINAL
+on:
+  push:
+    branches:
+      - sbv-lavanado-real-1080-20261106
+    paths:
+      - ".github/workflows/sbv-lavanado-build.yml"
+      - "sbv_lavanado/render.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  edit-and-master:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Set up original footage production stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core
+          python -m pip install --upgrade pip -q
+          python -m pip install --prefer-binary 'kokoro-onnx==0.6.1'
+          python -m pip install --prefer-binary scipy Pillow soundfile
+          python -m py_compile sbv_lavanado/render.py
+      - name: Download real high-bitrate USGS Public Domain source footage
+        run: |
+          set -euo pipefail
+          mkdir -p assets models out
+          BASE='https://usgs-ocapsv2-public-input-media.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/media/video'
+          curl -fL --retry 4 --retry-all-errors -o assets/20250117_ground_video.mp4 "$BASE/20250117_ground_video.mp4"
+          curl -fL --retry 4 --retry-all-errors -o assets/multimediaFile-4240.mp4 "$BASE/multimediaFile-4240.mp4"
+          curl -fL --retry 4 --retry-all-errors -o assets/GH010330_1.mp4 "$BASE/GH010330_1.mp4"
+          ffprobe -v error -show_entries stream=width,height,codec_name:format=duration,bit_rate -of default=nw=1 assets/20250117_ground_video.mp4
+          ffprobe -v error -show_entries stream=width,height,codec_name:format=duration,bit_rate -of default=nw=1 assets/multimediaFile-4240.mp4
+          ffprobe -v error -show_entries stream=width,height,codec_name:format=duration,bit_rate -of default=nw=1 assets/GH010330_1.mp4
+      - name: Download and checksum original Kokoro Heart model
+        run: |
+          curl -fL --retry 5 --retry-all-errors -o models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -fL --retry 5 --retry-all-errors -o models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  models/voices-v1.0.bin' | sha256sum -c -
+      - name: Complete automated editorial montage and full technical QA
+        run: |
+          set -euo pipefail
+          python -u sbv_lavanado/render.py
+          test -s out/SBV_LAVANADO_FINAL_1080x1920.mp4
+          test ! -s out/QA_DECODE_ERRORS.txt
+          ls -lh out/SBV_LAVANADO_FINAL_1080x1920.mp4
+      - name: Publish MP4, exact sources and quality audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: Strange-But-Verified-LAVANADO-FINAL-MP4
+          path: |
+            out/SBV_LAVANADO_FINAL_1080x1920.mp4
+            out/QA_CONTACT.jpg
+            out/TITLE_DESCRIPTION_CREDITS.txt
+            out/Kokoro_af_heart.wav
+            out/CAPTIONS.srt
+            out/EDIT_SOURCE_MANIFEST.json
+            out/QA_FFPROBE.json
+            out/QA_BLACK.txt
+            out/QA_FREEZE.txt
+            out/QA_LOUDNESS.txt
+            out/QA_DECODE_ERRORS.txt
+            out/SHA256.txt
+          retention-days: 7
+          compression-level: 0
