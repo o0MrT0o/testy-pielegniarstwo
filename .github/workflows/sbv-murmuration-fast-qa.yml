@@ -1,0 +1,54 @@
+name: SBV Murmuration full video efficient single-pass inspection
+on:
+  push:
+    branches: [sbv-murmuration-highquality-20261106]
+    paths: [.github/workflows/sbv-murmuration-fast-qa.yml]
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Install ffmpeg and Pillow
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          python -m pip install -q Pillow
+      - name: Fetch original 1080p Wikimedia Commons 2 files
+        run: |
+          set -euo pipefail
+          mkdir -p in out/images
+          curl -fL --retry 4 --retry-all-errors --connect-timeout 20 -o in/KarenRoe.webm 'https://upload.wikimedia.org/wikipedia/commons/a/aa/Flock_of_starlings_%28Sturnus_vulgaris%29.webm'
+          curl -fL --retry 4 --retry-all-errors --connect-timeout 20 -o in/Katya.webm 'https://upload.wikimedia.org/wikipedia/commons/a/af/Common_Starlings_flying_away_from_a_Marsh_Harrier.webm'
+          ls -lh in/
+          for f in in/*.webm; do
+            ffprobe -v error -show_entries format=size,duration,bit_rate:stream=width,height,r_frame_rate -of json "$f"
+          done
+      - name: Decode 1 frame each 8 seconds in single pass; 1x speed
+        run: |
+          set -euo pipefail
+          for f in in/*.webm; do
+            nm=$(basename "$f" .webm)
+            ffmpeg -hide_banner -loglevel error -i "$f" -an -vf 'fps=1/8,scale=360:204:flags=lanczos' -q:v 3 "out/images/${nm}_%03d.jpg"
+          done
+          python - <<'PY'
+          import glob,os,math
+          from PIL import Image,ImageDraw
+          all=glob.glob('out/images/*.jpg')
+          print('SOURCE SHEET FRAME COUNT',len(all),flush=True)
+          for name in ['KarenRoe','Katya']:
+            pics=sorted(x for x in all if os.path.basename(x).startswith(name))
+            if not pics:raise RuntimeError('No sample frames '+name)
+            cols=6;rows=math.ceil(len(pics)/cols)
+            out=Image.new('RGB',(cols*362,rows*228),'#171820');d=ImageDraw.Draw(out)
+            for i,path in enumerate(pics):
+              x=i%cols*362;y=i//cols*228
+              out.paste(Image.open(path).convert('RGB'),(x,y))
+              d.text((x+6,y+205),name+': '+str(i*8)+'s',fill='white')
+            out.save(f'out/${name}_CONTACT.jpg'.replace('$',''),quality=92)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV-HighQuality-Dense-Murmuration-Contact-Sheets
+          path: out/*CONTACT.jpg
+          retention-days: 5
