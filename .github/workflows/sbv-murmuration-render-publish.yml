@@ -1,0 +1,77 @@
+name: SBV STARLINGS Living Cloud | Complete vertical MP4 and direct public link
+on:
+  push:
+    branches: [sbv-murmuration-highquality-20261106]
+    paths: [.github/workflows/sbv-murmuration-render-publish.yml, sbv_murmuration/render.py]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  render-final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install offline video production stack
+        run: |
+          set -e
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core
+          python -m pip install -q --upgrade pip
+          python -m pip install --prefer-binary 'kokoro-onnx==0.6.1'
+          python -m pip install --prefer-binary Pillow scipy soundfile
+          python -m py_compile sbv_murmuration/render.py
+      - name: Download authentic 1080P high bitrate videos from Wikimedia Commons
+        run: |
+          set -euo pipefail
+          mkdir -p assets models out
+          curl -fL --retry 5 --retry-all-errors --connect-timeout 20 -o assets/KarenRoe.webm 'https://upload.wikimedia.org/wikipedia/commons/a/aa/Flock_of_starlings_%28Sturnus_vulgaris%29.webm'
+          curl -fL --retry 5 --retry-all-errors --connect-timeout 20 -o assets/Katya.webm 'https://upload.wikimedia.org/wikipedia/commons/a/af/Common_Starlings_flying_away_from_a_Marsh_Harrier.webm'
+          for f in assets/*.webm; do echo "REAL LICENSED SOURCE: $f"; ffprobe -v error -show_entries format=size,duration,bit_rate:stream=width,height -of json "$f"; done
+      - name: Real Kokoro Heart female documentary voice, validated model files
+        run: |
+          curl -fL --retry 5 --retry-all-errors -o models/kokoro-v1.0.onnx 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.onnx'
+          curl -fL --retry 5 --retry-all-errors -o models/voices-v1.0.bin 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin'
+          echo 'beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a  models/kokoro-v1.0.onnx' | sha256sum -c -
+          echo 'bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d  models/voices-v1.0.bin' | sha256sum -c -
+      - name: Produce finished Shorts MP4 and audit image voice cuts loudness
+        run: |
+          set -euo pipefail
+          python -u sbv_murmuration/render.py
+          test ! -s out/QA_DECODER_ERRORS.txt
+          ls -lah out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4
+      - name: Create smaller 720p mobile download
+        run: |
+          set -euxo pipefail
+          ffmpeg -y -hide_banner -loglevel error -i out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4 -vf 'scale=720:1280:flags=lanczos' -c:v libx264 -preset medium -crf 26 -maxrate 1300k -bufsize 2600k -c:a aac -b:a 96k -movflags +faststart out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_MOBILE_720p.mp4
+          ffprobe -v error -show_entries format=duration,size:stream=width,height,codec_type -of json out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_MOBILE_720p.mp4
+      - name: Publish permanent direct download on GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=sbv-starling-living-cloud-final-20261107-v1
+          gh release create "$tag" out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4 out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_MOBILE_720p.mp4 out/TITLE_DESCRIPTION_SOURCES_AND_LICENSE.txt out/QA_FULL_VIDEO_CONTACT.jpg --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Strange, But Verified — THIS BLACK CLOUD IS ALIVE" --notes-file out/TITLE_DESCRIPTION_SOURCES_AND_LICENSE.txt
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url,assets --jq '.url, (.assets[] | .url)'
+      - name: Preserve complete quality assurance files
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-STARLING-LIVING-CLOUD-FINAL-QA-MP4
+          path: |
+            out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4
+            out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_MOBILE_720p.mp4
+            out/TITLE_DESCRIPTION_SOURCES_AND_LICENSE.txt
+            out/QA_FULL_VIDEO_CONTACT.jpg
+            out/QA_FFPROBE.json
+            out/QA_DECODER_ERRORS.txt
+            out/QA_BLACKDETECT.txt
+            out/QA_FREEZEDETECT.txt
+            out/QA_LOUDNESS.txt
+            out/MANIFEST.json
+            out/CAPTIONS.srt
+            out/SHA256.txt
+          retention-days: 7
+          compression-level: 0
