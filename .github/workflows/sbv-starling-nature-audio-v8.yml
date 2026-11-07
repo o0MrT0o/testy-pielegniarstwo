@@ -24,7 +24,7 @@ jobs:
       - name: Download authentic, licensed COMMON STARLING flock chatter
         run: |
           set -euo pipefail
-          curl -fL --retry 5 --retry-all-errors --connect-timeout 15 -o sources/real_starlings.ogg 'https://upload.wikimedia.org/wikipedia/commons/c/cf/Common%20Starling%20%28Sturnus%20vulgaris%29%20%28W1CDR0001431%20BD8%29.ogg'
+          curl -fL --retry 3 --connect-timeout 15 -o sources/real_starlings.ogg 'https://upload.wikimedia.org/wikipedia/commons/e/e5/Common_Starling_%28Sturnus_vulgaris%29_%28W1CDR0001431_BD8%29.ogg'
           test $(stat -c %s sources/real_starlings.ogg) -gt 900000
           ffprobe -v error -show_entries format=duration,size:stream=codec_type,codec_name,sample_rate,channels -of json sources/real_starlings.ogg
       - name: Mix soft real wildlife ambience into V7 without recompressing video
