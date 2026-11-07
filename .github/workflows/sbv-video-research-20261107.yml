@@ -24,7 +24,7 @@ jobs:
           ls -lh assets/
       - name: Download verified vertical real ice disc at original 1080x1920
         run: |
-          curl -fL --retry 3 --retry-all-errors -o assets/IceCircle_1080x1920.webm 'https://upload.wikimedia.org/wikipedia/commons/8/86/Grand_River_Ice_Circle.webm'
+          curl -fL --retry 3 --retry-all-errors -o assets/IceCircle_1080x1920.webm 'https://upload.wikimedia.org/wikipedia/commons/3/34/Grand_River_Ice_Circle.webm'
           ls -lh assets/IceCircle_1080x1920.webm
       - name: Test real backwards-waterfall 4K stock, reject mismatched actual content
         run: |
