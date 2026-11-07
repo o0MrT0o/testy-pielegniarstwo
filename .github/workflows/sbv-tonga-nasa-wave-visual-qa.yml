@@ -1,0 +1,57 @@
+name: Verify NASA 4K gravity waves and independent NOAA/CIRA eruption clip
+on:
+  push:
+    branches: [sbv-tonga-footage-research-20261107]
+    paths: [.github/workflows/sbv-tonga-nasa-wave-visual-qa.yml]
+permissions:
+  contents: read
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Video scout dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install -q Pillow
+      - name: Download NASA-produced global gravity-wave animation and actual ash plume CIRA video
+        run: |
+          set -euo pipefail
+          mkdir -p originals out
+          curl -fL --retry 3 --retry-all-errors -o originals/NASA_4K_global_waves.mp4 'https://svs.gsfc.nasa.gov/vis/a030000/a031200/a031277/hunga_tonga_three_geo_sats_2160p15.mp4'
+          curl -fL --retry 3 --retry-all-errors -o originals/CIRA_HD_erupting_ash.mp4 'https://satlib.cira.colostate.edu/wp-content/uploads/sites/23/2022/02/202201150310-202201150530_g17_fd_band2_tongaeruption_nolabels.mp4'
+          ls -lah originals
+      - name: Audit actual frames, source resolution, bitrate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          import subprocess,json,glob,math
+          specs={}
+          for src in sorted(glob.glob('originals/*.mp4')):
+              k=Path(src).stem
+              data=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration,size,bit_rate:stream=width,height,r_frame_rate,codec_name,codec_type','-of','json',src],text=True))
+              specs[k]=data;dur=float(data['format']['duration'])
+              st=next(x for x in data['streams'] if x['codec_type']=='video')
+              print('SOURCE VERIFIED',k,'res',st['width'],st['height'],'bitrate',data['format'].get('bit_rate'),'duration',dur,flush=True)
+              points=[.005,.025,.05,.1,.15,.21,.27,.34,.41,.49,.57,.65,.73,.81,.89,.96]
+              cols=4;rows=4;im=Image.new('RGB',(4*358,4*234),'#12141b')
+              d=ImageDraw.Draw(im)
+              for i,fraction in enumerate(points):
+                  t=max(0.05,min(dur-.2,dur*fraction))
+                  p=f'out/{k}_{i}.jpg'
+                  subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',str(t),'-i',src,'-frames:v','1','-vf','scale=352:199','-q:v','3',p],check=True)
+                  x=i%4*358;y=i//4*234
+                  im.paste(Image.open(p).convert('RGB'),(x+3,y+3))
+                  d.text((x+6,y+207),f'{k}: {t:.1f}s',fill='white')
+              im.save(f'out/{k}_ORIGINAL_FRAMES.jpg',quality=91)
+          Path('out/PROBE.json').write_text(json.dumps(specs,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NASA-4K-AND-CIRA-1080-VERIFIED-FOOTAGE-PREVIEWS
+          path: |
+            out/*ORIGINAL_FRAMES.jpg
+            out/PROBE.json
+          retention-days: 5
