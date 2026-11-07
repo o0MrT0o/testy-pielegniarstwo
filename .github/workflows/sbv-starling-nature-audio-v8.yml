@@ -1,0 +1,119 @@
+name: SBV Starling V8 | Authentic wildlife sound and restrained documentary ambience
+on:
+  push:
+    branches: [sbv-murmuration-highquality-20261106]
+    paths: [.github/workflows/sbv-starling-nature-audio-v8.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  sound-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download final V7 video with original picture and Kokoro voice
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p input sources out
+          gh release download sbv-starling-living-cloud-final-20261107-v7 --repo "$GITHUB_REPOSITORY" --pattern STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4 --dir input
+          test -s input/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4
+          ffprobe -v error -show_entries format=duration,size:stream=codec_name,codec_type,width,height -of json input/*.mp4
+      - name: Download authentic, licensed COMMON STARLING flock chatter
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-all-errors --connect-timeout 15 -o sources/real_starlings.ogg 'https://upload.wikimedia.org/wikipedia/commons/c/cf/Common%20Starling%20%28Sturnus%20vulgaris%29%20%28W1CDR0001431%20BD8%29.ogg'
+          test $(stat -c %s sources/real_starlings.ogg) -gt 900000
+          ffprobe -v error -show_entries format=duration,size:stream=codec_type,codec_name,sample_rate,channels -of json sources/real_starlings.ogg
+      - name: Mix soft real wildlife ambience into V7 without recompressing video
+        run: |
+          set -euo pipefail
+          ffmpeg -hide_banner -y -loglevel error \
+            -i input/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4 \
+            -i sources/real_starlings.ogg \
+            -filter_complex "[0:a]asplit=2[voice_plus_original_bed][duckkey];[1:a]atrim=start=1.0:duration=24.167,asetpts=PTS-STARTPTS,highpass=f=220,lowpass=f=6800,afftdn=nf=-38,loudnorm=I=-29:TP=-9:LRA=7,volume=-1.5dB,afade=t=in:st=0:d=0.65,afade=t=out:st=23.0:d=1.15,aformat=sample_rates=48000:channel_layouts=stereo[real_bird_ambience];[real_bird_ambience][duckkey]sidechaincompress=threshold=0.025:ratio=2.6:attack=55:release=430:makeup=1[bird_ducked_under_speech];[voice_plus_original_bed][bird_ducked_under_speech]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.92:attack=5:release=65[documentary_mix]" \
+            -map 0:v:0 -map "[documentary_mix]" -c:v copy -c:a aac -b:a 192k \
+            -ar 48000 -ac 2 -movflags +faststart -shortest \
+            out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_1080p.mp4
+          ffprobe -v error -show_entries format=duration,size,bit_rate:stream=codec_name,codec_type,width,height -of json out/*1080p.mp4 | tee out/QA_FFPROBE.json
+      - name: Verify video is EXACT SAME video stream as V7
+        run: |
+          set -euo pipefail
+          ffmpeg -hide_banner -v error -i input/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4 -map 0:v:0 -c:v copy -f hash -hash sha256 - > out/V7_PICTURE_SHA256.txt
+          ffmpeg -hide_banner -v error -i out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_1080p.mp4 -map 0:v:0 -c:v copy -f hash -hash sha256 - > out/V8_PICTURE_SHA256.txt
+          echo 'V7 stream:'; cat out/V7_PICTURE_SHA256.txt
+          echo 'V8 stream:'; cat out/V8_PICTURE_SHA256.txt
+          cmp out/V7_PICTURE_SHA256.txt out/V8_PICTURE_SHA256.txt
+          ffmpeg -hide_banner -v error -i out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_1080p.mp4 -f null - 2>out/QA_DECODE_ERRORS.txt
+          test ! -s out/QA_DECODE_ERRORS.txt
+          ffmpeg -hide_banner -nostats -i out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_1080p.mp4 -vn -af ebur128=peak=true -f null - 2>out/QA_LOUDNESS.txt
+          tail -28 out/QA_LOUDNESS.txt
+      - name: Export lightweight 720p with the SAME documentary soundtrack
+        run: |
+          set -euo pipefail
+          ffmpeg -y -hide_banner -loglevel error -i out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_1080p.mp4 \
+            -vf scale=720:1280:flags=lanczos -c:v libx264 -preset medium -crf 26 \
+            -maxrate 1300k -bufsize 2600k -c:a aac -b:a 112k \
+            -movflags +faststart out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_MOBILE_720p.mp4
+      - name: Document wildlife source, rights, processing and distribution
+        run: |
+          cat > out/NEW_NATURE_AUDIO_CREDITS.txt <<'EOF'
+          STRANGE, BUT VERIFIED — THIS BLACK CLOUD IS ALIVE (V8 nature documentary sound design)
+
+          VIDEO:
+          Identical video stream to V7 (11 genuine full-HD footage shots, subtitles unchanged).
+          Original video filmmakers:
+          Karen Roe — "Flock of starlings (Sturnus vulgaris)", CC BY 2.0
+          https://commons.wikimedia.org/wiki/File:Flock_of_starlings_(Sturnus_vulgaris).webm
+          https://creativecommons.org/licenses/by/2.0/
+          Katya — "Common Starlings flying away from a Marsh Harrier", CC BY-SA 2.0
+          https://commons.wikimedia.org/wiki/File:Common_Starlings_flying_away_from_a_Marsh_Harrier.webm
+          https://creativecommons.org/licenses/by-sa/2.0/
+
+          NEW AUTHENTIC NATURE FIELD RECORDING:
+          "Common Starling (Sturnus vulgaris)" / British Library W1CDR0001431 BD8
+          Recordist: Lawrence Shove (22 February 1965), © The British Library Board
+          License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+          https://commons.wikimedia.org/wiki/File:Common_Starling_(Sturnus_vulgaris)_(W1CDR0001431_BD8).ogg
+          https://creativecommons.org/licenses/by-sa/4.0/
+          Edited (short segment, noise reduced, equalized, attenuated, voice ducking, stereo upmix).
+          Atmospheric bird calls; NOT claimed to be recorded synchronously with the video footage.
+
+          Narration: original Kokoro af_heart at 0.88. 
+          Additional sound design: original subtle airy drone and sound effects already included in V7.
+          This edited audiovisual adaptation is offered under CC BY-SA 4.0 (per later-version ShareAlike compatibility).
+          Changes: vertical documentary crop, subtitles, original narration, sound design, and nature audio mix.
+          EOF
+          sha256sum out/*mp4 > out/QA_FILE_SHA256.txt
+          ls -lah out/*.mp4
+      - name: Publish verified direct browser MP4 downloads as public release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=sbv-starling-living-cloud-documentary-audio-20261107-v8
+          gh release create "$tag" \
+            out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_1080p.mp4 \
+            out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_MOBILE_720p.mp4 \
+            out/NEW_NATURE_AUDIO_CREDITS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Strange, But Verified — The Living Sky V8 | Real Starling Nature Audio" \
+            --notes-file out/NEW_NATURE_AUDIO_CREDITS.txt
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url,assets --jq '.url, (.assets[] | .url)'
+      - name: Preserve finished audio mix verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBV-STARLINGS-V8-NATURE-REAL-BIRDS-DOCUMENTARY
+          path: |
+            out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_1080p.mp4
+            out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_MOBILE_720p.mp4
+            out/NEW_NATURE_AUDIO_CREDITS.txt
+            out/QA_FFPROBE.json
+            out/V7_PICTURE_SHA256.txt
+            out/V8_PICTURE_SHA256.txt
+            out/QA_LOUDNESS.txt
+            out/QA_FILE_SHA256.txt
+            out/QA_DECODE_ERRORS.txt
+          retention-days: 7
+          compression-level: 0
