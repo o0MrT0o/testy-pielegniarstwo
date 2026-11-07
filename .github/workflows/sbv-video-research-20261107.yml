@@ -1,0 +1,81 @@
+name: SBV Video Research — Real original high-res footage verified contact sheets
+on:
+  push:
+    branches: [sbv-footage-research-20261107]
+    paths: [.github/workflows/sbv-video-research-20261107.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Install ffmpeg and Pillow
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          python -m pip install -q Pillow requests
+          mkdir -p assets out
+      - name: Download 2023 NOAA true-source glass squid and first-dive compilation
+        run: |
+          set -eu
+          curl -fL --retry 3 --retry-all-errors -o assets/NOAA_GlassSquid_720.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2023/07/dive01-glass-squid-1280x720-1.mp4'
+          curl -fL --retry 3 --retry-all-errors -o assets/NOAA_OceanCompilation_1080.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2023/07/dive01-unexplored-planet-1920x1080-1.mp4'
+          curl -fL --retry 3 --retry-all-errors -o assets/NOAA_BigfinSquid_720.mp4 'https://oceanexplorer.noaa.gov/wp-content/uploads/2021/11/dive10-bigfin-squid-1280x720-2.mp4'
+          ls -lh assets/
+      - name: Download verified vertical real ice disc at original 1080x1920
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o assets/IceCircle_1080x1920.webm 'https://upload.wikimedia.org/wikipedia/commons/8/86/Grand_River_Ice_Circle.webm'
+          ls -lh assets/IceCircle_1080x1920.webm
+      - name: Test real backwards-waterfall 4K stock, reject mismatched actual content
+        run: |
+          python - <<'PY'
+          import requests
+          s=requests.Session()
+          for ident in [6841678,6842093]:
+            matches=[]
+            variants=['uhd_4096_2160_29.97fps','uhd_4096_2160_30fps','uhd_3840_2160_30fps','uhd_3840_2160_29.97fps','hd_1920_1080_30fps','hd_1920_1080_29.97fps','hd_1920_1080_25fps']
+            for q in variants:
+              url=f'https://videos.pexels.com/video-files/{ident}/{ident}-{q}.mp4'
+              try:
+                r=s.get(url,headers={'Range':'bytes=0-4095'},stream=True,timeout=(8,8))
+                if r.status_code in [200,206] and ('video' in (r.headers.get('content-type','').lower()) or r.headers.get('content-range')):
+                  print("REUSABLE 4K SOURCE",url,r.status_code,r.headers.get('Content-Range'),flush=True)
+                  matches.append((q,url));r.close();break
+                r.close()
+              except Exception as e:print('REQUEST_ERR',ident,q,str(e)[:90],flush=True)
+            if matches:
+              q,url=matches[0];r=s.get(url,timeout=(20,120),stream=True)
+              r.raise_for_status()
+              with open(f'assets/Pexels_Waterfall_{ident}.mp4','wb') as fp:
+                for chunk in r.iter_content(1024*1024):fp.write(chunk)
+              print('Downloaded waterfall',ident,q,flush=True)
+          PY
+      - name: Probe and visually audit actual frames from four candidates
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw,ImageFont
+          import subprocess,json,math
+          data={}
+          for v in sorted(Path('assets').glob('*')):
+            j=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration,size,bit_rate:stream=codec_type,width,height,codec_name,r_frame_rate','-of','json',str(v)],text=True))
+            data[v.stem]=j
+            duration=float(j['format']['duration'])
+            samples=[max(.04,min(duration-.25,duration*q)) for q in (.025,.07,.12,.20,.30,.40,.51,.61,.72,.85,.95)]
+            im=Image.new('RGB',(11*204,420),'#12151b');d=ImageDraw.Draw(im)
+            for i,t in enumerate(samples):
+              out=Path('out')/f'{v.stem}_{i:02d}.jpg'
+              p=subprocess.run(['ffmpeg','-y','-v','error','-ss',str(t),'-i',str(v),'-frames:v','1','-vf','scale=200:375:force_original_aspect_ratio=decrease,pad=200:375:(ow-iw)/2:(oh-ih)/2','-q:v','3',str(out)],capture_output=True)
+              if p.returncode:print('SAMPLE_FAIL',str(v),t,p.stderr.decode()[:250],flush=True);continue
+              x=i*204;im.paste(Image.open(out).convert('RGB'),(x+2,0))
+              d.text((x+5,383),f'{t:.1f}s',fill='white')
+            im.save('out/'+v.stem+'_QA_CONTACT.jpg',quality=88)
+            print('VIDEO_PROBE',v.stem,'codec',[(s.get('codec_name'),s.get('width'),s.get('height'),s.get('r_frame_rate')) for s in j['streams']], 'size',j['format']['size'],'duration',duration,flush=True)
+          Path('out/VIDEO_PROBES.json').write_text(json.dumps(data,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV-VERIFIED-VIDEO-RESEARCH-20261107
+          path: out/
+          retention-days: 7
+          compression-level: 1
