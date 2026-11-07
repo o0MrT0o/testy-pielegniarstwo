@@ -16,13 +16,15 @@ SOURCE={
 "P":{"file":"Katya.webm","author":"KATYA","license":"CC BY-SA 2.0","url":"https://commons.wikimedia.org/wiki/File:Common_Starlings_flying_away_from_a_Marsh_Harrier.webm","size_min":65000000},
 }
 # Every video cut starts at a unique source time. 100 and 163 seconds total for a ~30s film.
-# First two seconds are visually the strongest cloud knots in Karen Roe.
+# First three seconds use the densest authentic sunset formations (41-47s Karen Roe).
 SHOT_SCHEDULE=[
-("K",82.40,.62),("K",56.10,.47),("K",1.20,.50),("K",41.30,.63),
-("K",86.40,.61),("K",12.10,.48),("K",49.80,.48),("K",47.30,.47),
-("K",78.40,.69),("K",4.20,.52),("K",54.50,.47),("K",32.30,.55),
-("K",8.10,.52),("K",39.10,.60),("P",120.40,.48),("K",84.20,.64),
-("K",43.40,.65),("K",74.80,.73),("K",88.80,.66),
+("K",43.40,.60),("K",41.30,.58),("K",47.30,.55),
+("K",12.10,.50),("K",82.40,.60),("K",8.10,.53),
+("K",1.00,.51),("K",56.10,.51),("K",4.20,.50),
+("K",35.40,.60),("K",86.40,.55),("K",49.80,.48),
+("K",58.40,.51),("P",122.00,.48),("P",124.45,.47),
+("P",131.90,.48),("P",137.50,.50),("K",84.20,.58),
+("K",39.10,.56)
 ]
 SCRIPT=[
 ("This black cloud is alive. And it isn't smoke.",["THIS BLACK CLOUD","IS ALIVE","NOT SMOKE"]),
@@ -81,13 +83,24 @@ def overlay(card,source,idx):
     string=card["text"]
     color="#FFE12B" if idx%3!=0 else "#FFFFFF"
     if any(w in string for w in ["ALIVE","LEADER","SEVEN","PREDATOR","LIVING"]):color="#FFE12B"
-    size=69
-    while size>36:
+    # Respect platform safe zones: stay inside a 740-pixel center column,
+    # and keep all caption lines above the lower TikTok control region.
+    def balanced_two_lines(sentence):
+        words=sentence.split()
+        if len(words)<3:return sentence
+        options=[(' '.join(words[:i]),' '.join(words[i:])) for i in range(1,len(words))]
+        return min(options,key=lambda x:abs(len(x[0])-len(x[1])))
+    lines=string
+    if len(string)>17:
+        first,second=balanced_two_lines(string)
+        lines=first+"\\n"+second
+    size=65
+    while size>39:
         font=ImageFont.truetype(FONT,size)
-        b=d.textbbox((0,0),string,font=font,stroke_width=7)
-        if b[2]-b[0]<=W-115:break
+        b=d.multiline_textbbox((0,0),lines,font=font,spacing=3,stroke_width=6,align="center")
+        if b[2]-b[0]<=740:break
         size-=2
-    d.text((W//2,1195),string,font=font,anchor="mm",fill=color,stroke_width=7,stroke_fill="#050609")
+    d.multiline_text((W//2,1195),lines,font=font,anchor="mm",spacing=3,align="center",fill=color,stroke_width=6,stroke_fill="#050609")
     p=CUT/f"overlay_{idx:02d}.png";im.save(p);return p
 def render_clips(cards):
     probes={}
