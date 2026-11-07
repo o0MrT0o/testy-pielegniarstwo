@@ -1,0 +1,55 @@
+name: SBV Extra verification Vana Vigala 1080p actual rotating ice disk
+on:
+  push:
+    branches: [sbv-footage-research-20261107]
+    paths: [.github/workflows/sbv-icecircle-aerial-source-qa.yml]
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - name: Install ffmpeg and Pillow
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          python -m pip install -q Pillow
+          mkdir -p in out
+      - name: Fetch original CC BY-SA 4.0 1080p drone rotation footage
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-all-errors --connect-timeout 15 -o in/EstoniaIceDisk.webm 'https://upload.wikimedia.org/wikipedia/commons/1/12/Vana-vigala_spinning_ice_disk.webm'
+          ls -lh in/
+          ffprobe -v error -show_entries format=duration,size,bit_rate:stream=codec_type,width,height,codec_name,r_frame_rate -of json in/EstoniaIceDisk.webm | tee out/PROBE.json
+      - name: Inspect actual landscape and centered vertical crop across entire clip
+        run: |
+          python - <<'PY'
+          from PIL import Image,ImageDraw
+          from pathlib import Path
+          import subprocess,json,math
+          d=float(json.loads(Path("out/PROBE.json").read_text())["format"]["duration"])
+          times=[.02,.07,.13,.20,.27,.35,.43,.52,.60,.68,.76,.84,.94]
+          posters=[]
+          for mode in ("original_landscape","vertical_center"):
+            thumbw,thumbh=(280,170) if mode=="original_landscape" else (180,320)
+            ncol=7;poster=Image.new('RGB',(ncol*(thumbw+4),2*(thumbh+30)),'#12151b')
+            draw=ImageDraw.Draw(poster)
+            for i,q in enumerate(times):
+              t=q*d
+              pic=Path("out")/f"ice_{mode}_{i}.jpg"
+              vf="scale=280:170:flags=lanczos" if mode=="original_landscape" else "crop=608:1080:(iw-ow)/2:0,scale=180:320:flags=lanczos"
+              subprocess.run(["ffmpeg","-hide_banner","-y","-loglevel","error","-ss",str(t),"-i","in/EstoniaIceDisk.webm","-frames:v","1","-vf",vf,"-q:v","3",str(pic)],check=True)
+              x=i%ncol*(thumbw+4);y=i//ncol*(thumbh+30)
+              poster.paste(Image.open(pic).convert('RGB'),(x,y))
+              draw.text((x+4,y+thumbh+5),f"{t:.1f}s",fill='white')
+            poster.save(f"out/ICE_{mode}_CONTACT.jpg",quality=92)
+            print('WROTE',f"out/ICE_{mode}_CONTACT.jpg",flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV-Estonia-Aerial-IceCircle-Real-1080p-Quality-Contact
+          path: |
+            out/ICE_original_landscape_CONTACT.jpg
+            out/ICE_vertical_center_CONTACT.jpg
+            out/PROBE.json
+          retention-days: 5
