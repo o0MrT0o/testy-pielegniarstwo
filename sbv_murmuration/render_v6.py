@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""SBV murmuration V6: 11 sustained real-footage shots, captions independent from cuts."""
+"""SBV murmuration V7: 11 sustained real-footage shots, captions independent from cuts."""
 import sys,json,re,hashlib,math,subprocess
 from pathlib import Path
 from PIL import Image,ImageFont,ImageDraw
 import render as base
 
 # 11 cinematic beats instead of 19 cuts. Scene start (sec) in original master, not previous export.
-# Dense moving flock at 43.4s from Karen Roe opens in the very first frame.
+# Peak-density moving cloud at 12.15s from Karen Roe opens in the very first frame.
 # No source interval is reused; scenes are fixed to editorial moments, not each caption.
 SCENES=[
-    ("K",43.40,0.60,2.70), # 0.0–2.7: biggest sunset flock, strong first frame
-    ("K",11.50,0.50,2.25), # high-density swarming sphere
+    ("K",12.15,0.50,2.70), # 0–2.7: dense verified cloud, previously strongest ~3.4s in V6
+    ("K",43.40,0.60,2.25), # 2.7–4.95: previous opening sunset formation (no footage lost)
     ("K",55.20,0.49,2.10), # formation over water
     ("K",1.00,0.52,2.00),  # distant sky turns into a flock
     ("K",39.00,0.56,2.10), # vibrant cloud formation
