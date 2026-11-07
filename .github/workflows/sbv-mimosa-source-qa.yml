@@ -1,0 +1,71 @@
+name: SBV Research — validate real 4K Mimosa fast leaf movement
+on:
+  push:
+    branches: [sbv-footage-research-20261107]
+    paths: [.github/workflows/sbv-mimosa-source-qa.yml]
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Install ffmpeg Pillow
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          python -m pip install -q Pillow requests
+          mkdir -p in out
+      - name: Original Wikimedia 4K plant touch motion file
+        run: |
+          set -eux
+          curl -fL --retry 2 --connect-timeout 12 -o in/Mimosa_4K.webm 'https://upload.wikimedia.org/wikipedia/commons/3/3c/%E5%90%AB%E7%BE%9E%E8%8D%89%E8%A7%A6%E7%A2%B0%E5%8F%8D%E5%BA%94.webm' || true
+          if [ -s in/Mimosa_4K.webm ]; then ffprobe -v error -show_entries format=duration,size,bit_rate:stream=codec_name,width,height,r_frame_rate -of json in/Mimosa_4K.webm; fi
+      - name: Pexels latest 6K 60 fps original clip availability
+        run: |
+          python - <<'PY'
+          import requests
+          s=requests.Session()
+          for vid in [38720070,856217]:
+            variants=['uhd_6000_3164_59.94fps','uhd_6000_3164_60fps','uhd_6000_3164_30fps','uhd_3840_2160_60fps','uhd_3840_2160_59.94fps','uhd_3840_2160_30fps','hd_1920_1080_30fps','hd_1920_1080_25fps']
+            for var in variants:
+              url=f'https://videos.pexels.com/video-files/{vid}/{vid}-{var}.mp4'
+              try:
+                r=s.get(url,headers={'Range':'bytes=0-2047'},stream=True,timeout=7)
+                if r.status_code==206:
+                  print("PEXELS VALID SOURCE",url,r.headers.get('content-range'),flush=True)
+                  r.close()
+                  rr=s.get(url,stream=True,timeout=120);rr.raise_for_status()
+                  with open('in/Mimosa_Pexels_'+str(vid)+'.mp4','wb') as f:
+                    for c in rr.iter_content(2**20):f.write(c)
+                  break
+                r.close()
+              except Exception as e:print("ERROR",vid,var,str(e)[:80])
+          PY
+      - name: QA actual independently recorded leaf closure
+        run: |
+          python - <<'PY'
+          import subprocess,json,math
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          for v in Path('in').glob('*'):
+            if v.stat().st_size<400000:continue
+            p=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration,size,bit_rate:stream=codec_name,width,height,r_frame_rate','-of','json',str(v)],capture_output=True,text=True)
+            print('VALIDATED VIDEO',v,p.stdout[:1200],flush=True)
+            if p.returncode:continue
+            dur=float(json.loads(p.stdout)['format']['duration'])
+            images=Image.new('RGB',(10*226,255),'#0d1018')
+            d=ImageDraw.Draw(images)
+            for i in range(10):
+              t=min(dur-.15,max(0.1,dur*(i+.2)/10))
+              out=Path('out')/f'{v.stem}_{i}.jpg'
+              subprocess.run(['ffmpeg','-y','-v','error','-ss',f'{t:.2f}','-i',str(v),'-frames:v','1','-vf','scale=220:205:force_original_aspect_ratio=decrease,pad=220:205:(ow-iw)/2:(oh-ih)/2','-q:v','3',str(out)],check=True)
+              images.paste(Image.open(out).convert('RGB'),(i*226,0))
+              d.text((i*226+3,216),f'{t:.1f}s',fill='white')
+            images.save('out/'+v.stem+'_CONTACT.jpg',quality=88)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV-research-Plant-Folding-4K-source-contact
+          path: out/*CONTACT.jpg
+          retention-days: 4
+          if-no-files-found: warn
