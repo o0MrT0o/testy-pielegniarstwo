@@ -17,6 +17,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p input sources out
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           gh release download sbv-starling-living-cloud-final-20261107-v7 --repo "$GITHUB_REPOSITORY" --pattern STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4 --dir input
           test -s input/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4
           ffprobe -v error -show_entries format=duration,size:stream=codec_name,codec_type,width,height -of json input/*.mp4
