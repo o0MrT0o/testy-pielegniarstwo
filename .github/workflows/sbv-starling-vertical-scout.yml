@@ -1,0 +1,46 @@
+name: SBV Starling vertical source-crop scouting
+on:
+  push:
+    branches: [sbv-murmuration-highquality-20261106]
+    paths: [.github/workflows/sbv-starling-vertical-scout.yml]
+permissions:
+  contents: read
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Get FFmpeg and Pillow
+        run: |
+          command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+          python -m pip install -q Pillow
+      - name: Download real source movies
+        run: |
+          mkdir -p assets out
+          curl -fL --retry 4 --retry-all-errors -o assets/KarenRoe.webm 'https://upload.wikimedia.org/wikipedia/commons/a/aa/Flock_of_starlings_%28Sturnus_vulgaris%29.webm'
+          curl -fL --retry 4 --retry-all-errors -o assets/Katya.webm 'https://upload.wikimedia.org/wikipedia/commons/a/af/Common_Starlings_flying_away_from_a_Marsh_Harrier.webm'
+      - name: Capture the actual portrait crop from every candidate
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageDraw
+          import subprocess,glob,math
+          from pathlib import Path
+          times={'KarenRoe':[1.0,4.2,8.1,12.1,32.3,35.4,39.1,41.3,43.4,47.3,49.8,54.5,56.1,58.4,64.5,74.8,75.5,78.4,82.4,84.2,86.4,88.8,90.0],'Katya':[0.2,1.0,2.0,4.0,5.8,7.4,9.2,12.0,16.0,30.0,56.0,64.0,72.0,81.0,119.0,120.4,121.7,123.3,125.0,127.0,130.0,132.0,134.0,136.0,138.0,144.0,150.0]}
+          for k, tvals in times.items():
+            cols=7;rows=math.ceil(len(tvals)/cols)
+            poster=Image.new('RGB',(cols*170,rows*338),'#0e1014')
+            dr=ImageDraw.Draw(poster)
+            for i,t in enumerate(tvals):
+              file=Path('out')/f'{k}_{i:02d}.jpg'
+              # exact 9:16 cropped source, using potential leftward offset for Katya later
+              subprocess.run(['ffmpeg','-y','-loglevel','error','-ss',str(t),'-i',f'assets/{k}.webm','-frames:v','1','-vf',"crop=608:1080:(in_w-out_w)*0.5:0,scale=168:300",' -q:v'.strip(),'3',str(file)],check=True)
+              x=(i%cols)*170;y=(i//cols)*338
+              poster.paste(Image.open(file).convert('RGB'),(x+1,y+1))
+              dr.text((x+4,y+307),f'{k} {t:.1f}s',fill='white')
+            poster.save(f'out/{k}_VERTICAL_SCOUT.jpg',quality=90)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SBV-STARLING-SOURCE-VERTICAL-SCOUT-PHOTOS
+          path: out/*VERTICAL_SCOUT.jpg
+          retention-days: 3
