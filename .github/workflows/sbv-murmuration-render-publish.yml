@@ -2,7 +2,7 @@ name: SBV STARLINGS Living Cloud | Complete vertical MP4 and direct public link
 on:
   push:
     branches: [sbv-murmuration-highquality-20261106]
-    paths: [.github/workflows/sbv-murmuration-render-publish.yml, sbv_murmuration/render.py]
+    paths: [.github/workflows/sbv-murmuration-render-publish.yml, sbv_murmuration/render_v6.py]
   workflow_dispatch:
 permissions:
   contents: write
@@ -40,7 +40,7 @@ jobs:
       - name: Produce finished Shorts MP4 and audit image voice cuts loudness
         run: |
           set -euo pipefail
-          python -u sbv_murmuration/render.py
+          python -u sbv_murmuration/render_v6.py
           test ! -s out/QA_DECODER_ERRORS.txt
           ls -lah out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4
       - name: Create smaller 720p mobile download
@@ -53,7 +53,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag=sbv-starling-living-cloud-final-20261107-v5
+          tag=sbv-starling-living-cloud-final-20261107-v6
           gh release create "$tag" out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4 out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_MOBILE_720p.mp4 out/TITLE_DESCRIPTION_SOURCES_AND_LICENSE.txt out/QA_FULL_VIDEO_CONTACT.jpg --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Strange, But Verified — THIS BLACK CLOUD IS ALIVE" --notes-file out/TITLE_DESCRIPTION_SOURCES_AND_LICENSE.txt
           gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url,assets --jq '.url, (.assets[] | .url)'
       - name: Preserve complete quality assurance files
@@ -71,6 +71,8 @@ jobs:
             out/QA_FREEZEDETECT.txt
             out/QA_LOUDNESS.txt
             out/MANIFEST.json
+            out/CAPTIONS_BURN.ass
+            out/QA_SHOT_DURATION.txt
             out/CAPTIONS.srt
             out/SHA256.txt
           retention-days: 7
