@@ -1,0 +1,68 @@
+name: Scientific fake-looking Shorts footage audit | Tonga 4K real NOAA satellite
+on:
+  push:
+    branches: [sbv-tonga-footage-research-20261107]
+    paths: [.github/workflows/sbv-tonga-original-footage-research.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --quiet Pillow requests
+      - name: Download exact official 4K NASA NOAA source footage
+        run: |
+          set -euo pipefail
+          mkdir -p videos output/previews
+          curl -fL --retry 3 --retry-all-errors --connect-timeout 18 -o videos/NOAA_4K_Tonga.mp4 'https://www.nesdis.noaa.gov/s3/2022-01/Tonga_EfO_4k_clean.mp4'
+          python - <<'PY'
+          import hashlib,urllib.parse,requests
+          from pathlib import Path
+          name='Tongan Eruption Ripples Around the Globe.webm'
+          h=hashlib.md5(name.encode()).hexdigest()
+          url=f'https://upload.wikimedia.org/wikipedia/commons/{h[0]}/{h[:2]}/{urllib.parse.quote(name)}'
+          print('NOAA secondary original Wikimedia',url,flush=True)
+          r=requests.get(url,timeout=120)
+          r.raise_for_status()
+          Path('videos/NOAA_Global_Wave_4K.webm').write_bytes(r.content)
+          PY
+          ls -lh videos
+      - name: Probe original quality and produce evenly spaced REAL 4K frame contact sheets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          import subprocess,json,glob,math
+          all_specs={}
+          for src in glob.glob('videos/*'):
+              data=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration,size,bit_rate:stream=width,height,r_frame_rate,codec_type,codec_name','-of','json',src],text=True))
+              key=Path(src).stem;all_specs[key]=data
+              duration=float(data['format']['duration'])
+              stream=next(x for x in data['streams'] if x['codec_type']=='video')
+              print('REAL_SOURCE',key,'WIDTH',stream['width'],'HEIGHT',stream['height'],'DURATION',duration,'BITRATE',data['format'].get('bit_rate'),flush=True)
+              if (stream['width'],stream['height'])!=(3840,2160):raise RuntimeError('Original NOAA footage not 4K')
+              times=[duration*x for x in [.005,.015,.03,.05,.075,.1,.13,.16,.2,.25,.3,.38,.46,.54,.62,.7,.78,.86,.92,.97]]
+              cols=5;rows=math.ceil(len(times)/cols)
+              sheet=Image.new('RGB',(cols*328,rows*216),'#111219')
+              d=ImageDraw.Draw(sheet)
+              for i,tm in enumerate(times):
+                  fn=f'output/previews/{key}_{i:02d}.jpg'
+                  subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-ss',str(tm),'-i',src,'-frames:v','1','-vf','scale=320:180:flags=lanczos','-q:v','3',fn],check=True)
+                  x=i%cols*328;y=i//cols*216
+                  sheet.paste(Image.open(fn).convert('RGB'),(x+3,y+3))
+                  d.text((x+3,y+186),f'{key} at {tm:.1f}s',fill='white')
+              sheet.save(f'output/{key}_REAL_4K_FRAMES.jpg',quality=92)
+          Path('output/ORIGINAL_SOURCE_METADATA.json').write_text(json.dumps(all_specs,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NOAA-TONGA-REAL-4K-AUDIT-SHEETS
+          path: |
+            output/*REAL_4K_FRAMES.jpg
+            output/ORIGINAL_SOURCE_METADATA.json
+          retention-days: 4
