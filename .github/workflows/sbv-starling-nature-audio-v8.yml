@@ -33,9 +33,9 @@ jobs:
           ffmpeg -hide_banner -y -loglevel error \
             -i input/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4 \
             -i sources/real_starlings.ogg \
-            -filter_complex "[0:a]asplit=2[voice_plus_original_bed][duckkey];[1:a]atrim=start=1.0:duration=24.167,asetpts=PTS-STARTPTS,highpass=f=220,lowpass=f=6800,afftdn=nf=-38,loudnorm=I=-29:TP=-9:LRA=7,volume=-1.5dB,afade=t=in:st=0:d=0.65,afade=t=out:st=23.0:d=1.15,aformat=sample_rates=48000:channel_layouts=stereo[real_bird_ambience];[real_bird_ambience][duckkey]sidechaincompress=threshold=0.025:ratio=2.6:attack=55:release=430:makeup=1[bird_ducked_under_speech];[voice_plus_original_bed][bird_ducked_under_speech]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.92:attack=5:release=65[documentary_mix]" \
+            -filter_complex "[0:a]asplit=2[voice_plus_original_bed][duckkey];[1:a]atrim=start=1.0:duration=24.167,asetpts=PTS-STARTPTS,highpass=f=220,lowpass=f=6800,afftdn=nf=-38,loudnorm=I=-29:TP=-9:LRA=7,volume=-1.5dB,afade=t=in:st=0:d=0.65,afade=t=out:st=23.0:d=1.15,aformat=sample_rates=48000:channel_layouts=stereo[real_bird_ambience];[real_bird_ambience][duckkey]sidechaincompress=threshold=0.025:ratio=2.6:attack=55:release=430:makeup=1[bird_ducked_under_speech];[voice_plus_original_bed][bird_ducked_under_speech]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.92:attack=5:release=65,apad=pad_dur=0.2,atrim=duration=24.166667[documentary_mix]" \
             -map 0:v:0 -map "[documentary_mix]" -c:v copy -c:a aac -b:a 192k \
-            -ar 48000 -ac 2 -movflags +faststart -shortest \
+            -ar 48000 -ac 2 -movflags +faststart \
             out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_V8_NATURE_DOCUMENTARY_1080p.mp4
           ffprobe -v error -show_entries format=duration,size,bit_rate:stream=codec_name,codec_type,width,height -of json out/*1080p.mp4 | tee out/QA_FFPROBE.json
       - name: Verify video is EXACT SAME video stream as V7
