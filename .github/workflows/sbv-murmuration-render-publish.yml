@@ -53,7 +53,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag=sbv-starling-living-cloud-final-20261107-v3
+          tag=sbv-starling-living-cloud-final-20261107-v4
           gh release create "$tag" out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_FINAL_1080p.mp4 out/STRANGE_BUT_VERIFIED_THE_LIVING_SKY_MOBILE_720p.mp4 out/TITLE_DESCRIPTION_SOURCES_AND_LICENSE.txt out/QA_FULL_VIDEO_CONTACT.jpg --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Strange, But Verified — THIS BLACK CLOUD IS ALIVE" --notes-file out/TITLE_DESCRIPTION_SOURCES_AND_LICENSE.txt
           gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url,assets --jq '.url, (.assets[] | .url)'
       - name: Preserve complete quality assurance files

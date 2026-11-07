@@ -93,7 +93,7 @@ def overlay(card,source,idx):
     lines=string
     if len(string)>17:
         first,second=balanced_two_lines(string)
-        lines=first+"\\n"+second
+        lines=first+"\n"+second
     size=65
     while size>39:
         font=ImageFont.truetype(FONT,size)
